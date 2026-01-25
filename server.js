@@ -75,6 +75,7 @@ socket.on('admin_reset_game', () => {
 
     // --- 學生端邏輯 (Player) ---
     socket.on('player_join', (playerName) => {
+        // 基本狀態檢查
         if (gameState.status !== 'LOBBY') {
             socket.emit('error_msg', '遊戲進行中，無法加入');
             return;
@@ -83,19 +84,31 @@ socket.on('admin_reset_game', () => {
             socket.emit('error_msg', '房間已滿 (Max 10)');
             return;
         }
+        
+        // --- 新增：防呆檢查 (名字必填) ---
+        if (!playerName || playerName.trim() === "") {
+            socket.emit('error_msg', '請輸入名字！');
+            return;
+        }
+
+        // --- 新增：檢查名字是否重複 ---
+        const isNameTaken = gameState.players.some(p => p.name === playerName);
+        if (isNameTaken) {
+            socket.emit('error_msg', `名字「${playerName}」已經有人用了，請換一個！`);
+            return;
+        }
 
         // 建立新玩家物件
         const newPlayer = {
             id: socket.id,
-            name: playerName || `Player ${gameState.players.length + 1}`,
+            name: playerName, // 已經確認不重複
             color: COLORS[gameState.players.length % COLORS.length],
             position: 0,
-            isReady: true // 簡化流程，加入即 Ready
+            isReady: true,
+            initRoll: 0 // 初始化一下
         };
 
         gameState.players.push(newPlayer);
-        
-        // 廣播更新列表
         io.emit('update_player_list', gameState.players);
     });
 
