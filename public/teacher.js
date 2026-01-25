@@ -40,6 +40,20 @@ socket.on('update_game_state', (gameState) => {
     updateView(gameState.players);
 });
 
+// --- 新增：顯示搶先權結果 ---
+socket.on('show_initiative', (sortedPlayers) => {
+    // 找出自己的資料
+    const myData = sortedPlayers.find(p => p.id === socket.id);
+    const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
+    
+    let msg = `🎲 決定順序中...\n\n`;
+    msg += `你擲出了 ${myData.initRoll} 點！\n`;
+    msg += `排序結果：第 ${myRank} 順位\n\n`;
+    msg += `(最高點數者將於 3 秒後開始)`;
+    
+    alert(msg); // 簡單暴力，先用 alert 擋著，之後升級 UI 會改用漂亮動畫
+});
+
 // 3. 遊戲邏輯監聽
 socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const avatar = document.getElementById(`avatar-${playerId}`);
