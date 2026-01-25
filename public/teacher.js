@@ -8,6 +8,10 @@ const playerCountSpan = document.getElementById('player-count');
 const adminPanel = document.getElementById('admin-panel');
 const liveMsg = document.getElementById('live-msg');
 
+// 新增：排名清單元素
+const initiativeListDiv = document.getElementById('initiative-list');
+const initiativeUl = document.getElementById('initiative-ul');
+
 // Modal 相關
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
@@ -15,26 +19,21 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 
-// --- 老師端專用 Modal 函式 (支援 確認/取消) ---
 function showModal(title, text, isConfirm = false, onConfirm = null) {
     modalTitle.innerText = title;
     modalBody.innerText = text;
     modalOverlay.classList.remove('hidden');
 
     if (isConfirm) {
-        // 顯示取消按鈕，並設定危險顏色
         btnConfirm.innerText = "確定執行";
         btnConfirm.classList.add('danger'); 
         btnCancel.classList.remove('hidden');
-        
-        // 綁定事件
         btnConfirm.onclick = () => {
             if (onConfirm) onConfirm();
             closeModal();
         };
         btnCancel.onclick = closeModal;
     } else {
-        // 一般訊息模式
         btnConfirm.innerText = "知道了";
         btnConfirm.classList.remove('danger');
         btnCancel.classList.add('hidden');
@@ -46,8 +45,7 @@ function closeModal() {
     modalOverlay.classList.add('hidden');
 }
 
-
-// 連線狀態顯示
+// 連線狀態
 const statusDiv = document.createElement('div');
 statusDiv.style.padding = "5px";
 statusDiv.style.marginBottom = "10px";
@@ -71,7 +69,6 @@ socket.on('update_player_list', (players) => {
 
 socket.on('update_game_state', (gameState) => {
     updateView(gameState.players);
-
     if (gameState.status === 'PLAYING') {
         startBtn.disabled = true;
         startBtn.innerText = "⛔ 遊戲進行中";
@@ -83,21 +80,28 @@ socket.on('update_game_state', (gameState) => {
         startBtn.style.cursor = "pointer";
         startBtn.style.backgroundColor = "#28a745";
     }
+    
+    // 如果重置回 Lobby，隱藏排名清單
+    if (gameState.status === 'LOBBY') {
+        initiativeListDiv.style.display = 'none';
+    }
 });
 
-// 顯示順序清單 (使用 Modal)
+// --- 👇 重點修正：顯示順序清單 (直接顯示在頁面，不彈窗) 👇 ---
 socket.on('show_initiative', (sortedPlayers) => {
-    let msg = "";
+    // 1. 顯示清單區域
+    initiativeListDiv.style.display = 'block';
+    initiativeUl.innerHTML = ''; // 清空舊資料
+    
+    // 2. 填入列表
     sortedPlayers.forEach((p, index) => {
-        msg += `第 ${index + 1} 位: ${p.name} (擲出 ${p.initRoll} 點)\n`;
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>第 ${index + 1} 順位</strong>: ${p.name} <span style="color:#ffc107">(擲出 ${p.initRoll} 點)</span>`;
+        initiativeUl.appendChild(li);
     });
-    msg += "\n(遊戲將在 3 秒後自動開始)";
-    
-    // 這裡我們不需傳入 callback，只顯示資訊
-    showModal("🎲 擲骰順序結果", msg);
-    
-    // 3秒後自動關閉，避免擋住跑道
-    setTimeout(closeModal, 3000);
+
+    // 3. 更新上方即時訊息
+    if(liveMsg) liveMsg.innerText = "🎲 擲骰決定順序中... (3秒後開始)";
 });
 
 socket.on('player_moved', ({ playerId, roll, newPos }) => {
@@ -129,17 +133,17 @@ startBtn.addEventListener('click', () => {
     socket.emit('admin_start_game');
 });
 
-// 重置按鈕改為使用自訂 Modal，不再用瀏覽器原生 confirm
 resetBtn.addEventListener('click', () => {
     showModal(
         "危險操作", 
         "確定要重置遊戲並踢除所有玩家嗎？\n(這將無法復原)", 
-        true, // 是確認框
-        () => { // 按下確定的 callback
+        true, 
+        () => {
             socket.emit('admin_reset_game');
             trackContainer.innerHTML = ''; 
             playerCountSpan.innerText = 0;
             if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
+            initiativeListDiv.style.display = 'none'; // 重置時隱藏清單
         }
     );
 });
@@ -162,10 +166,8 @@ function updateView(players) {
         avatar.id = `avatar-${p.id}`;
         avatar.innerText = p.name;
         avatar.style.backgroundColor = p.color;
-        
         const percent = (p.position / 22) * 100;
         avatar.style.left = `${percent}%`;
-
         row.appendChild(avatar);
         trackContainer.appendChild(row);
     });
