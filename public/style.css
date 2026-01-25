@@ -1,0 +1,119 @@
+:root {
+    --cell-size: 40px; /* 基礎格子大小，會隨 RWD 縮放 */
+    --track-cols: 22;  /* 總格數 */
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f0f2f5;
+    text-align: center;
+}
+
+h1 { color: #333; }
+
+/* --- 遊戲大廳與控制區 --- */
+#lobby-screen, #game-screen, #admin-controls {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.hidden { display: none !important; }
+
+input, button {
+    padding: 10px 20px;
+    font-size: 16px;
+    margin: 5px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+button {
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    transition: background 0.3s;
+}
+
+button:hover { background-color: #0056b3; }
+button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+/* 特別按鈕樣式 */
+#roll-btn {
+    background-color: #28a745;
+    font-size: 20px;
+    padding: 15px 40px;
+    margin-top: 20px;
+    animation: pulse 1.5s infinite; /* 輪到你時閃爍 */
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* --- 跑道區域 (核心視覺) --- */
+#track-container {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-x: auto; /* 螢幕過小可捲動 */
+}
+
+.track-row {
+    display: grid;
+    /* 定義 22 格，每格等寬 */
+    grid-template-columns: repeat(var(--track-cols), 1fr); 
+    gap: 2px;
+    background: #eee;
+    padding: 5px;
+    border-radius: 4px;
+    position: relative; /* 為了讓 Avatar 絕對定位 */
+    height: 50px;
+    align-items: center;
+}
+
+/* 終點線樣式 */
+.track-row::after {
+    content: "🏁";
+    position: absolute;
+    right: -25px;
+    font-size: 20px;
+}
+
+/* 格子 (視覺輔助用) */
+.grid-cell {
+    background: #fff;
+    height: 100%;
+    border-right: 1px dashed #ddd;
+}
+.grid-cell:nth-child(22) { border-right: none; background: #ffeeba; } /* 終點格變色 */
+
+/* --- 玩家人物 (Avatar) --- */
+.avatar {
+    position: absolute;
+    width: calc(100% / var(--track-cols)); /* 動態計算寬度佔 1 格 */
+    height: 80%;
+    background-color: #333;
+    color: white;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 10;
+    
+    /* 核心動畫：利用 left 或 transform 移動 */
+    transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1); 
+    left: 0%; /* 起始位置 */
+}

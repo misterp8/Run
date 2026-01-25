@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Square Run - 老師後台</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 老師端特有的樣式微調 */
+        #admin-panel { background: #333; color: white; padding: 15px; margin-bottom: 20px; border-radius: 8px;}
+        .admin-btn { padding: 8px 15px; margin-right: 10px; font-weight: bold;}
+        .btn-start { background-color: #28a745; }
+        .btn-reset { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <div id="admin-controls">
+        <div id="admin-panel">
+            <h2>👨‍🏫 老師控制台</h2>
+            <div>
+                <button class="admin-btn btn-start" id="start-btn">🚀 開始遊戲</button>
+                <button class="admin-btn btn-reset" id="reset-btn">🔄 重置/踢除所有玩家</button>
+            </div>
+            <p>目前玩家數: <span id="player-count">0</span> / 10</p>
+        </div>
+
+        <div id="track-container"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="teacher.js"></script>
+</body>
+</html>
