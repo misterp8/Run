@@ -17,22 +17,18 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 
-// --- 🎹 老師端 SynthEngine (完全一致的音訊生成邏輯) ---
+// --- 🎹 SynthEngine (老師端) ---
 const SynthEngine = {
     ctx: null, 
     isMuted: false,
     bgmInterval: null,
-    
     init() {
         if (!this.ctx) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContext();
         }
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
-        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
     },
-
     toggleMute() {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
@@ -41,14 +37,11 @@ const SynthEngine = {
             btn.innerText = "🔇";
             btn.style.background = "#ffcccc";
         } else {
-            if (startBtn.disabled && startBtn.innerText.includes("進行中")) {
-                this.playBGM();
-            }
+            if (startBtn.disabled && startBtn.innerText.includes("進行中")) this.playBGM();
             btn.innerText = "🔊";
             btn.style.background = "rgba(255,255,255,0.9)";
         }
     },
-
     playRoll() {
         if (this.isMuted || !this.ctx) return;
         const t = this.ctx.currentTime;
@@ -56,27 +49,22 @@ const SynthEngine = {
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
         const noise = this.ctx.createBufferSource();
         noise.buffer = buffer;
-
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'bandpass';
         filter.frequency.setValueAtTime(800, t);
         filter.Q.value = 5;
-
         const gain = this.ctx.createGain();
         gain.gain.setValueAtTime(0, t);
         gain.gain.linearRampToValueAtTime(0.8, t + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-
         noise.connect(filter);
         filter.connect(gain);
         gain.connect(this.ctx.destination);
         noise.start(t);
         noise.stop(t + 0.3);
     },
-
     playStep() {
         if (this.isMuted || !this.ctx) return;
         const t = this.ctx.currentTime;
@@ -93,7 +81,6 @@ const SynthEngine = {
         osc.start(t);
         osc.stop(t + 0.2);
     },
-
     playWin() {
         if (this.isMuted || !this.ctx) return;
         this.stopBGM();
@@ -114,7 +101,6 @@ const SynthEngine = {
             osc.stop(time + duration);
         });
     },
-
     playBGM() {
         if (this.isMuted || this.bgmInterval || !this.ctx) return;
         const sequence = [261.63, 0, 261.63, 293.66, 329.63, 0, 329.63, 392.00]; 
@@ -139,7 +125,6 @@ const SynthEngine = {
             step++;
         }, noteTime * 1000);
     },
-
     stopBGM() {
         if (this.bgmInterval) {
             clearInterval(this.bgmInterval);
@@ -150,10 +135,9 @@ const SynthEngine = {
 
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
-// --- Modal Helper ---
 function showModal(title, text, isConfirm = false, onConfirm = null) {
     modalTitle.innerText = title;
-    modalBody.innerText = text;
+    modalBody.innerHTML = text; // 改為 innerHTML
     modalOverlay.classList.remove('hidden');
 
     if (isConfirm) {
@@ -210,10 +194,8 @@ socket.on('update_game_state', (gameState) => {
         startBtn.innerText = "🚀 開始遊戲";
         startBtn.style.cursor = "pointer";
         startBtn.style.backgroundColor = "#28a745";
-        
         if (gameState.status !== 'PLAYING') SynthEngine.stopBGM();
     }
-    
     if (gameState.status === 'LOBBY') {
         initiativeListDiv.style.display = 'none';
         SynthEngine.stopBGM();
@@ -223,16 +205,13 @@ socket.on('update_game_state', (gameState) => {
 socket.on('show_initiative', (sortedPlayers) => {
     initiativeListDiv.style.display = 'block';
     initiativeUl.innerHTML = ''; 
-    
     sortedPlayers.forEach((p, index) => {
         const li = document.createElement('li');
         li.innerHTML = `<strong>第 ${index + 1} 順位</strong>: ${p.name} <span style="color:#ffc107">(擲出 ${p.initRoll} 點)</span>`;
         initiativeUl.appendChild(li);
     });
-
     if(liveMsg) liveMsg.innerText = "🎲 擲骰決定順序中... (3秒後開始)";
-    
-    SynthEngine.init(); // 老師端要確保 AudioContext 啟動
+    SynthEngine.init(); 
     SynthEngine.playRoll();
 });
 
@@ -259,16 +238,41 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     }, 1000);
 });
 
-socket.on('game_over', ({ winner }) => {
-    liveMsg.innerText = `🏆 冠軍：${winner.name}`;
-    SynthEngine.playWin();
-    showModal("🏁 比賽結束", `恭喜 ${winner.name} 獲得冠軍！`);
+// 新增：顯示中間排名
+socket.on('player_finished_rank', ({ player, rank }) => {
+    setTimeout(() => {
+        SynthEngine.playWin(); 
+        if(liveMsg) {
+            liveMsg.innerText = `👏 ${player.name} 抵達終點！ (第 ${rank} 名)`;
+            liveMsg.style.color = "#28a745";
+        }
+    }, 1500);
+});
+
+// 修改：遊戲完全結束
+socket.on('game_over', ({ rankings }) => {
+    setTimeout(() => {
+        const winner = rankings[0];
+        liveMsg.innerText = `🏆 冠軍：${winner.name}`;
+        SynthEngine.playWin();
+        
+        // 製作排行榜 HTML
+        let rankHtml = '<ul style="text-align: left; margin-top: 10px;">';
+        rankings.forEach(p => {
+            let medal = '';
+            if (p.rank === 1) medal = '🥇';
+            if (p.rank === 2) medal = '🥈';
+            if (p.rank === 3) medal = '🥉';
+            rankHtml += `<li style="font-size: 1.1rem; margin-bottom: 5px;">${medal} 第 ${p.rank} 名：${p.name}</li>`;
+        });
+        rankHtml += '</ul>';
+
+        showModal("🏁 比賽結束", `所有贏家已產生！<br>${rankHtml}`);
+    }, 1500);
 });
 
 startBtn.addEventListener('click', () => {
-    // 💡 老師按下開始時，也要初始化音效引擎
     SynthEngine.init(); 
-    
     startBtn.disabled = true;
     startBtn.innerText = "⏳ 啟動中...";
     socket.emit('admin_start_game');
