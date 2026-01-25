@@ -9,6 +9,8 @@
         #admin-panel { background: #333; color: white; padding: 15px; margin-bottom: 20px; border-radius: 8px;}
         .admin-btn { padding: 8px 15px; margin-right: 10px; font-weight: bold;}
         .btn-start { background-color: #28a745; }
+        /* 👇 新增按鈕樣式 */
+        .btn-restart { background-color: #fd7e14; color: white; } 
         .btn-reset { background-color: #dc3545; }
         
         #initiative-list {
@@ -47,9 +49,13 @@
     <div id="admin-controls">
         <div id="admin-panel">
             <h2>👨‍🏫 老師控制台</h2>
-            <div>
+            <div style="margin-bottom: 10px;">
                 <button class="admin-btn btn-start" id="start-btn">🚀 開始遊戲</button>
-                <button class="admin-btn btn-reset" id="reset-btn">🔄 重置/踢除所有玩家</button>
+                <button class="admin-btn btn-restart" id="restart-btn" disabled>↩️ 回起跑線 (下一局)</button>
+            </div>
+            
+            <div style="border-top: 1px dashed #555; padding-top: 10px; margin-top: 10px;">
+                <button class="admin-btn btn-reset" id="reset-btn">☠️ 踢除所有玩家</button>
             </div>
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">

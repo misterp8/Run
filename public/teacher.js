@@ -3,6 +3,7 @@ const socket = io('https://run-vjk6.onrender.com');
 
 const trackContainer = document.getElementById('track-container');
 const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn'); // 新按鈕
 const resetBtn = document.getElementById('reset-btn');
 const playerCountSpan = document.getElementById('player-count');
 const adminPanel = document.getElementById('admin-panel');
@@ -17,7 +18,7 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 
-// --- 🎹 SynthEngine (老師端) ---
+// --- 🎹 SynthEngine ---
 const SynthEngine = {
     ctx: null, 
     isMuted: false,
@@ -137,7 +138,7 @@ document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.
 
 function showModal(title, text, isConfirm = false, onConfirm = null) {
     modalTitle.innerText = title;
-    modalBody.innerHTML = text; // 改為 innerHTML
+    modalBody.innerHTML = text; 
     modalOverlay.classList.remove('hidden');
 
     if (isConfirm) {
@@ -182,24 +183,51 @@ socket.on('update_player_list', (players) => {
     updateView(players);
 });
 
+// --- 👇 重點修正：按鈕狀態控制 👇 ---
 socket.on('update_game_state', (gameState) => {
     updateView(gameState.players);
+    
     if (gameState.status === 'PLAYING') {
+        // 遊戲中：全部鎖死
         startBtn.disabled = true;
         startBtn.innerText = "⛔ 遊戲進行中";
         startBtn.style.cursor = "not-allowed";
         startBtn.style.backgroundColor = "#6c757d";
+
+        restartBtn.disabled = true;
+        restartBtn.style.cursor = "not-allowed";
+        restartBtn.style.opacity = "0.5";
+    } else if (gameState.status === 'ENDED') {
+        // 遊戲結束：開放「回起跑線」
+        startBtn.disabled = true; // 不能直接開始，要先回起跑線
+        startBtn.innerText = "🏁 本局結束";
+        startBtn.style.backgroundColor = "#6c757d";
+
+        restartBtn.disabled = false;
+        restartBtn.style.cursor = "pointer";
+        restartBtn.style.opacity = "1";
+
+        SynthEngine.stopBGM();
     } else {
+        // LOBBY：開放「開始遊戲」，鎖定「回起跑線」
         startBtn.disabled = false;
         startBtn.innerText = "🚀 開始遊戲";
         startBtn.style.cursor = "pointer";
         startBtn.style.backgroundColor = "#28a745";
-        if (gameState.status !== 'PLAYING') SynthEngine.stopBGM();
-    }
-    if (gameState.status === 'LOBBY') {
+
+        restartBtn.disabled = true;
+        restartBtn.style.cursor = "not-allowed";
+        restartBtn.style.opacity = "0.5";
+
         initiativeListDiv.style.display = 'none';
         SynthEngine.stopBGM();
     }
+});
+
+// 新增：監聽重置訊號
+socket.on('game_reset_positions', () => {
+    closeModal(); // 關掉結束視窗
+    if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
 });
 
 socket.on('show_initiative', (sortedPlayers) => {
@@ -238,7 +266,6 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     }, 1000);
 });
 
-// 新增：顯示中間排名
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
         SynthEngine.playWin(); 
@@ -249,14 +276,12 @@ socket.on('player_finished_rank', ({ player, rank }) => {
     }, 1500);
 });
 
-// 修改：遊戲完全結束
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         const winner = rankings[0];
         liveMsg.innerText = `🏆 冠軍：${winner.name}`;
         SynthEngine.playWin();
         
-        // 製作排行榜 HTML
         let rankHtml = '<ul style="text-align: left; margin-top: 10px;">';
         rankings.forEach(p => {
             let medal = '';
@@ -278,10 +303,17 @@ startBtn.addEventListener('click', () => {
     socket.emit('admin_start_game');
 });
 
+// 👇 新增：回起跑線按鈕事件
+restartBtn.addEventListener('click', () => {
+    if(confirm('確定要回到起跑線，準備下一局嗎？')) {
+        socket.emit('admin_restart_game');
+    }
+});
+
 resetBtn.addEventListener('click', () => {
     showModal(
         "危險操作", 
-        "確定要重置遊戲並踢除所有玩家嗎？\n(這將無法復原)", 
+        "確定要踢除所有玩家並回到首頁嗎？\n(若只是要重玩，請按「回起跑線」)", 
         true, 
         () => {
             socket.emit('admin_reset_game');

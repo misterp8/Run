@@ -142,7 +142,7 @@ document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.
 
 function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
     modalTitle.innerText = title;
-    modalBody.innerHTML = text; // 改為 innerHTML 支援 HTML 標籤
+    modalBody.innerHTML = text; 
     modalBtn.innerText = btnText;
     modalBtn.onclick = () => { modalOverlay.classList.add('hidden'); }; 
     if (title === "遊戲重置") modalBtn.onclick = () => { location.reload(); };
@@ -180,11 +180,48 @@ socket.on('update_player_list', (players) => {
     renderTracks(players);
 });
 
+// 👇 新增：當老師按「回起跑線」時，重置 UI
+socket.on('game_reset_positions', () => {
+    // 1. 關閉任何開啟的視窗
+    modalOverlay.classList.add('hidden');
+    
+    // 2. 重置大廳文字 (雖然可能不會顯示大廳，但以防萬一)
+    lobbyStatusText.innerHTML = `
+        <p>✅ 已加入！等待老師開始遊戲...</p>
+    `;
+
+    // 3. 重置遊戲訊息
+    gameMsg.innerText = "準備開始新的一局...";
+    gameMsg.style.color = "#333";
+    
+    // 4. 隱藏並禁用骰子
+    rollBtn.classList.remove('hidden'); // 確保按鈕顯示出來
+    rollBtn.disabled = true;
+    rollBtn.innerText = "等待開始...";
+    rollBtn.style.backgroundColor = "#6c757d";
+    
+    // 5. 停止音樂
+    SynthEngine.stopBGM();
+});
+
 socket.on('show_initiative', (sortedPlayers) => {
     const myData = sortedPlayers.find(p => p.id === socket.id);
     const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
+    
+    // 為了讓學生知道重新開始了，這裡切回大廳畫面一下下，或者直接跳出 Modal
+    // 根據現有邏輯，game_start 後會切到 gameScreen，所以這裡我們直接用 Modal 提示
+    // 或者是直接開始遊戲流程
+    
+    // 如果目前在遊戲畫面，我們可以切換回大廳顯示這個大大的結果，或者用 Modal
+    // 這裡維持原本邏輯：
+    // 如果我們還在 gameScreen，我們用 Modal 顯示擲骰結果比較好，不然畫面會跳來跳去
+    
+    // 但為了簡單，我們統一用大廳畫面顯示結果，因為 3 秒後會自動 game_start 切換到跑道
+    gameScreen.classList.add('hidden');
+    lobbyScreen.classList.remove('hidden');
+
     lobbyStatusText.innerHTML = `
-        <h2 style="color: #28a745; margin-bottom:5px;">🎲 擲骰順序決定！</h2>
+        <h2 style="color: #28a745; margin-bottom:5px;">🎲 新回合：擲骰順序！</h2>
         <p style="font-size: 1.2rem; margin: 5px 0;">你擲出了 <b style="color:#d63384; font-size: 1.5rem;">${myData.initRoll}</b> 點</p>
         <p style="font-size: 1.2rem; margin: 5px 0;">排在第 <b style="color:#007bff; font-size: 1.5rem;">${myRank}</b> 順位</p>
         <p style="color: #666; font-size: 0.9rem;">(遊戲即將開始...)</p>
@@ -263,35 +300,28 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     }, 1000);
 });
 
-// 新增：有人抵達終點，但遊戲還沒完全結束
 socket.on('player_finished_rank', ({ player, rank }) => {
-    // 延遲 1.5 秒顯示 (等跑完)
     setTimeout(() => {
-        if (player.id === myId) {
-            SynthEngine.playWin(); // 自己跑完放個慶祝音效
+        SynthEngine.playWin(); 
+        if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
             gameMsg.style.color = "#28a745";
             rollBtn.disabled = true;
             rollBtn.innerText = "🏆 已完賽，等待其他玩家...";
         } else {
-            // 別人跑完
             gameMsg.innerText = `🏁 ${player.name} 奪得第 ${rank} 名！`;
             gameMsg.style.color = "#007bff";
         }
     }, 1500);
 });
 
-// 修改：遊戲完全結束 (前3名產生)
 socket.on('game_over', ({ rankings }) => {
-    const winner = rankings[0]; // 第一名
-    
-    // 延遲 1.5 秒，確保所有人都看到最後一個人跑到終點
+    const winner = rankings[0]; 
     setTimeout(() => {
         SynthEngine.playWin();
         rollBtn.classList.add('hidden');
         gameMsg.innerText = `🏆 遊戲結束！`;
         
-        // 製作排行榜 HTML
         let rankHtml = '<ul style="text-align: left; margin-top: 10px;">';
         rankings.forEach(p => {
             let medal = '';
@@ -325,7 +355,6 @@ function renderTracks(players) {
         avatar.id = `avatar-${p.id}`;
         avatar.innerText = p.name;
         avatar.style.backgroundColor = p.color;
-        // 若重整，位置要正確
         const percent = (p.position / 22) * 100;
         avatar.style.left = `${percent}%`;
         row.appendChild(avatar);
