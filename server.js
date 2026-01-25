@@ -47,12 +47,18 @@ io.on('connection', (socket) => {
         notifyNextTurn();
     });
 
-    socket.on('admin_reset_game', () => {
+socket.on('admin_reset_game', () => {
+        console.log('Admin requested reset.'); // 讓你在 Render Logs 看到紀錄
+        
         gameState.status = 'LOBBY';
         gameState.turnIndex = 0;
-        gameState.players = []; // 踢除所有人 (簡單暴力重置)
-        io.emit('force_reload'); // 強制前端重整
-        console.log('Game has been reset by admin.');
+        gameState.players = []; // 清空陣列
+        
+        // 重要：這兩行順序很重要
+        io.emit('update_player_list', []); // 先告訴老師清空列表
+        io.emit('force_reload');           // 再叫學生重整
+        
+        console.log('Game reset complete.');
     });
 
     // --- 學生端邏輯 (Player) ---
