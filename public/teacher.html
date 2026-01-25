@@ -11,17 +11,16 @@
         .btn-start { background-color: #28a745; }
         .btn-reset { background-color: #dc3545; }
         
-        /* 👇 新增：排名清單樣式 👇 */
         #initiative-list {
             margin-top: 15px;
             padding: 10px;
-            background: rgba(255,255,255,0.1); /* 半透明背景 */
+            background: rgba(255,255,255,0.1);
             border-radius: 5px;
             text-align: left;
             font-size: 0.9rem;
             max-height: 150px;
             overflow-y: auto;
-            display: none; /* 預設隱藏 */
+            display: none;
         }
         #initiative-list h3 { margin: 0 0 5px 0; font-size: 1rem; color: #ffc107; }
         #initiative-list ul { padding-left: 20px; margin: 0; }
@@ -29,6 +28,10 @@
     </style>
 </head>
 <body>
+
+    <button id="mute-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: rgba(255,255,255,0.9); border: 2px solid #333; color: #333; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.1s;">
+        🔊
+    </button>
 
     <div id="modal-overlay" class="hidden">
         <div class="modal-content">
