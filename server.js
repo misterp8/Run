@@ -31,20 +31,32 @@ io.on('connection', (socket) => {
     });
 
     socket.on('admin_start_game', () => {
-        if (gameState.players.length < 1) return; // 沒人不能開始
+        if (gameState.players.length < 1) return; 
         
+        // --- 新增邏輯：決定先後順序 ---
+        // 1. 幫每位玩家擲骰子 (1-100，避免太容易平手)
+        gameState.players.forEach(p => {
+            p.initRoll = Math.floor(Math.random() * 100) + 1;
+        });
+
+        // 2. 依照點數由大到小排序 (點數大的排前面)
+        gameState.players.sort((a, b) => b.initRoll - a.initRoll);
+
+        // 3. 重置遊戲狀態
         gameState.status = 'PLAYING';
-        gameState.turnIndex = 0; // 重置回合
-        
-        // 重置所有玩家位置
+        gameState.turnIndex = 0; // 排序後的第一個人 (Index 0) 先開始
         gameState.players.forEach(p => p.position = 0);
 
-        io.emit('game_start');
-        io.emit('update_game_state', gameState);
-        io.emit('system_message', '遊戲開始！');
-        
-        // 通知第一位玩家回合開始
-        notifyNextTurn();
+        // 4. 廣播順序結果 (讓前端顯示動畫或訊息)
+        io.emit('show_initiative', gameState.players);
+
+        // 5. 延遲一下下再正式開始 (讓大家看清楚順序)
+        setTimeout(() => {
+            io.emit('game_start');
+            io.emit('update_game_state', gameState); // 更新排序後的列表
+            io.emit('system_message', '遊戲開始！由點數最高者先行！');
+            notifyNextTurn();
+        }, 3000); // 3秒後正式開始
     });
 
 socket.on('admin_reset_game', () => {
