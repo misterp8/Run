@@ -1,20 +1,14 @@
 {
   "name": "square-run-online",
   "version": "1.0.0",
-  "description": "Multiplayer running game",
+  "description": "Multiplayer Web Game for Classroom",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "vite"
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.4"
-  },
-  "devDependencies": {
-    "typescript": "^5.0.0",
-    "vite": "^5.0.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0"
+    "socket.io": "^4.7.2"
   }
 }

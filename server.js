@@ -1,167 +1,144 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require("socket.io");
+const { Server } = require('socket.io');
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*", // Allow all origins for simplicity in this demo
-  }
-});
+const io = new Server(server);
 
-// Game Constants
-const TRACK_LENGTH = 22;
+// 設定靜態檔案資料夾 (public)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Server Game State
+// 4. 資料結構 (Data Models)
 let gameState = {
-  status: 'LOBBY', // 'LOBBY' | 'PLAYING' | 'ENDED'
-  turnIndex: 0,
-  players: [],     // { id, name, color, position, socketId }
-  logs: [],
-  winnerName: undefined,
-  lastRoll: undefined
+    status: 'LOBBY', // 'LOBBY' | 'PLAYING' | 'ENDED'
+    turnIndex: 0,    // 當前輪到的玩家索引
+    players: []      // 玩家陣列
 };
 
-// Helper: Add Log
-function addLog(msg) {
-  const timestamp = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-  gameState.logs = [`[${timestamp}] ${msg}`, ...gameState.logs].slice(0, 50);
-}
-
-// Broadcast State
-function broadcast() {
-  // Filter out sensitive data like socketId if needed, but for this simple game sending all is fine
-  io.emit('state_update', gameState);
-}
+// 顏色庫，自動分配給玩家
+const COLORS = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF5', '#F5FF33', '#FF8C33', '#8C33FF', '#FF338C', '#33FF8C'];
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-  
-  // Send initial state
-  socket.emit('state_update', gameState);
+    console.log('User connected:', socket.id);
 
-  // --- EVENTS ---
+    // --- 老師端邏輯 (Admin) ---
+    socket.on('admin_login', () => {
+        socket.join('admin'); // 加入管理員群組
+        // 傳送當前狀態給老師
+        socket.emit('update_game_state', gameState); 
+    });
 
-  // 1. Join Game
-  socket.on('join_game', ({ name, color }) => {
-    if (gameState.status !== 'LOBBY') {
-      socket.emit('error_msg', '遊戲已在進行中，無法加入');
-      return;
-    }
-    if (gameState.players.length >= 10) {
-      socket.emit('error_msg', '房間已滿');
-      return;
-    }
+    socket.on('admin_start_game', () => {
+        if (gameState.players.length < 1) return; // 沒人不能開始
+        
+        gameState.status = 'PLAYING';
+        gameState.turnIndex = 0; // 重置回合
+        
+        // 重置所有玩家位置
+        gameState.players.forEach(p => p.position = 0);
 
-    // Check duplicate names (optional, simplified here)
-    const newPlayer = {
-      id: socket.id, // Use socket ID as player ID for simplicity
-      name: name.substring(0, 8), // Limit name length
-      color,
-      position: 0
-    };
+        io.emit('game_start');
+        io.emit('update_game_state', gameState);
+        io.emit('system_message', '遊戲開始！');
+        
+        // 通知第一位玩家回合開始
+        notifyNextTurn();
+    });
 
-    gameState.players.push(newPlayer);
-    addLog(`${newPlayer.name} 加入了遊戲`);
-    broadcast();
-  });
+    socket.on('admin_reset_game', () => {
+        gameState.status = 'LOBBY';
+        gameState.turnIndex = 0;
+        gameState.players = []; // 踢除所有人 (簡單暴力重置)
+        io.emit('force_reload'); // 強制前端重整
+        console.log('Game has been reset by admin.');
+    });
 
-  // 2. Start Game (Teacher)
-  socket.on('start_game', () => {
-    // In a real app, verify admin token here. For demo, anyone can start if logic permits.
-    if (gameState.players.length === 0) return;
-    
-    gameState.status = 'PLAYING';
-    gameState.turnIndex = 0;
-    gameState.winnerName = undefined;
-    gameState.lastRoll = undefined;
-    
-    addLog('遊戲開始！');
-    broadcast();
-  });
-
-  // 3. Reset Game (Teacher)
-  socket.on('reset_game', () => {
-    gameState.status = 'LOBBY';
-    gameState.turnIndex = 0;
-    gameState.players = []; // Kick everyone
-    gameState.winnerName = undefined;
-    gameState.lastRoll = undefined;
-    gameState.logs = ['遊戲已重置，等待新玩家加入...'];
-    
-    addLog('管理者重置了遊戲');
-    broadcast();
-  });
-
-  // 4. Roll Dice (Student)
-  socket.on('action_roll', () => {
-    if (gameState.status !== 'PLAYING') return;
-
-    const currentPlayer = gameState.players[gameState.turnIndex];
-    if (!currentPlayer) return;
-
-    // Check if it's actually this player's turn (Security)
-    if (currentPlayer.id !== socket.id) {
-      // socket.emit('error_msg', '還沒輪到你！');
-      return;
-    }
-
-    // --- GAME LOGIC ---
-    const roll = Math.floor(Math.random() * 6) + 1;
-    gameState.lastRoll = roll;
-
-    const oldPos = currentPlayer.position;
-    let newPos = oldPos + roll;
-    
-    if (newPos >= TRACK_LENGTH - 1) {
-      newPos = TRACK_LENGTH - 1;
-    }
-
-    currentPlayer.position = newPos;
-    addLog(`${currentPlayer.name} 擲出了 ${roll} 點，移動到第 ${newPos} 格`);
-
-    // Check Win
-    if (newPos === TRACK_LENGTH - 1) {
-      gameState.status = 'ENDED';
-      gameState.winnerName = currentPlayer.name;
-      currentPlayer.isWinner = true;
-      addLog(`遊戲結束！${currentPlayer.name} 獲勝！`);
-    } else {
-      // Next Turn
-      gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
-    }
-
-    broadcast();
-  });
-
-  // Disconnect
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-    // Note: We don't remove players on disconnect in 'PLAYING' state to avoid breaking turn order.
-    // In 'LOBBY', we could remove them.
-    if (gameState.status === 'LOBBY') {
-        const idx = gameState.players.findIndex(p => p.id === socket.id);
-        if (idx !== -1) {
-            addLog(`${gameState.players[idx].name} 離開了遊戲`);
-            gameState.players.splice(idx, 1);
-            broadcast();
+    // --- 學生端邏輯 (Player) ---
+    socket.on('player_join', (playerName) => {
+        if (gameState.status !== 'LOBBY') {
+            socket.emit('error_msg', '遊戲進行中，無法加入');
+            return;
         }
-    }
-  });
+        if (gameState.players.length >= 10) {
+            socket.emit('error_msg', '房間已滿 (Max 10)');
+            return;
+        }
+
+        // 建立新玩家物件
+        const newPlayer = {
+            id: socket.id,
+            name: playerName || `Player ${gameState.players.length + 1}`,
+            color: COLORS[gameState.players.length % COLORS.length],
+            position: 0,
+            isReady: true // 簡化流程，加入即 Ready
+        };
+
+        gameState.players.push(newPlayer);
+        
+        // 廣播更新列表
+        io.emit('update_player_list', gameState.players);
+    });
+
+    // --- 遊戲核心循環 (Game Loop) ---
+    socket.on('action_roll', () => {
+        // 1. 驗證是否為該玩家的回合
+        const currentPlayer = gameState.players[gameState.turnIndex];
+        if (!currentPlayer || currentPlayer.id !== socket.id) return;
+        if (gameState.status !== 'PLAYING') return;
+
+        // 2. Server 計算骰子 (1~6)
+        const roll = Math.floor(Math.random() * 6) + 1;
+        const oldPos = currentPlayer.position;
+        let newPos = oldPos + roll;
+
+        // 3. 邊界檢查 (終點是 Index 21)
+        if (newPos >= 21) {
+            newPos = 21;
+        }
+
+        currentPlayer.position = newPos;
+
+        // 4. 廣播移動結果
+        io.emit('player_moved', {
+            playerId: currentPlayer.id,
+            roll: roll,
+            newPos: newPos
+        });
+
+        // 5. 判斷勝負 或 換下一位
+        if (newPos === 21) {
+            gameState.status = 'ENDED';
+            io.emit('game_over', { winner: currentPlayer });
+        } else {
+            // 換下一位
+            gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
+            notifyNextTurn();
+        }
+    });
+
+    // 斷線處理
+    socket.on('disconnect', () => {
+        // 若在 LOBBY 階段有人離開，移除該玩家
+        if (gameState.status === 'LOBBY') {
+            gameState.players = gameState.players.filter(p => p.id !== socket.id);
+            io.emit('update_player_list', gameState.players);
+        }
+        // 若在遊戲中斷線，暫時保留 Ghost 或略過 (原型先不做複雜處理)
+    });
 });
 
-// Serve Static Files (Frontend)
-// Assuming built files or source files are in root for this simple setup
-app.use(express.static(__dirname));
-
-// Fallback for SPA routing (if any)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+// 輔助函式：通知下一位玩家
+function notifyNextTurn() {
+    const nextPlayer = gameState.players[gameState.turnIndex];
+    io.emit('update_turn', { 
+        turnIndex: gameState.turnIndex, 
+        nextPlayerId: nextPlayer.id 
+    });
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
