@@ -55,12 +55,30 @@ socket.on('update_game_state', (gameState) => {
 });
 
 // 3. 遊戲邏輯監聽
+// 取得訊息元素
+const liveMsg = document.getElementById('live-msg');
+
 socket.on('player_moved', ({ playerId, roll, newPos }) => {
+    // 1. 先找出是誰 (從畫面上的 Avatar 抓名字最快)
     const avatar = document.getElementById(`avatar-${playerId}`);
-    if (avatar) {
-        const percent = (newPos / 22) * 100;
-        avatar.style.left = `${percent}%`;
+    const playerName = avatar ? avatar.innerText : '未知玩家';
+
+    // 2. 立刻顯示擲骰結果
+    if (liveMsg) {
+        liveMsg.innerText = `🎲 ${playerName} 擲出了 ${roll} 點！`;
+        liveMsg.style.color = "#d63384"; // 用亮色強調一下
     }
+
+    // 3. 延遲 1 秒後再移動 (製造緊張感)
+    setTimeout(() => {
+        if (avatar) {
+            const percent = (newPos / 22) * 100;
+            avatar.style.left = `${percent}%`;
+            
+            // 移動完把顏色變回來 (選擇性)
+            if (liveMsg) liveMsg.style.color = "#333"; 
+        }
+    }, 1000);
 });
 
 socket.on('game_over', ({ winner }) => {

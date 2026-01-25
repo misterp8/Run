@@ -78,20 +78,35 @@ rollBtn.addEventListener('click', () => {
     rollBtn.disabled = true; // 防止連點
 });
 
-// 6. 接收移動結果 (動畫與狀態更新)
+// 6. 接收移動結果 (優化版：顯示點數 -> 延遲移動)
 socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const avatar = document.getElementById(`avatar-${playerId}`);
-    if (avatar) {
-        // 計算百分比位置: (當前格 / 總格數 21) * 100%
-        // 注意：共有 22 格 (0~21)，所以分母若是 22，可以剛好停在格子內
-        const percent = (newPos / 22) * 100; 
-        avatar.style.left = `${percent}%`;
-        
-        // 顯示擲骰結果
-        if (playerId === myId) {
-            gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`;
-        }
+    
+    // 如果是「自己」移動，先顯示擲出的點數
+    if (playerId === myId) {
+        gameMsg.innerText = `🎲 骰子滾動中...`;
+        gameMsg.style.color = "#d63384"; // 暫時變色強調
+        rollBtn.innerText = `🎲 你擲出了 ${roll} 點！`; // 按鈕顯示結果
+    } else {
+        // 如果是別人，顯示誰擲了幾點
+        const playerName = avatar ? avatar.innerText : '對手';
+        gameMsg.innerText = `👀 ${playerName} 擲出了 ${roll} 點`;
     }
+
+    // --- 關鍵修改：延遲 1 秒後才移動 ---
+    // 這 1 秒鐘的時間，未來我們可以放「骰子滾動動畫」
+    setTimeout(() => {
+        if (avatar) {
+            // 移動動畫
+            const percent = (newPos / 22) * 100; 
+            avatar.style.left = `${percent}%`;
+
+            // 恢復文字顏色
+            if (playerId === myId) {
+                 gameMsg.style.color = "black";
+            }
+        }
+    }, 1000); // 1000 毫秒 = 1 秒
 });
 
 // 7. 遊戲結束
