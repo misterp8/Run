@@ -1,6 +1,7 @@
 // 請將此處改為你的 Render 網址
 const socket = io('https://run-vjk6.onrender.com'); 
 
+// DOM 元素
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
 const usernameInput = document.getElementById('username');
@@ -10,19 +11,56 @@ const playerListUl = document.getElementById('player-list-ul');
 const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
+const loginError = document.getElementById('login-error'); // 錯誤訊息區
+
+// Modal 元素
+const modalOverlay = document.getElementById('modal-overlay');
+const modalTitle = document.getElementById('modal-title');
+const modalBody = document.getElementById('modal-body');
+const modalBtn = document.getElementById('modal-btn');
 
 let myId = null;
-let isAnimating = false; // 關鍵修正：新增一個旗標來判斷是否正在播放動畫
+let isAnimating = false; 
+
+// --- 輔助函式：顯示 Modal ---
+function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
+    modalTitle.innerText = title;
+    modalBody.innerText = text;
+    modalBtn.innerText = btnText;
+    modalBtn.onclick = () => { modalOverlay.classList.add('hidden'); }; // 點擊關閉
+    
+    // 如果是「老師重置」，按鈕點擊後要重新整理頁面
+    if (title === "遊戲重置") {
+        modalBtn.onclick = () => { location.reload(); };
+    }
+
+    modalOverlay.classList.remove('hidden');
+
+    if (autoCloseMs > 0) {
+        setTimeout(() => {
+            modalOverlay.classList.add('hidden');
+        }, autoCloseMs);
+    }
+}
 
 // 加入遊戲
 joinBtn.addEventListener('click', () => {
     const name = usernameInput.value.trim();
-    if (!name) return alert('請輸入名字');
+    loginError.innerText = ""; // 清空舊錯誤
+    if (!name) {
+        loginError.innerText = "⚠️ 請輸入名字！";
+        return;
+    }
     socket.emit('player_join', name);
 });
 
+// 接收錯誤訊息 (改用紅字顯示)
 socket.on('error_msg', (msg) => {
-    alert(msg);
+    loginError.innerText = `⚠️ ${msg}`;
+    // 如果是在遊戲中遇到錯誤，還是稍微跳個 Modal 比較明顯
+    if (!lobbyScreen.classList.contains('hidden') === false) { 
+        showModal("錯誤", msg);
+    }
 });
 
 socket.on('update_player_list', (players) => {
@@ -32,26 +70,28 @@ socket.on('update_player_list', (players) => {
         joinBtn.classList.add('hidden');
         usernameInput.classList.add('hidden');
         waitingMsg.classList.remove('hidden');
+        loginError.innerText = ""; // 清空錯誤
     }
     playerListUl.innerHTML = players.map(p => `<li>${p.name}</li>`).join('');
     renderTracks(players);
 });
 
+// 顯示搶先權 (改用自動關閉的 Modal)
 socket.on('show_initiative', (sortedPlayers) => {
     const myData = sortedPlayers.find(p => p.id === socket.id);
     const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
-    let msg = `🎲 決定順序中...\n你擲出了 ${myData.initRoll} 點！\n排序：第 ${myRank} 順位`;
-    alert(msg);
+    
+    let msg = `你擲出了 ${myData.initRoll} 點\n排在第 ${myRank} 順位`;
+    showModal("🎲 擲骰順序決定！", msg, "準備開始", 3000); // 3秒後自動關閉
 });
 
 socket.on('game_start', () => {
+    modalOverlay.classList.add('hidden'); // 確保 Modal 關閉
     lobbyScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
 });
 
-// --- 修正重點 1：update_turn 不要在動畫時搶走文字 ---
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
-    // 按鈕狀態必須立刻更新 (這是功能面)
     if (nextPlayerId === myId) {
         rollBtn.disabled = false;
         rollBtn.innerText = "🎲 輪到你了！按此擲骰";
@@ -62,8 +102,6 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
         rollBtn.style.backgroundColor = "#6c757d"; 
     }
 
-    // 文字狀態則要看情況 (這是視覺面)
-    // 只有在「沒有動畫」的時候，才更新文字。如果有動畫，就讓動畫跑完再去更新。
     if (!isAnimating) {
         if (nextPlayerId === myId) {
             gameMsg.innerText = "👉 輪到你行動！請擲骰子";
@@ -80,15 +118,12 @@ rollBtn.addEventListener('click', () => {
     rollBtn.disabled = true;
 });
 
-// --- 修正重點 2：移動時鎖定文字，結束後再恢復 ---
 socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const avatar = document.getElementById(`avatar-${playerId}`);
     const isMe = (playerId === myId);
 
-    // 1. 開啟鎖定，防止 update_turn 覆蓋文字
     isAnimating = true; 
 
-    // 2. 顯示擲骰結果
     if (isMe) {
         gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`;
         gameMsg.style.color = "#d63384";
@@ -99,18 +134,14 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
         gameMsg.style.color = "#007bff";
     }
 
-    // 3. 延遲 1 秒後開始移動
     setTimeout(() => {
         if (avatar) {
             const percent = (newPos / 22) * 100; 
             avatar.style.left = `${percent}%`;
         }
         
-        // 4. 再給一點時間讓移動動畫跑完 (例如再加 1 秒)，然後解除鎖定
         setTimeout(() => {
-            isAnimating = false; // 解除鎖定
-
-            // 根據當前的按鈕狀態，把文字恢復成正確的提示
+            isAnimating = false;
             if (rollBtn.disabled) {
                 gameMsg.innerText = "等待對手行動中...";
                 gameMsg.style.color = "#333";
@@ -123,15 +154,16 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     }, 1000);
 });
 
+// 遊戲結束 (Modal)
 socket.on('game_over', ({ winner }) => {
     gameMsg.innerText = `🏆 贏家是：${winner.name}`;
     rollBtn.classList.add('hidden');
-    alert(`遊戲結束！贏家是：${winner.name}`);
+    showModal("🏆 比賽結束！", `恭喜 ${winner.name} 獲得冠軍！`, "太棒了");
 });
 
+// 強制重整 (Modal)
 socket.on('force_reload', () => {
-    alert('老師已重置遊戲');
-    location.reload();
+    showModal("遊戲重置", "老師已重置遊戲，請重新加入。", "重新整理");
 });
 
 function renderTracks(players) {

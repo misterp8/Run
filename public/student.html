@@ -8,11 +8,22 @@
 </head>
 <body>
 
+    <div id="modal-overlay" class="hidden">
+        <div class="modal-content">
+            <h2 id="modal-title" class="modal-title">標題</h2>
+            <div id="modal-body" class="modal-body">內容</div>
+            <button id="modal-btn" class="modal-btn">確定</button>
+        </div>
+    </div>
+
     <div id="lobby-screen">
         <h1>Square Run Online 🏃‍♂️</h1>
         <p>輸入名字加入比賽</p>
         <input type="text" id="username" placeholder="你的名字" maxlength="8">
         <button id="join-btn">加入遊戲</button>
+        
+        <div id="login-error" class="error-text"></div>
+
         <div id="waiting-msg" class="hidden">
             <p>✅ 已加入！等待老師開始遊戲...</p>
             <h3>目前玩家列表：</h3>
