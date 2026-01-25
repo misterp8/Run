@@ -1,4 +1,4 @@
-// 請將此處改為你的 Render 網址，若在本地測試則留空或用 http://localhost:3000
+// 請將此處改為你的 Render 網址
 const socket = io('https://run-vjk6.onrender.com'); 
 
 const lobbyScreen = document.getElementById('lobby-screen');
@@ -12,6 +12,7 @@ const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
 
 let myId = null;
+let isAnimating = false; // 關鍵修正：新增一個旗標來判斷是否正在播放動畫
 
 // 加入遊戲
 joinBtn.addEventListener('click', () => {
@@ -25,7 +26,6 @@ socket.on('error_msg', (msg) => {
 });
 
 socket.on('update_player_list', (players) => {
-    // 如果我已經加入，就顯示等待畫面
     const me = players.find(p => p.id === socket.id);
     if (me) {
         myId = socket.id;
@@ -33,12 +33,10 @@ socket.on('update_player_list', (players) => {
         usernameInput.classList.add('hidden');
         waitingMsg.classList.remove('hidden');
     }
-    
     playerListUl.innerHTML = players.map(p => `<li>${p.name}</li>`).join('');
     renderTracks(players);
 });
 
-// 顯示搶先權
 socket.on('show_initiative', (sortedPlayers) => {
     const myData = sortedPlayers.find(p => p.id === socket.id);
     const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
@@ -51,19 +49,29 @@ socket.on('game_start', () => {
     gameScreen.classList.remove('hidden');
 });
 
+// --- 修正重點 1：update_turn 不要在動畫時搶走文字 ---
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
+    // 按鈕狀態必須立刻更新 (這是功能面)
     if (nextPlayerId === myId) {
         rollBtn.disabled = false;
         rollBtn.innerText = "🎲 輪到你了！按此擲骰";
-        rollBtn.style.backgroundColor = "#28a745"; // 綠色
-        gameMsg.innerText = "👉 輪到你行動！請擲骰子";
-        gameMsg.style.color = "#d63384";
+        rollBtn.style.backgroundColor = "#28a745"; 
     } else {
         rollBtn.disabled = true;
         rollBtn.innerText = "等待其他玩家...";
-        rollBtn.style.backgroundColor = "#6c757d"; // 灰色
-        gameMsg.innerText = "等待對手行動中...";
-        gameMsg.style.color = "#333";
+        rollBtn.style.backgroundColor = "#6c757d"; 
+    }
+
+    // 文字狀態則要看情況 (這是視覺面)
+    // 只有在「沒有動畫」的時候，才更新文字。如果有動畫，就讓動畫跑完再去更新。
+    if (!isAnimating) {
+        if (nextPlayerId === myId) {
+            gameMsg.innerText = "👉 輪到你行動！請擲骰子";
+            gameMsg.style.color = "#d63384";
+        } else {
+            gameMsg.innerText = "等待對手行動中...";
+            gameMsg.style.color = "#333";
+        }
     }
 });
 
@@ -72,30 +80,46 @@ rollBtn.addEventListener('click', () => {
     rollBtn.disabled = true;
 });
 
-// 核心：移動邏輯 (含延遲與文字顯示)
+// --- 修正重點 2：移動時鎖定文字，結束後再恢復 ---
 socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const avatar = document.getElementById(`avatar-${playerId}`);
     const isMe = (playerId === myId);
 
-    // 1. 先顯示文字結果
+    // 1. 開啟鎖定，防止 update_turn 覆蓋文字
+    isAnimating = true; 
+
+    // 2. 顯示擲骰結果
     if (isMe) {
         gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`;
+        gameMsg.style.color = "#d63384";
         rollBtn.innerText = `🎲 ${roll} 點！`;
     } else {
         const playerName = avatar ? avatar.innerText : '對手';
         gameMsg.innerText = `👀 ${playerName} 擲出了 ${roll} 點`;
+        gameMsg.style.color = "#007bff";
     }
 
-    // 2. 延遲 1 秒後再移動
+    // 3. 延遲 1 秒後開始移動
     setTimeout(() => {
         if (avatar) {
             const percent = (newPos / 22) * 100; 
             avatar.style.left = `${percent}%`;
         }
-        // 如果是自己，移動完恢復提示文字
-        if (isMe) {
-             // 這裡不需急著變回 "輪到你"，因為會等下一個 update_turn
-        }
+        
+        // 4. 再給一點時間讓移動動畫跑完 (例如再加 1 秒)，然後解除鎖定
+        setTimeout(() => {
+            isAnimating = false; // 解除鎖定
+
+            // 根據當前的按鈕狀態，把文字恢復成正確的提示
+            if (rollBtn.disabled) {
+                gameMsg.innerText = "等待對手行動中...";
+                gameMsg.style.color = "#333";
+            } else {
+                gameMsg.innerText = "👉 輪到你行動！請擲骰子";
+                gameMsg.style.color = "#d63384";
+            }
+        }, 1000); 
+
     }, 1000);
 });
 
