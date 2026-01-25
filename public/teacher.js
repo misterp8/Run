@@ -3,7 +3,7 @@ const socket = io('https://run-vjk6.onrender.com');
 
 const trackContainer = document.getElementById('track-container');
 const startBtn = document.getElementById('start-btn');
-const restartBtn = document.getElementById('restart-btn'); // 新按鈕
+const restartBtn = document.getElementById('restart-btn');
 const resetBtn = document.getElementById('reset-btn');
 const playerCountSpan = document.getElementById('player-count');
 const adminPanel = document.getElementById('admin-panel');
@@ -18,7 +18,7 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 
-// --- 🎹 SynthEngine ---
+// --- 🎹 SynthEngine (老師端) ---
 const SynthEngine = {
     ctx: null, 
     isMuted: false,
@@ -136,6 +136,7 @@ const SynthEngine = {
 
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
+// --- Modal 控制函式 ---
 function showModal(title, text, isConfirm = false, onConfirm = null) {
     modalTitle.innerText = title;
     modalBody.innerHTML = text; 
@@ -145,6 +146,8 @@ function showModal(title, text, isConfirm = false, onConfirm = null) {
         btnConfirm.innerText = "確定執行";
         btnConfirm.classList.add('danger'); 
         btnCancel.classList.remove('hidden');
+        
+        // 綁定確認事件
         btnConfirm.onclick = () => {
             if (onConfirm) onConfirm();
             closeModal();
@@ -183,12 +186,10 @@ socket.on('update_player_list', (players) => {
     updateView(players);
 });
 
-// --- 👇 重點修正：按鈕狀態控制 👇 ---
 socket.on('update_game_state', (gameState) => {
     updateView(gameState.players);
     
     if (gameState.status === 'PLAYING') {
-        // 遊戲中：全部鎖死
         startBtn.disabled = true;
         startBtn.innerText = "⛔ 遊戲進行中";
         startBtn.style.cursor = "not-allowed";
@@ -198,8 +199,7 @@ socket.on('update_game_state', (gameState) => {
         restartBtn.style.cursor = "not-allowed";
         restartBtn.style.opacity = "0.5";
     } else if (gameState.status === 'ENDED') {
-        // 遊戲結束：開放「回起跑線」
-        startBtn.disabled = true; // 不能直接開始，要先回起跑線
+        startBtn.disabled = true; 
         startBtn.innerText = "🏁 本局結束";
         startBtn.style.backgroundColor = "#6c757d";
 
@@ -209,7 +209,6 @@ socket.on('update_game_state', (gameState) => {
 
         SynthEngine.stopBGM();
     } else {
-        // LOBBY：開放「開始遊戲」，鎖定「回起跑線」
         startBtn.disabled = false;
         startBtn.innerText = "🚀 開始遊戲";
         startBtn.style.cursor = "pointer";
@@ -224,9 +223,8 @@ socket.on('update_game_state', (gameState) => {
     }
 });
 
-// 新增：監聽重置訊號
 socket.on('game_reset_positions', () => {
-    closeModal(); // 關掉結束視窗
+    closeModal();
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
 });
 
@@ -303,11 +301,16 @@ startBtn.addEventListener('click', () => {
     socket.emit('admin_start_game');
 });
 
-// 👇 新增：回起跑線按鈕事件
+// 👇 重點修正：改用 showModal 取代 confirm
 restartBtn.addEventListener('click', () => {
-    if(confirm('確定要回到起跑線，準備下一局嗎？')) {
-        socket.emit('admin_restart_game');
-    }
+    showModal(
+        "準備下一局",
+        "確定要讓所有學生回到起跑線嗎？\n(排名將會重置，但保留玩家)",
+        true, // 是確認框
+        () => {
+            socket.emit('admin_restart_game');
+        }
+    );
 });
 
 resetBtn.addEventListener('click', () => {
