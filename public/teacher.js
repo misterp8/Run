@@ -38,6 +38,20 @@ socket.on('update_player_list', (players) => {
 socket.on('update_game_state', (gameState) => {
     console.log('收到遊戲狀態:', gameState); // 除錯用
     updateView(gameState.players);
+// --- 新增：按鈕防呆邏輯 ---
+    // 檢查伺服器回傳的狀態，如果是 'PLAYING' (遊戲中)，就鎖住按鈕
+    if (gameState.status === 'PLAYING') {
+        startBtn.disabled = true;
+        startBtn.innerText = "⛔ 遊戲進行中";
+        startBtn.style.cursor = "not-allowed";
+        startBtn.style.backgroundColor = "#6c757d"; // 變灰色
+    } else {
+        // 如果是 'LOBBY' 或 'ENDED'，解鎖按鈕
+        startBtn.disabled = false;
+        startBtn.innerText = "🚀 開始遊戲";
+        startBtn.style.cursor = "pointer";
+        startBtn.style.backgroundColor = "#28a745"; // 變回綠色
+    }
 });
 
 // 3. 遊戲邏輯監聽
@@ -51,6 +65,11 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
 
 socket.on('game_over', ({ winner }) => {
     alert(`🏁 比賽結束！冠軍是：${winner.name}`);
+    
+    // 遊戲結束，讓老師可以重新開始下一局
+    startBtn.disabled = false;
+    startBtn.innerText = "🚀 開始新的一局";
+    startBtn.style.backgroundColor = "#28a745";
 });
 
 // --- 新增：顯示搶先權結果 (老師端版本) ---
@@ -69,6 +88,9 @@ socket.on('show_initiative', (sortedPlayers) => {
 
 // 4. 按鈕指令
 startBtn.addEventListener('click', () => {
+    // 按下瞬間立刻鎖住，給使用者回饋
+    startBtn.disabled = true;
+    startBtn.innerText = "⏳ 啟動中...";
     socket.emit('admin_start_game');
 });
 
