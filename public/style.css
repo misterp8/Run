@@ -1,27 +1,33 @@
 :root {
-    --cell-size: 40px;
-    --track-cols: 22;
+    --track-cols: 22;  /* 總格數 */
+}
+
+/* --- 全域設定：確保寬度計算包含 Padding --- */
+* {
+    box-sizing: border-box; 
 }
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    padding: 20px;
+    padding: 10px; /* 稍微縮小邊距 */
     background-color: #f0f2f5;
     text-align: center;
+    overflow-x: hidden; /* 防止整個頁面出現橫向卷軸 */
 }
 
-h1 { color: #333; }
+h1 { color: #333; margin: 10px 0; font-size: 1.5rem; }
 
 /* 隱藏元素用 */
 .hidden { display: none !important; }
 
 /* 容器樣式 */
 #lobby-screen, #game-screen, #admin-controls {
-    max-width: 1000px;
+    max-width: 100%; /* 改為 100% 以適應各種螢幕 */
+    width: 1200px;   /* 最大限制，避免在大螢幕太寬 */
     margin: 0 auto;
     background: white;
-    padding: 20px;
+    padding: 15px;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
@@ -47,84 +53,101 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
 
 #roll-btn {
     background-color: #28a745;
-    font-size: 20px;
-    padding: 15px 40px;
-    margin-top: 20px;
+    font-size: 18px;
+    padding: 12px 30px;
+    margin-top: 15px;
+    width: 100%;         /* 手機版按鈕大一點比較好按 */
+    max-width: 300px;    /* 但不要大得太誇張 */
 }
 
 /* 跑道與人物 */
 #track-container {
-    margin-top: 30px;
+    margin-top: 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    overflow-x: auto;
+    gap: 8px;
+    width: 100%;       /* 強制寬度 100% */
+    overflow: hidden;  /* 隱藏溢出，確保不出現卷軸 */
 }
 
 .track-row {
     display: grid;
-    grid-template-columns: repeat(var(--track-cols), 1fr); 
+    /* 關鍵修正：使用 minmax(0, 1fr) 強制壓縮格子以適應螢幕 */
+    grid-template-columns: repeat(var(--track-cols), minmax(0, 1fr)); 
     gap: 2px;
     background: #eee;
-    padding: 5px;
+    padding: 4px;
     border-radius: 4px;
     position: relative;
-    height: 50px;
+    height: 40px;      /* 稍微調矮一點，讓畫面能容納更多人 */
     align-items: center;
+    width: 100%;       /* 確保跑道不超過容器 */
 }
 
+/* 終點線樣式 (改為內縮顯示，避免突出導致卷軸) */
 .track-row::after {
     content: "🏁";
     position: absolute;
-    right: -25px;
-    font-size: 20px;
+    right: -5px;     /* 微調位置 */
+    font-size: 1.2rem;
+    z-index: 5;
+    opacity: 0.5;
 }
 
 .grid-cell {
     background: #fff;
     height: 100%;
     border-right: 1px dashed #ddd;
+    width: 100%;
 }
 .grid-cell:nth-child(22) { border-right: none; background: #ffeeba; }
 
 .avatar {
     position: absolute;
-    width: calc(100% / var(--track-cols));
+    /* 確保寬度剛好佔一格 */
+    width: calc(100% / var(--track-cols)); 
     height: 80%;
     background-color: #333;
     color: white;
-    font-size: 10px;
+    
+    /* 讓字體自適應，避免在手機上名字爆開 */
+    font-size: clamp(8px, 1.5vw, 12px); 
+    
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 4px;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    border: 1px solid white; /* 邊框改細 */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     z-index: 10;
     transition: left 1s cubic-bezier(0.25, 1, 0.5, 1); 
     left: 0%;
+    
+    white-space: nowrap; /* 禁止換行 */
+    overflow: hidden;    /* 超出隱藏 */
+    text-overflow: ellipsis; /* 變成 ... */
 }
 
-/* --- 👇 新增：錯誤訊息文字 👇 --- */
+/* 錯誤文字 */
 .error-text {
     color: #dc3545;
     font-size: 0.9rem;
     margin-top: 5px;
     font-weight: bold;
-    min-height: 20px; /* 預留空間防止跳動 */
+    min-height: 20px;
 }
 
-/* --- 👇 新增：模態視窗 (Modal) 樣式 👇 --- */
+/* --- Modal 樣式 --- */
 #modal-overlay {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7); /* 半透明黑色背景 */
+    background: rgba(0, 0, 0, 0.7);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 9999;
-    backdrop-filter: blur(5px); /* 模糊背景效果 */
+    backdrop-filter: blur(5px);
 }
 
 .modal-content {
@@ -134,12 +157,12 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     text-align: center;
     max-width: 400px;
-    width: 80%;
+    width: 85%; /* 手機版寬度 */
     animation: popIn 0.3s ease-out;
 }
 
 .modal-title { font-size: 1.5rem; margin-bottom: 10px; color: #333; }
-.modal-body { font-size: 1.1rem; color: #555; margin-bottom: 20px; white-space: pre-line; /* 支援換行符號 */ }
+.modal-body { font-size: 1.1rem; color: #555; margin-bottom: 20px; white-space: pre-line; }
 .modal-btn { background: #007bff; width: 100%; font-size: 1.1rem; }
 .modal-btn.danger { background: #dc3545; }
 .modal-btn.cancel { background: #6c757d; margin-top: 10px;}
@@ -148,3 +171,19 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     0% { transform: scale(0.8); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
 }
+
+/* 老師端排名清單 */
+#initiative-list {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(0,0,0,0.05); /* 改深一點點 */
+    border-radius: 5px;
+    text-align: left;
+    font-size: 0.9rem;
+    max-height: 150px;
+    overflow-y: auto;
+    display: none;
+}
+#initiative-list h3 { margin: 0 0 5px 0; font-size: 1rem; color: #d63384; } /* 改顏色 */
+#initiative-list ul { padding-left: 20px; margin: 0; }
+#initiative-list li { margin-bottom: 3px; }
