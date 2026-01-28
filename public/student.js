@@ -15,6 +15,7 @@ const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 const modalBtn = document.getElementById('modal-btn');
+const modalContent = document.querySelector('.modal-content'); // 為了切換樣式
 
 let myId = null;
 let isAnimating = false; 
@@ -34,69 +35,85 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎹 SynthEngine (BGM 升級 + 腳步聲優化) ---
-const SynthEngine = {
-    ctx: null, isMuted: false, bgmInterval: null,
+// --- 🎲 3D 骰子管理器 ---
+const DiceManager = {
+    overlay: document.getElementById('dice-overlay'),
+    cube: document.getElementById('dice-cube'),
     
-    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
-    
-    toggleMute() {
-        this.isMuted = !this.isMuted;
-        const btn = document.getElementById('mute-btn');
-        if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff";}
+    // 點數對應的旋轉角度 (X, Y)
+    rotations: {
+        1: [0, 0],
+        2: [0, -90],
+        3: [0, -180],
+        4: [0, 90],
+        5: [-90, 0],
+        6: [90, 0]
     },
-    
-    playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
-    
-    // 🛠️ 優化：腳步聲更短促，避免連續播放時太吵
-    playStep(){ 
-        if(this.isMuted||!this.ctx)return; 
-        const t=this.ctx.currentTime; 
-        const o=this.ctx.createOscillator(); 
-        const g=this.ctx.createGain(); 
-        // 提高音高，縮短時間 (0.05s)
-        o.frequency.setValueAtTime(200,t); 
-        o.frequency.linearRampToValueAtTime(50,t+0.05); 
-        g.gain.setValueAtTime(0.1,t); 
-        g.gain.linearRampToValueAtTime(0,t+0.05); 
-        o.connect(g); g.connect(this.ctx.destination); 
-        o.start(t); o.stop(t+0.05); 
-    },
-    
-    playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
-    
-    // 🛠️ 優化：BGM 旋律加長，更歡樂 (Mario Style)
-    playBGM(){ 
-        if (this.isMuted || this.bgmInterval || !this.ctx) return; 
-        // C4, E4, G4, C5... (C大調琶音 + 節奏)
-        const sequence = [
-            261.63, 329.63, 392.00, 523.25, 
-            392.00, 329.63, 261.63, 0,
-            293.66, 349.23, 440.00, 587.33,
-            440.00, 349.23, 293.66, 0
-        ]; 
-        let step = 0; 
-        this.bgmInterval = setInterval(() => { 
-            if (this.ctx.state === 'suspended') this.ctx.resume(); 
-            const freq = sequence[step % sequence.length]; 
-            if (freq > 0) { 
-                const t = this.ctx.currentTime; 
-                const osc = this.ctx.createOscillator(); 
-                const gain = this.ctx.createGain(); 
-                osc.type = 'triangle'; // 三角波比較像 8-bit 音樂
-                osc.frequency.value = freq; 
-                gain.gain.setValueAtTime(0.05, t); // 音量小一點當背景
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2); 
-                osc.connect(gain); gain.connect(this.ctx.destination); 
-                osc.start(t); osc.stop(t + 0.2); 
-            } 
-            step++; 
-        }, 200); // 速度加快一點
-    },
-    stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
+
+    async roll(targetNumber) {
+        return new Promise((resolve) => {
+            // 1. 顯示遮罩
+            this.overlay.classList.add('active');
+            
+            // 2. 隨機初始旋轉 (製造混亂感)
+            const randX = Math.floor(Math.random() * 4) * 360; 
+            const randY = Math.floor(Math.random() * 4) * 360;
+            this.cube.style.transition = 'none';
+            this.cube.style.transform = `rotateX(${randX}deg) rotateY(${randY}deg)`;
+
+            // 強制重繪
+            void this.cube.offsetWidth;
+
+            // 3. 播放滾動音效
+            SynthEngine.playRoll();
+
+            // 4. 設定目標旋轉 (加上多圈旋轉)
+            const [targetX, targetY] = this.rotations[targetNumber];
+            const extraSpins = 720; // 額外轉兩圈
+            
+            this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
+            this.cube.style.transform = `rotateX(${targetX + extraSpins}deg) rotateY(${targetY + extraSpins}deg)`;
+
+            // 5. 等待動畫結束
+            setTimeout(() => {
+                // 停留一下讓玩家看清楚數字
+                setTimeout(() => {
+                    this.overlay.classList.remove('active');
+                    resolve(); // 完成
+                }, 500);
+            }, 1500);
+        });
+    }
 };
-document.getElementById('mute-btn').addEventListener('click', ()=>SynthEngine.toggleMute());
+
+// --- 🎉 派對特效管理器 ---
+const ConfettiManager = {
+    shoot() {
+        const duration = 3000;
+        const end = Date.now() + duration;
+
+        (function frame() {
+            confetti({
+                particleCount: 5,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0 },
+                colors: ['#e74c3c', '#f1c40f', '#2ecc71']
+            });
+            confetti({
+                particleCount: 5,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1 },
+                colors: ['#3498db', '#9b59b6', '#ecf0f1']
+            });
+
+            if (Date.now() < end) {
+                requestAnimationFrame(frame);
+            }
+        }());
+    }
+};
 
 // --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
@@ -128,14 +145,12 @@ const AvatarManager = {
             case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
             case 'ready': img.src = `images/avatar_${charType}_2.png`; break;
             case 'run': 
-                img.src = `images/avatar_${charType}_3.png`;
-                let runToggle = false; 
+                img.src = `images/avatar_${charType}_3.png`; 
+                let runToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
                     runToggle = !runToggle;
                     const frame = runToggle ? 4 : 3;
                     img.src = `images/avatar_${charType}_${frame}.png`;
-                    
-                    // 🛠️ 修正：腳步聲在這裡播放，與換腳同步
                     SynthEngine.playStep();
                 }, 150);
                 break;
@@ -168,8 +183,25 @@ const AudienceManager = {
 };
 AudienceManager.start();
 
-// --- 邏輯與 Socket ---
+const SynthEngine = {
+    ctx: null, isMuted: false, bgmInterval: null,
+    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        const btn = document.getElementById('mute-btn');
+        if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
+        else{ this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff";}
+    },
+    playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
+    playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
+    playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
+    playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
+    stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
+};
+document.getElementById('mute-btn').addEventListener('click', ()=>SynthEngine.toggleMute());
+
 function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
+    modalContent.className = "modal-content"; // 重置樣式
     modalTitle.innerText = title;
     modalBody.innerHTML = text;
     modalBtn.innerText = btnText;
@@ -187,7 +219,6 @@ joinBtn.addEventListener('click', () => {
     loginError.innerText = ""; 
     if (!name) { loginError.innerText = "⚠️ 請輸入名字！"; return; }
     socket.emit('player_join', name);
-    SynthEngine.playRoll(); 
 });
 
 socket.on('error_msg', (msg) => {
@@ -211,14 +242,12 @@ socket.on('show_initiative', (sortedPlayers) => {
     const myData = sortedPlayers.find(p => p.id === socket.id);
     const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
     gameMsg.innerHTML = `🎲 擲骰順序：你擲出 <span style="color:#fff">${myData.initRoll}</span> 點，排第 ${myRank} 位`;
-    SynthEngine.playRoll();
+    SynthEngine.playRoll(); // 這裡也可以考慮用 3D 骰子，但為了簡潔先維持音效
 });
 
 socket.on('game_start', () => {
     gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
-    
-    // 🛠️ 修正：遊戲開始時，所有人都蹲下準備
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'ready');
@@ -275,10 +304,13 @@ rollBtn.addEventListener('click', () => {
     rollBtn.disabled = true;
     rollBtn.innerText = "📡 傳送中...";
     rollBtn.className = "board-btn btn-grey";
-    SynthEngine.playRoll();
 });
 
-socket.on('player_moved', ({ playerId, roll, newPos }) => {
+// --- 核心修正：加入骰子演出與非同步等待 ---
+socket.on('player_moved', async ({ playerId, roll, newPos }) => {
+    // 1. 等待 3D 骰子演出結束
+    await DiceManager.roll(roll);
+
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const isMe = (playerId === myId);
     isAnimating = true; 
@@ -297,7 +329,6 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
 
     setTimeout(() => {
         if (avatarContainer) {
-            // 移除這裡的單次 playStep，改在 AvatarManager 裡循環播放
             const percent = (newPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
         }
@@ -324,6 +355,7 @@ socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win');
+        ConfettiManager.shoot(); // 噴紙花！
 
         if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
@@ -334,32 +366,37 @@ socket.on('player_finished_rank', ({ player, rank }) => {
     }, 1500);
 });
 
+// --- 核心修正：勝利畫面 ---
 socket.on('game_over', ({ rankings }) => {
+    // 1. 噴紙花
+    ConfettiManager.shoot();
+    SynthEngine.playWin();
+    rollBtn.classList.add('hidden');
+    gameMsg.innerText = `🏆 遊戲結束！`;
+    rankings.forEach(r => AvatarManager.setState(r.id, 'win'));
+
+    // 2. 延遲 3 秒後顯示榜單
     setTimeout(() => {
-        SynthEngine.playWin();
-        rollBtn.classList.add('hidden');
-        gameMsg.innerText = `🏆 遊戲結束！`;
-        rankings.forEach(r => AvatarManager.setState(r.id, 'win'));
-        
-        let rankHtml = '<ul style="text-align: left; margin-top: 10px; padding:0; list-style:none;">';
+        let rankHtml = '<ul class="rank-list">';
         rankings.forEach(p => {
             let medal = '';
-            if (p.rank === 1) medal = '🥇';
-            if (p.rank === 2) medal = '🥈';
-            if (p.rank === 3) medal = '🥉';
+            if (p.rank === 1) medal = '<span class="rank-medal">🥇</span>';
+            if (p.rank === 2) medal = '<span class="rank-medal">🥈</span>';
+            if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
             
             const charType = AvatarManager.getCharType(p.id);
-            const imgHtml = `<img src="images/avatar_${charType}_5.png" style="width:32px; height:32px; vertical-align:middle; margin-right:10px;">`;
+            const imgHtml = `<img src="images/avatar_${charType}_5.png" style="width:64px; height:64px; margin-right:15px; vertical-align:middle;">`;
             
-            rankHtml += `<li style="font-size: 1.2rem; margin-bottom: 10px; border-bottom:1px dashed #ccc; padding-bottom:5px; display:flex; align-items:center;">
-                <span style="margin-right:10px;">${medal} 第 ${p.rank} 名</span>
-                ${imgHtml}
-                <strong>${p.name}</strong>
+            rankHtml += `<li class="rank-item">
+                ${medal} ${imgHtml} <span class="rank-name">${p.name}</span>
             </li>`;
         });
         rankHtml += '</ul>';
-        showModal("🏁 比賽結束", `所有贏家已產生！<br>${rankHtml}`);
-    }, 1500);
+
+        // 3. 切換為高級 Modal 樣式
+        modalContent.classList.add('premium-modal');
+        showModal("🏆 榮譽榜 🏆", rankHtml);
+    }, 3000);
 });
 
 socket.on('force_reload', () => {
@@ -367,6 +404,7 @@ socket.on('force_reload', () => {
 });
 
 socket.on('game_reset_positions', () => {
+    modalContent.classList.remove('premium-modal'); // 移除高級樣式
     AvatarManager.movingStatus = {};
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
 

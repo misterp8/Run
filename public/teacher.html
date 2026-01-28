@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>老師後台 - 方塊大賽跑</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
     <button id="mute-btn" style="position: fixed; top: 160px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border:2px solid #333;">🔊</button>
@@ -17,6 +18,17 @@
                 <button id="modal-btn-confirm" class="board-btn btn-green" style="font-size:1rem; padding:10px 20px;">確定</button>
                 <button id="modal-btn-cancel" class="board-btn btn-grey hidden" style="font-size:1rem; padding:10px 20px;">取消</button>
             </div>
+        </div>
+    </div>
+
+    <div id="dice-overlay">
+        <div class="dice-cube" id="dice-cube">
+            <div class="dice-face" data-face="1"><div class="dice-dot"></div></div>
+            <div class="dice-face" data-face="2"><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
+            <div class="dice-face" data-face="3"><div class="dice-dot"></div><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
+            <div class="dice-face" data-face="4"><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="top:20px;right:20px"></div><div class="dice-dot" style="bottom:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
+            <div class="dice-face" data-face="5"><div class="dice-dot"></div><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="top:20px;right:20px"></div><div class="dice-dot" style="bottom:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
+            <div class="dice-face" data-face="6"><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="top:20px;right:20px"></div><div class="dice-dot" style="bottom:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div><div class="dice-dot" style="top:50%;left:20px;transform:translateY(-50%)"></div><div class="dice-dot" style="top:50%;right:20px;transform:translateY(-50%)"></div></div>
         </div>
     </div>
 
