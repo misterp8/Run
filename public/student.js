@@ -18,7 +18,6 @@ const modalBtn = document.getElementById('modal-btn');
 
 let myId = null;
 let isAnimating = false; 
-// 🛠️ 新增：本地端記錄所有人的位置，用來判斷要不要蹲下
 const PLAYER_POSITIONS = {}; 
 
 // --- 🖼️ 圖片預載 ---
@@ -35,6 +34,70 @@ function preloadImages() {
 }
 preloadImages();
 
+// --- 🎹 SynthEngine (BGM 升級 + 腳步聲優化) ---
+const SynthEngine = {
+    ctx: null, isMuted: false, bgmInterval: null,
+    
+    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
+    
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        const btn = document.getElementById('mute-btn');
+        if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
+        else{ this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff";}
+    },
+    
+    playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
+    
+    // 🛠️ 優化：腳步聲更短促，避免連續播放時太吵
+    playStep(){ 
+        if(this.isMuted||!this.ctx)return; 
+        const t=this.ctx.currentTime; 
+        const o=this.ctx.createOscillator(); 
+        const g=this.ctx.createGain(); 
+        // 提高音高，縮短時間 (0.05s)
+        o.frequency.setValueAtTime(200,t); 
+        o.frequency.linearRampToValueAtTime(50,t+0.05); 
+        g.gain.setValueAtTime(0.1,t); 
+        g.gain.linearRampToValueAtTime(0,t+0.05); 
+        o.connect(g); g.connect(this.ctx.destination); 
+        o.start(t); o.stop(t+0.05); 
+    },
+    
+    playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
+    
+    // 🛠️ 優化：BGM 旋律加長，更歡樂 (Mario Style)
+    playBGM(){ 
+        if (this.isMuted || this.bgmInterval || !this.ctx) return; 
+        // C4, E4, G4, C5... (C大調琶音 + 節奏)
+        const sequence = [
+            261.63, 329.63, 392.00, 523.25, 
+            392.00, 329.63, 261.63, 0,
+            293.66, 349.23, 440.00, 587.33,
+            440.00, 349.23, 293.66, 0
+        ]; 
+        let step = 0; 
+        this.bgmInterval = setInterval(() => { 
+            if (this.ctx.state === 'suspended') this.ctx.resume(); 
+            const freq = sequence[step % sequence.length]; 
+            if (freq > 0) { 
+                const t = this.ctx.currentTime; 
+                const osc = this.ctx.createOscillator(); 
+                const gain = this.ctx.createGain(); 
+                osc.type = 'triangle'; // 三角波比較像 8-bit 音樂
+                osc.frequency.value = freq; 
+                gain.gain.setValueAtTime(0.05, t); // 音量小一點當背景
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2); 
+                osc.connect(gain); gain.connect(this.ctx.destination); 
+                osc.start(t); osc.stop(t + 0.2); 
+            } 
+            step++; 
+        }, 200); // 速度加快一點
+    },
+    stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
+};
+document.getElementById('mute-btn').addEventListener('click', ()=>SynthEngine.toggleMute());
+
 // --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {},
@@ -47,7 +110,6 @@ const AvatarManager = {
     },
 
     setState(playerId, state) {
-        // 如果正在移動中，禁止變更為 ready/idle，防止打斷跑步動畫
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) {
             return;
         }
@@ -72,6 +134,9 @@ const AvatarManager = {
                     runToggle = !runToggle;
                     const frame = runToggle ? 4 : 3;
                     img.src = `images/avatar_${charType}_${frame}.png`;
+                    
+                    // 🛠️ 修正：腳步聲在這裡播放，與換腳同步
+                    SynthEngine.playStep();
                 }, 150);
                 break;
             case 'win': 
@@ -103,23 +168,7 @@ const AudienceManager = {
 };
 AudienceManager.start();
 
-const SynthEngine = {
-    ctx: null, isMuted: false, bgmInterval: null,
-    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
-    toggleMute() {
-        this.isMuted = !this.isMuted;
-        const btn = document.getElementById('mute-btn');
-        if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff";}
-    },
-    playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
-    playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(150,t); o.frequency.linearRampToValueAtTime(300,t+0.1); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.1); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.1); },
-    playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
-    playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 0, 261.63, 293.66, 329.63, 0, 329.63, 392.00]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
-    stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
-};
-document.getElementById('mute-btn').addEventListener('click', ()=>SynthEngine.toggleMute());
-
+// --- 邏輯與 Socket ---
 function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
     modalTitle.innerText = title;
     modalBody.innerHTML = text;
@@ -168,30 +217,27 @@ socket.on('show_initiative', (sortedPlayers) => {
 socket.on('game_start', () => {
     gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
+    
+    // 🛠️ 修正：遊戲開始時，所有人都蹲下準備
+    document.querySelectorAll('.avatar-img').forEach(img => {
+        const id = img.id.replace('img-', '');
+        AvatarManager.setState(id, 'ready');
+    });
 });
 
-// --- 🛠️ 核心修正：狀態控制 ---
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
-    
-    // 遍歷所有人，根據位置與是否輪到他來決定動作
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
-        
-        // 取得該玩家目前位置
         const currentPos = PLAYER_POSITIONS[id] || 0;
 
         if (id === nextPlayerId) {
-            // 是下一位：只有在起點 (0) 才蹲下；離開起點後維持站立
             if (currentPos === 0) {
                 AvatarManager.setState(id, 'ready');
             } else {
                 AvatarManager.setState(id, 'idle');
             }
         } else {
-            // 不是下一位
-            // 如果還沒贏且不是正在移動，就站好
-            // (我們假設贏家已經被設為 win 狀態了，這裡檢查圖片src避免覆蓋win)
             if (!img.src.includes('_5.png')) {
                 AvatarManager.setState(id, 'idle');
             }
@@ -237,10 +283,7 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const isMe = (playerId === myId);
     isAnimating = true; 
 
-    // 1. 更新位置記錄
     PLAYER_POSITIONS[playerId] = newPos;
-
-    // 2. 鎖定並跑
     AvatarManager.movingStatus[playerId] = true;
     AvatarManager.setState(playerId, 'run');
 
@@ -254,18 +297,17 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
 
     setTimeout(() => {
         if (avatarContainer) {
-            SynthEngine.playStep();
+            // 移除這裡的單次 playStep，改在 AvatarManager 裡循環播放
             const percent = (newPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
         }
         
         setTimeout(() => {
             isAnimating = false;
-            // 3. 解鎖並恢復狀態
             AvatarManager.movingStatus[playerId] = false;
 
             if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle'); // 跑完變站立
+                AvatarManager.setState(playerId, 'idle');
             } else {
                 AvatarManager.setState(playerId, 'win');
             }
@@ -326,7 +368,6 @@ socket.on('force_reload', () => {
 
 socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {};
-    // 清空位置紀錄
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
 
     document.querySelectorAll('.avatar-img').forEach(img => {
@@ -345,7 +386,6 @@ socket.on('game_reset_positions', () => {
 function renderTracks(players) {
     trackContainer.innerHTML = ''; 
     players.forEach(p => {
-        // 初始化位置記錄
         PLAYER_POSITIONS[p.id] = p.position;
 
         const row = document.createElement('div');

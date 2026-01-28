@@ -126,8 +126,6 @@ body {
     gap: 20px; 
     padding-top: 40px; 
     padding-bottom: 20px;
-    
-    /* 🛠️ 修改點：減少左側內距，只要一點點就好 */
     padding-left: 30px; 
 }
 
@@ -153,7 +151,9 @@ body {
     bottom: 10px; 
     left: 0%;
     z-index: 100;
-    transition: left 0.8s cubic-bezier(0.25, 0.1, 0.25, 1); 
+    
+    /* 🛠️ 修改點：改為 linear 1s，實現等速跑步效果 */
+    transition: left 1s linear; 
     
     display: flex;
     flex-direction: column;
@@ -166,14 +166,10 @@ body {
     image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3));
 }
 
-/* 🛠️ 修改點：名字標籤位置調整 */
 .name-tag {
     position: absolute;
-    
-    /* 改為 65%，讓它靠近中心但還是在左側 */
     right: 65%; 
     top: 40%;   
-    
     background: rgba(0, 0, 0, 0.6);
     color: #fff;
     padding: 4px 8px; 
