@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Square Run - Teacher</title>
+    <title>老師後台 - 方塊大賽跑</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-</head>
+    </head>
 <body>
     <button id="mute-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">🔊</button>
 
@@ -14,9 +13,9 @@
         <div class="modal-content">
             <h2 id="modal-title">標題</h2>
             <div id="modal-body">內容</div>
-            <div style="margin-top:20px;">
-                <button id="modal-btn-confirm" style="background:#e74c3c; color:white; width:100px;">確定</button>
-                <button id="modal-btn-cancel" class="hidden" style="background:#95a5a6; color:white; width:100px;">取消</button>
+            <div id="modal-actions" style="margin-top:20px;">
+                <button id="modal-btn-confirm" class="modal-btn">確定</button>
+                <button id="modal-btn-cancel" class="modal-btn cancel hidden">取消</button>
             </div>
         </div>
     </div>
@@ -31,24 +30,28 @@
 
     <div id="ui-layer">
         <div id="admin-panel">
-            <h2 style="font-size:1rem; margin:0 0 10px 0;">👨‍🏫 TEACHER CONTROL</h2>
+            <h2 style="font-size:1.2rem; margin:0 0 10px 0;">👨‍🏫 老師控制台</h2>
             <div style="margin-bottom: 10px;">
-                <button id="start-btn" style="background:#27ae60; color:white; padding:10px;">🚀 START GAME</button>
-                <button id="restart-btn" disabled style="background:#e67e22; color:white; padding:10px;">↩️ RESTART</button>
+                <button id="start-btn" style="background:#27ae60; color:white; padding:12px;">🚀 開始遊戲</button>
+                <button id="restart-btn" disabled style="background:#e67e22; color:white; padding:12px;">↩️ 回起跑線 (下一局)</button>
             </div>
-            <div style="border-top: 1px dashed #555; padding-top: 10px;">
-                <button id="reset-btn" style="background:#c0392b; color:white; padding:5px 10px; font-size:0.8rem;">⚠️ KICK ALL</button>
+            
+            <div style="border-top: 1px dashed #555; padding-top: 10px; margin-top: 10px;">
+                <button id="reset-btn" style="background:#c0392b; color:white; padding:8px 15px; font-size:0.9rem;">⚠️ 踢除所有玩家</button>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size:0.8rem;">
-                <p style="margin:0;">Players: <span id="player-count">0</span> / 10</p>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size:1rem;">
+                <p style="margin:0;">目前人數: <span id="player-count">0</span> / 8</p>
             </div>
+
             <div id="initiative-list">
-                <h3 style="margin:0; font-size:0.8rem; color:#f1c40f;">🎲 ROLL ORDER</h3>
+                <h3 style="margin:0; font-size:1rem; color:#f1c40f;">🎲 擲骰順序結果：</h3>
                 <ul id="initiative-ul" style="padding-left:20px; margin:5px 0;"></ul>
             </div>
         </div>
-        <div id="status-bar" style="padding:5px;">
-            <span id="live-msg" style="font-size:0.9rem;">Waiting...</span>
+
+        <div id="status-bar" style="padding:10px;">
+            <span id="live-msg" style="font-size:1.1rem; font-weight:bold;">等待遊戲開始...</span>
         </div>
     </div>
 

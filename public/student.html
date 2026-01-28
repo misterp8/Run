@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Square Run Online</title>
+    <title>方塊大賽跑 - 學生端</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-</head>
+    </head>
 <body>
 
     <button id="mute-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">🔊</button>
@@ -21,27 +20,26 @@
 
     <div id="stadium-wrapper">
         <div id="audience-top" class="audience-section"></div>
-
         <div id="game-scroll-area">
             <div id="track-container"></div>
         </div>
-
         <div id="audience-bottom" class="audience-section"></div>
     </div>
 
     <div id="ui-layer">
         <div id="lobby-screen">
-            <h1 style="font-size:1.2rem; margin-bottom:10px;">SQUARE RUN 🏃</h1>
-            <input type="text" id="username" placeholder="輸入名字 (MAX 8)" maxlength="8" style="width:70%;">
-            <button id="join-btn" style="background:#2ecc71; color:white;">JOIN GAME</button>
+            <h1 style="font-size:1.5rem; margin-bottom:15px; color:#2c3e50;">🏃 方塊大賽跑</h1>
+            <input type="text" id="username" placeholder="請輸入名字 (最多8字)" maxlength="8" style="width:80%; padding:10px; font-size:1rem; text-align:center;">
+            <button id="join-btn" style="background:#2ecc71; color:white; width: 80%; margin-top: 10px; padding: 10px;">加入遊戲</button>
             <div id="login-error" class="error-text"></div>
             
             <div id="waiting-msg" class="hidden">
                 <div id="lobby-status-text">
-                    <p>✅ 已加入！等待老師...</p>
+                    <p style="font-size:1.2rem; color:#27ae60;">✅ 已加入！等待老師開始...</p>
                 </div>
-                <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
-                <ul id="player-list-ul" style="text-align:left; font-size:0.8rem; padding-left:20px;"></ul>
+                <hr style="border:0; border-top:1px dashed #ccc; margin:15px 0;">
+                <p style="margin:0 0 5px 0; font-weight:bold;">已加入的同學：</p>
+                <ul id="player-list-ul" style="text-align:left; font-size:1rem; padding-left:20px;"></ul>
             </div>
         </div>
 
@@ -49,7 +47,7 @@
             <div id="status-bar">
                 <span id="game-msg">遊戲進行中...</span>
             </div>
-            <button id="roll-btn" disabled style="width:100%; padding:15px; font-size:1.2rem; background:#ccc; margin-top:10px;">
+            <button id="roll-btn" disabled style="width:100%; padding:20px; font-size:1.5rem; background:#ccc; margin-top:15px; color:white; border-radius: 8px;">
                 🎲 等待對手...
             </button>
         </div>

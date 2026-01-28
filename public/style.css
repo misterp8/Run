@@ -1,43 +1,42 @@
 :root {
     --track-cols: 22;
-    --cell-size: 50px; /* 基礎格子大小 */
+    --cell-size: 50px;
 }
 
 * { box-sizing: border-box; user-select: none; }
 
 body {
-    font-family: 'Press Start 2P', 'Segoe UI', cursive, sans-serif; /* 建議引入像素字體 */
+    /* 修改：使用標準黑體，移除英文像素字體 */
+    font-family: "Microsoft JhengHei", "Heiti TC", "Segoe UI", sans-serif;
+    font-weight: bold;
     margin: 0;
     padding: 0;
-    background-color: #2c3e50; /* 深色背景襯托 */
+    background-color: #2c3e50;
     color: #333;
-    overflow: hidden; /* 隱藏捲軸，由內部容器處理 */
+    overflow: hidden;
     height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
-/* 隱藏元素 */
 .hidden { display: none !important; }
 
-/* --- 體育場整體容器 (Stadium Layout) --- */
 #stadium-wrapper {
     display: flex;
     flex-direction: column;
     height: 100%;
     width: 100%;
-    max-width: 1400px; /* 限制最大寬度 */
+    max-width: 1400px; 
     margin: 0 auto;
-    background-color: #5d9e36; /* 草地底色 */
-    background-image: url('images/map_grass.png'); /* 草皮紋理 */
-    background-size: 64px 64px; /* 縮小一點紋理 */
+    background-color: #5d9e36; 
+    background-image: url('images/map_grass.png'); 
+    background-size: 64px 64px; 
     box-shadow: 0 0 50px rgba(0,0,0,0.5);
     position: relative;
 }
 
-/* --- 上方觀眾席 --- */
 .audience-section {
-    height: 80px; /* 觀眾席高度 */
+    height: 80px; 
     width: 100%;
     background-repeat: repeat-x;
     background-size: auto 100%;
@@ -48,7 +47,7 @@ body {
 
 #audience-top {
     border-bottom: 4px solid #333;
-    background-color: #444; /* 預載底色 */
+    background-color: #444; 
 }
 
 #audience-bottom {
@@ -56,50 +55,47 @@ body {
     background-color: #444;
 }
 
-/* --- 中間跑道捲動區 --- */
 #game-scroll-area {
-    flex: 1; /* 佔滿剩餘空間 */
-    overflow-y: auto; /* 允許垂直捲動 */
+    flex: 1; 
+    overflow-y: auto; 
     overflow-x: hidden;
     padding: 20px 10px;
     display: flex;
     flex-direction: column;
-    gap: 15px; /* 跑道間距 */
+    /* 修改：跑道間距稍微拉大，因為只有 8 條 */
+    gap: 20px; 
 }
 
-/* --- 跑道列 (Track Row) --- */
 .track-row {
     display: grid;
     grid-template-columns: repeat(var(--track-cols), 1fr); 
-    height: 60px; /* 跑道高度 */
+    /* 修改：跑道高度加高一點，讓畫面更清楚 */
+    height: 70px; 
     position: relative;
     width: 100%;
-    align-items: end; /* 人物站在跑道底部 */
-    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); /* 跑道陰影 */
+    align-items: end; 
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); 
 }
 
-/* --- 跑道格子材質 --- */
 .grid-cell {
     width: 100%;
     height: 100%;
     background-size: 100% 100%;
-    image-rendering: pixelated; /* 強制像素清晰 */
+    image-rendering: pixelated; 
 }
 
-/* 統一設定跑道貼圖 */
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
 .grid-cell:last-child { background-image: url('images/map_finish.png'); }
 
-/* --- 角色 Avatar --- */
 .avatar-container {
     position: absolute;
-    width: calc(100% / var(--track-cols) * 1.5); /* 人物稍微比格子大一點 (1.5倍) */
-    height: 140%; /* 高度也拉高，避免太小 */
-    bottom: 10px; /* 腳底對齊位置 */
+    width: calc(100% / var(--track-cols) * 1.5); 
+    height: 140%; 
+    bottom: 10px; 
     left: 0%;
     z-index: 100;
-    transition: left 0.8s cubic-bezier(0.25, 0.1, 0.25, 1); /* 平滑移動 */
+    transition: left 0.8s cubic-bezier(0.25, 0.1, 0.25, 1); 
     
     display: flex;
     flex-direction: column;
@@ -115,73 +111,71 @@ body {
     filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3));
 }
 
-/* --- 名字標籤 (人物左側) --- */
 .name-tag {
     position: absolute;
     left: -5px;
     bottom: 20%;
-    transform: translateX(-100%); /* 往左推 */
+    transform: translateX(-100%); 
     background: rgba(0, 0, 0, 0.7);
     color: #fff;
-    padding: 2px 6px;
+    padding: 4px 8px; /* 加大一點 */
     border-radius: 4px;
-    font-size: 10px;
+    font-size: 12px; /* 字體加大 */
     white-space: nowrap;
     border: 1px solid rgba(255,255,255,0.3);
     pointer-events: none;
     z-index: 101;
 }
 
-/* 特殊處理：如果在起點(0)，名字改放頭上，不然會被切掉 */
 .avatar-container[style*="left: 0%"] .name-tag {
     left: 50%;
     bottom: 100%;
     transform: translateX(-50%);
 }
 
-/* --- UI 控制面板 (浮動在畫面上層) --- */
 #ui-layer {
     position: absolute;
-    top: 90px; /* 避開觀眾席 */
+    top: 90px; 
     left: 50%;
     transform: translateX(-50%);
     z-index: 200;
     width: 90%;
     max-width: 600px;
-    pointer-events: none; /* 讓點擊穿透 */
+    pointer-events: none; 
 }
 
 #lobby-screen, #admin-panel, #status-bar {
-    pointer-events: auto; /* 恢復點擊 */
+    pointer-events: auto; 
     background: rgba(255, 255, 255, 0.95);
-    padding: 15px;
-    border-radius: 8px;
+    padding: 20px;
+    border-radius: 12px; /* 圓角加大 */
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     margin-bottom: 10px;
     text-align: center;
     border: 2px solid #333;
 }
 
-/* 按鈕樣式優化 */
 button {
     font-family: inherit;
     border: 2px solid #000;
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: 3px 3px 0 #000; /* 陰影加深 */
     transition: all 0.1s;
     font-weight: bold;
-    text-transform: uppercase;
+    font-size: 1rem;
+    cursor: pointer;
 }
 button:active:not(:disabled) {
     transform: translate(2px, 2px);
-    box-shadow: 0 0 0 #000;
+    box-shadow: 1px 1px 0 #000;
 }
 button:disabled {
     box-shadow: none;
     border-color: #888;
     background-color: #ccc !important;
+    cursor: not-allowed;
+    color: #666 !important;
 }
 
-/* --- Modal 樣式 --- */
 #modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -190,16 +184,14 @@ button:disabled {
     z-index: 9999;
 }
 .modal-content {
-    background: #fff; padding: 20px; border-radius: 10px;
+    background: #fff; padding: 25px; border-radius: 12px;
     border: 4px solid #333;
     box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
     text-align: center; max-width: 400px; width: 90%;
 }
 
-/* 錯誤文字 */
 .error-text { color: #e74c3c; font-weight: bold; margin-top: 5px; }
 
-/* 排行榜 */
 #initiative-list {
     background: rgba(0,0,0,0.05); padding: 10px; border-radius: 4px;
     text-align: left; max-height: 120px; overflow-y: auto; display: none;
