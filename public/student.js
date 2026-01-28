@@ -15,13 +15,12 @@ const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 const modalBtn = document.getElementById('modal-btn');
-const modalContent = document.querySelector('.modal-content'); // 為了切換樣式
+const modalContent = document.querySelector('.modal-content'); 
 
 let myId = null;
 let isAnimating = false; 
 const PLAYER_POSITIONS = {}; 
 
-// --- 🖼️ 圖片預載 ---
 const CHAR_TYPES = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
 const PRELOADED_IMGS = {};
 function preloadImages() {
@@ -35,112 +34,62 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3D 骰子管理器 ---
+// --- 🎲 3D 骰子管理器 (加大尺寸版) ---
 const DiceManager = {
     overlay: document.getElementById('dice-overlay'),
     cube: document.getElementById('dice-cube'),
-    
-    // 點數對應的旋轉角度 (X, Y)
     rotations: {
-        1: [0, 0],
-        2: [0, -90],
-        3: [0, -180],
-        4: [0, 90],
-        5: [-90, 0],
-        6: [90, 0]
+        1: [0, 0], 2: [0, -90], 3: [0, -180], 4: [0, 90], 5: [-90, 0], 6: [90, 0]
     },
-
     async roll(targetNumber) {
         return new Promise((resolve) => {
-            // 1. 顯示遮罩
             this.overlay.classList.add('active');
-            
-            // 2. 隨機初始旋轉 (製造混亂感)
             const randX = Math.floor(Math.random() * 4) * 360; 
             const randY = Math.floor(Math.random() * 4) * 360;
             this.cube.style.transition = 'none';
             this.cube.style.transform = `rotateX(${randX}deg) rotateY(${randY}deg)`;
-
-            // 強制重繪
             void this.cube.offsetWidth;
-
-            // 3. 播放滾動音效
             SynthEngine.playRoll();
-
-            // 4. 設定目標旋轉 (加上多圈旋轉)
             const [targetX, targetY] = this.rotations[targetNumber];
-            const extraSpins = 720; // 額外轉兩圈
-            
+            const extraSpins = 1080; // 轉3圈
             this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
-            this.cube.style.transform = `rotateX(${targetX + extraSpins}deg) rotateY(${targetY + extraSpins}deg)`;
-
-            // 5. 等待動畫結束
+            this.cube.style.transform = `rotateX(${targetX + extraSpins}deg) rotateY(${targetY + extraSpins}deg) translateZ(0)`;
             setTimeout(() => {
-                // 停留一下讓玩家看清楚數字
                 setTimeout(() => {
                     this.overlay.classList.remove('active');
-                    resolve(); // 完成
+                    resolve(); 
                 }, 500);
             }, 1500);
         });
     }
 };
 
-// --- 🎉 派對特效管理器 ---
 const ConfettiManager = {
     shoot() {
         const duration = 3000;
         const end = Date.now() + duration;
-
         (function frame() {
-            confetti({
-                particleCount: 5,
-                angle: 60,
-                spread: 55,
-                origin: { x: 0 },
-                colors: ['#e74c3c', '#f1c40f', '#2ecc71']
-            });
-            confetti({
-                particleCount: 5,
-                angle: 120,
-                spread: 55,
-                origin: { x: 1 },
-                colors: ['#3498db', '#9b59b6', '#ecf0f1']
-            });
-
-            if (Date.now() < end) {
-                requestAnimationFrame(frame);
-            }
+            confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
+            confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
+            if (Date.now() < end) { requestAnimationFrame(frame); }
         }());
     }
 };
 
-// --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
-
     getCharType(id) {
         let hash = 0;
         for (let i = 0; i < id.length; i++) hash += id.charCodeAt(i);
         return CHAR_TYPES[hash % CHAR_TYPES.length];
     },
-
     setState(playerId, state) {
-        if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) {
-            return;
-        }
-
+        if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
         const img = document.getElementById(`img-${playerId}`);
         if (!img) return;
-
         const charType = img.dataset.char;
-        
-        if (this.loopIntervals[playerId]) {
-            clearInterval(this.loopIntervals[playerId]);
-            delete this.loopIntervals[playerId];
-        }
-
+        if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
         switch (state) {
             case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
             case 'ready': img.src = `images/avatar_${charType}_2.png`; break;
@@ -242,7 +191,7 @@ socket.on('show_initiative', (sortedPlayers) => {
     const myData = sortedPlayers.find(p => p.id === socket.id);
     const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
     gameMsg.innerHTML = `🎲 擲骰順序：你擲出 <span style="color:#fff">${myData.initRoll}</span> 點，排第 ${myRank} 位`;
-    SynthEngine.playRoll(); // 這裡也可以考慮用 3D 骰子，但為了簡潔先維持音效
+    SynthEngine.playRoll();
 });
 
 socket.on('game_start', () => {
@@ -259,17 +208,10 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
         const currentPos = PLAYER_POSITIONS[id] || 0;
-
         if (id === nextPlayerId) {
-            if (currentPos === 0) {
-                AvatarManager.setState(id, 'ready');
-            } else {
-                AvatarManager.setState(id, 'idle');
-            }
+            if (currentPos === 0) AvatarManager.setState(id, 'ready'); else AvatarManager.setState(id, 'idle');
         } else {
-            if (!img.src.includes('_5.png')) {
-                AvatarManager.setState(id, 'idle');
-            }
+            if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle');
         }
     });
 
@@ -306,9 +248,8 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
-// --- 核心修正：加入骰子演出與非同步等待 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    // 1. 等待 3D 骰子演出結束
+    // 1. 等待 3D 骰子
     await DiceManager.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -336,13 +277,11 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
         setTimeout(() => {
             isAnimating = false;
             AvatarManager.movingStatus[playerId] = false;
-
             if (newPos < 21) {
                 AvatarManager.setState(playerId, 'idle');
             } else {
-                AvatarManager.setState(playerId, 'win');
+                AvatarManager.setState(playerId, 'win'); // 單人到達終點，先歡呼
             }
-            
             if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
                 gameMsg.innerText = "等待對手行動中...";
                 gameMsg.style.color = "#fff";
@@ -355,48 +294,46 @@ socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win');
-        ConfettiManager.shoot(); // 噴紙花！
-
         if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
             rollBtn.innerText = "🏆 已完賽";
         } else {
             gameMsg.innerText = `🏁 ${player.name} 奪得第 ${rank} 名！`;
         }
-    }, 1500);
+    }, 1500); // 這裡的時間是「跑完步」之後多久顯示
 });
 
-// --- 核心修正：勝利畫面 ---
 socket.on('game_over', ({ rankings }) => {
-    // 1. 噴紙花
-    ConfettiManager.shoot();
-    SynthEngine.playWin();
-    rollBtn.classList.add('hidden');
-    gameMsg.innerText = `🏆 遊戲結束！`;
-    rankings.forEach(r => AvatarManager.setState(r.id, 'win'));
-
-    // 2. 延遲 3 秒後顯示榜單
+    // 1. 先讓最後一個人跑完並歡呼，延遲 2.5 秒
     setTimeout(() => {
-        let rankHtml = '<ul class="rank-list">';
-        rankings.forEach(p => {
-            let medal = '';
-            if (p.rank === 1) medal = '<span class="rank-medal">🥇</span>';
-            if (p.rank === 2) medal = '<span class="rank-medal">🥈</span>';
-            if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
-            
-            const charType = AvatarManager.getCharType(p.id);
-            const imgHtml = `<img src="images/avatar_${charType}_5.png" style="width:64px; height:64px; margin-right:15px; vertical-align:middle;">`;
-            
-            rankHtml += `<li class="rank-item">
-                ${medal} ${imgHtml} <span class="rank-name">${p.name}</span>
-            </li>`;
-        });
-        rankHtml += '</ul>';
+        ConfettiManager.shoot(); // 噴紙花
+        SynthEngine.playWin();
+        rollBtn.classList.add('hidden');
+        gameMsg.innerText = `🏆 遊戲結束！`;
+        rankings.forEach(r => AvatarManager.setState(r.id, 'win'));
 
-        // 3. 切換為高級 Modal 樣式
-        modalContent.classList.add('premium-modal');
-        showModal("🏆 榮譽榜 🏆", rankHtml);
-    }, 3000);
+        // 2. 再延遲 3 秒顯示豪華榜單
+        setTimeout(() => {
+            let rankHtml = '<ul class="rank-list">';
+            rankings.forEach(p => {
+                let medal = '';
+                if (p.rank === 1) medal = '<span class="rank-medal">🥇</span>';
+                if (p.rank === 2) medal = '<span class="rank-medal">🥈</span>';
+                if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
+                
+                const charType = AvatarManager.getCharType(p.id);
+                const imgHtml = `<img class="rank-avatar" src="images/avatar_${charType}_5.png">`;
+                
+                rankHtml += `<li class="rank-item">
+                    ${medal} ${imgHtml} <span class="rank-name">${p.name}</span>
+                </li>`;
+            });
+            rankHtml += '</ul>';
+
+            modalContent.classList.add('premium-modal');
+            showModal("🏆 榮譽榜 🏆", rankHtml);
+        }, 3000);
+    }, 2500);
 });
 
 socket.on('force_reload', () => {
@@ -404,10 +341,9 @@ socket.on('force_reload', () => {
 });
 
 socket.on('game_reset_positions', () => {
-    modalContent.classList.remove('premium-modal'); // 移除高級樣式
+    modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {};
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
-
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'idle');
@@ -421,9 +357,14 @@ socket.on('game_reset_positions', () => {
     SynthEngine.stopBGM();
 });
 
+// --- 🛠️ 關鍵修正：排序渲染 ---
 function renderTracks(players) {
     trackContainer.innerHTML = ''; 
-    players.forEach(p => {
+    
+    // 強制排序：根據 ID 排序，確保老師端和學生端看到的順序永遠一致且不跳動
+    const sortedPlayers = [...players].sort((a, b) => a.id.localeCompare(b.id));
+
+    sortedPlayers.forEach(p => {
         PLAYER_POSITIONS[p.id] = p.position;
 
         const row = document.createElement('div');
