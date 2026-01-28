@@ -18,6 +18,8 @@ const modalBtn = document.getElementById('modal-btn');
 
 let myId = null;
 let isAnimating = false; 
+// 🛠️ 新增：本地端記錄所有人的位置，用來判斷要不要蹲下
+const PLAYER_POSITIONS = {}; 
 
 // --- 🖼️ 圖片預載 ---
 const CHAR_TYPES = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
@@ -45,8 +47,8 @@ const AvatarManager = {
     },
 
     setState(playerId, state) {
-        // 如果正在移動中，禁止變更為 ready，防止打斷跑步動畫
-        if (this.movingStatus[playerId] === true && state === 'ready') {
+        // 如果正在移動中，禁止變更為 ready/idle，防止打斷跑步動畫
+        if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) {
             return;
         }
 
@@ -61,13 +63,9 @@ const AvatarManager = {
         }
 
         switch (state) {
-            case 'idle': // 站立
-                img.src = `images/avatar_${charType}_1.png`; 
-                break;
-            case 'ready': // 蹲下準備
-                img.src = `images/avatar_${charType}_2.png`; 
-                break;
-            case 'run': // 跑步 3-4
+            case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
+            case 'ready': img.src = `images/avatar_${charType}_2.png`; break;
+            case 'run': 
                 img.src = `images/avatar_${charType}_3.png`;
                 let runToggle = false; 
                 this.loopIntervals[playerId] = setInterval(() => {
@@ -76,7 +74,7 @@ const AvatarManager = {
                     img.src = `images/avatar_${charType}_${frame}.png`;
                 }, 150);
                 break;
-            case 'win': // 勝利 5-1
+            case 'win': 
                 img.src = `images/avatar_${charType}_5.png`;
                 let winToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
@@ -172,33 +170,29 @@ socket.on('game_start', () => {
     SynthEngine.playBGM();
 });
 
-// --- 🛠️ 修正點：避免大家一起蹲下 ---
+// --- 🛠️ 核心修正：狀態控制 ---
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
     
-    // 遍歷所有頭像，更新狀態
+    // 遍歷所有人，根據位置與是否輪到他來決定動作
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
         
+        // 取得該玩家目前位置
+        const currentPos = PLAYER_POSITIONS[id] || 0;
+
         if (id === nextPlayerId) {
-            // 輪到的人 -> 蹲下準備
-            AvatarManager.setState(id, 'ready');
+            // 是下一位：只有在起點 (0) 才蹲下；離開起點後維持站立
+            if (currentPos === 0) {
+                AvatarManager.setState(id, 'ready');
+            } else {
+                AvatarManager.setState(id, 'idle');
+            }
         } else {
-            // 其他人 -> 檢查是否在移動中，或是否已勝利
-            // 為了簡化，如果不是贏家且不是正在移動，就強制站好 (Idle)
-            // 這樣可以把之前錯誤蹲下的人「叫起來」
-            
-            // 判斷是否為贏家 (透過圖片 src 簡單判斷，或你需要從 server 傳狀態)
-            // 這裡簡單檢查一下目前狀態
-            // 最保險的方式是，我們預設大家都設為 Idle，除非他是贏家
-            
-            // 由於這裡拿不到每個人的 position，我們做保守處理：
-            // 只要不是輪到他，就呼叫 setState(id, 'idle')
-            // 但 setState 內部會檢查：如果是 'win' 狀態或 'moving' 狀態，它會忽略 idle 指令嗎？
-            // 目前 setState 沒有這功能，所以我們改一下
-            
-            // 簡單版修正：僅重置那些「蹲下 (ready)」的人
-            if (img.src.includes('_2.png')) {
+            // 不是下一位
+            // 如果還沒贏且不是正在移動，就站好
+            // (我們假設贏家已經被設為 win 狀態了，這裡檢查圖片src避免覆蓋win)
+            if (!img.src.includes('_5.png')) {
                 AvatarManager.setState(id, 'idle');
             }
         }
@@ -243,7 +237,10 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const isMe = (playerId === myId);
     isAnimating = true; 
 
-    // 🔒 鎖定狀態
+    // 1. 更新位置記錄
+    PLAYER_POSITIONS[playerId] = newPos;
+
+    // 2. 鎖定並跑
     AvatarManager.movingStatus[playerId] = true;
     AvatarManager.setState(playerId, 'run');
 
@@ -264,11 +261,11 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
         
         setTimeout(() => {
             isAnimating = false;
-            // 🔓 解鎖
+            // 3. 解鎖並恢復狀態
             AvatarManager.movingStatus[playerId] = false;
 
             if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle');
+                AvatarManager.setState(playerId, 'idle'); // 跑完變站立
             } else {
                 AvatarManager.setState(playerId, 'win');
             }
@@ -329,6 +326,9 @@ socket.on('force_reload', () => {
 
 socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {};
+    // 清空位置紀錄
+    for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
+
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'idle');
@@ -345,6 +345,9 @@ socket.on('game_reset_positions', () => {
 function renderTracks(players) {
     trackContainer.innerHTML = ''; 
     players.forEach(p => {
+        // 初始化位置記錄
+        PLAYER_POSITIONS[p.id] = p.position;
+
         const row = document.createElement('div');
         row.className = 'track-row';
         for(let i=0; i<22; i++) {
@@ -363,7 +366,6 @@ function renderTracks(players) {
         img.id = `img-${p.id}`;
         img.dataset.char = charType; 
         
-        // 初始圖片邏輯
         if (p.position >= 21) {
              img.src = `images/avatar_${charType}_5.png`;
         } else {
