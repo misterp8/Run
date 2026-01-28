@@ -1,6 +1,6 @@
 const socket = io(); 
 
-// DOM 元素
+// --- DOM 元素 ---
 const loginOverlay = document.getElementById('login-overlay');
 const scoreboardHeader = document.getElementById('scoreboard-header');
 const stadiumWrapper = document.getElementById('stadium-wrapper');
@@ -19,16 +19,43 @@ const modalBtn = document.getElementById('modal-btn');
 let myId = null;
 let isAnimating = false; 
 
+// --- 🖼️ 圖片預載系統 (解決動畫閃爍問題) ---
 const CHAR_TYPES = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
+const PRELOADED_IMGS = {};
 
+function preloadImages() {
+    console.log("開始預載圖片...");
+    CHAR_TYPES.forEach(char => {
+        for(let i=1; i<=5; i++) {
+            const img = new Image();
+            img.src = `images/avatar_${char}_${i}.png`;
+            // 存入快取物件，防止被垃圾回收
+            PRELOADED_IMGS[`${char}_${i}`] = img;
+        }
+    });
+}
+// 網頁一開啟就執行預載
+preloadImages();
+
+
+// --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {},
+    movingStatus: {}, // 新增：紀錄誰正在移動中，防止被蹲下動作覆蓋
+
     getCharType(id) {
         let hash = 0;
         for (let i = 0; i < id.length; i++) hash += id.charCodeAt(i);
         return CHAR_TYPES[hash % CHAR_TYPES.length];
     },
+
     setState(playerId, state) {
+        // 如果這個玩家正在移動中，且試圖被設定為 'ready' (蹲下)，則忽略該指令
+        // 這樣可以防止 update_turn 打斷跑步動畫
+        if (this.movingStatus[playerId] === true && state === 'ready') {
+            return; 
+        }
+
         const img = document.getElementById(`img-${playerId}`);
         if (!img) return;
         const charType = img.dataset.char;
@@ -40,32 +67,33 @@ const AvatarManager = {
         }
 
         switch (state) {
-            case 'idle': 
+            case 'idle': // 動作 1
                 img.src = `images/avatar_${charType}_1.png`; 
                 break;
-            case 'ready': 
+            case 'ready': // 動作 2
                 img.src = `images/avatar_${charType}_2.png`; 
                 break;
-case 'run': 
-    // 🏃‍♂️ 跑步邏輯：確保是 3 和 4 交互
-    let runFrame = 3;
-    // 先立刻顯示第一張跑步圖 (避免延遲)
-    img.src = `images/avatar_${charType}_3.png`; 
-    
-    this.loopIntervals[playerId] = setInterval(() => {
-        // 切換 Frame
-        runFrame = (runFrame === 3) ? 4 : 3;
-        img.src = `images/avatar_${charType}_${runFrame}.png`;
-    }, 150); // 每 150 毫秒切換一次，速度適中
-    break;
-            case 'win': 
-                // 🎉 修復：確保 5 和 1 (或5單獨) 輪替
-                let winFrame = 5;
-                img.src = `images/avatar_${charType}_5.png`;
+            case 'run': 
+                // 🏃‍♂️ 動作 3 和 4 輪替
+                // 先強制設為動作 3，確保第一偵就是跑
+                img.src = `images/avatar_${charType}_3.png`;
+                
+                let runToggle = false; 
                 this.loopIntervals[playerId] = setInterval(() => {
-                    // 這裡設為 5 和 1 輪替，或者保持 5
-                    winFrame = (winFrame === 5) ? 1 : 5;
-                    img.src = `images/avatar_${charType}_${winFrame}.png`;
+                    // 切換 3 和 4
+                    runToggle = !runToggle;
+                    const frame = runToggle ? 4 : 3;
+                    img.src = `images/avatar_${charType}_${frame}.png`;
+                }, 150); // 每 150ms 切換一次
+                break;
+            case 'win': 
+                // 動作 5 和 1 輪替
+                img.src = `images/avatar_${charType}_5.png`;
+                let winToggle = false;
+                this.loopIntervals[playerId] = setInterval(() => {
+                    winToggle = !winToggle;
+                    const frame = winToggle ? 1 : 5;
+                    img.src = `images/avatar_${charType}_${frame}.png`;
                 }, 400);
                 break;
         }
@@ -128,16 +156,16 @@ joinBtn.addEventListener('click', () => {
 
 socket.on('error_msg', (msg) => {
     loginError.innerText = `⚠️ ${msg}`;
-    showModal("錯誤", msg);
+    if (!lobbyScreen.classList.contains('hidden') === false) showModal("錯誤", msg);
 });
 
 socket.on('update_player_list', (players) => {
     const me = players.find(p => p.id === socket.id);
     if (me) {
         myId = socket.id;
-        loginOverlay.classList.add('hidden'); // 隱藏登入
-        scoreboardHeader.classList.remove('hidden'); // 顯示計分板
-        stadiumWrapper.classList.remove('hidden');   // 顯示體育場
+        loginOverlay.classList.add('hidden');
+        scoreboardHeader.classList.remove('hidden');
+        stadiumWrapper.classList.remove('hidden');
         gameMsg.innerText = "✅ 已加入！等待老師開始...";
     }
     renderTracks(players);
@@ -156,17 +184,21 @@ socket.on('game_start', () => {
 });
 
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
+    // 當收到輪到誰的指令時，嘗試將該玩家設為 ready (蹲下)
+    // 但 AvatarManager 內部會檢查：如果該玩家正在移動中 (isMoving=true)，則會忽略此指令
     if (nextPlayerId) AvatarManager.setState(nextPlayerId, 'ready');
 
     if (nextPlayerId === myId) {
+        rollBtn.removeAttribute('disabled');
         rollBtn.disabled = false;
-        rollBtn.innerText = "🎲 按我擲骰！";
-        rollBtn.className = "board-btn btn-green"; // 變綠色
+        rollBtn.innerText = "🎲 輪到你了！按此擲骰";
+        rollBtn.className = "board-btn btn-green";
         rollBtn.style.cursor = "pointer";
     } else {
+        rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
-        rollBtn.innerText = "等待對手...";
-        rollBtn.className = "board-btn btn-grey"; // 變灰色
+        rollBtn.innerText = "等待其他玩家...";
+        rollBtn.className = "board-btn btn-grey"; 
         rollBtn.style.cursor = "not-allowed";
     }
 
@@ -195,10 +227,12 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const isMe = (playerId === myId);
     isAnimating = true; 
 
-    // 1. 收到指令，立刻讓角色變成「跑步狀態」 (動作 3, 4 循環)
+    // 1. 鎖定狀態：標記此玩家正在移動中
+    AvatarManager.movingStatus[playerId] = true;
+
+    // 2. 強制設定為跑步狀態 (忽略任何 ready 指令)
     AvatarManager.setState(playerId, 'run');
 
-    // 更新訊息
     if (isMe) {
         gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`;
     } else {
@@ -207,34 +241,34 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
         gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`;
     }
 
-    // 2. 執行移動 (CSS transition 會處理滑順效果)
-    if (avatarContainer) {
-        // 播放音效
-        SynthEngine.playStep();
-        
-        // 計算新位置
-        const percent = (newPos / 22) * 100; 
-        avatarContainer.style.left = `${percent}%`;
-    }
-
-    // 3. 設定計時器，等移動動畫結束後 (約 1 秒)，才變回站立或勝利
-    // (CSS transition 設定是 0.8s，我們抓 1000ms 比較保險)
     setTimeout(() => {
-        isAnimating = false;
-        
-        // 判斷是否到達終點
-        if (newPos >= 21) {
-            AvatarManager.setState(playerId, 'win'); // 動作 5, 1 循環
-        } else {
-            AvatarManager.setState(playerId, 'idle'); // 恢復站立 動作 1
+        if (avatarContainer) {
+            SynthEngine.playStep();
+            const percent = (newPos / 22) * 100; 
+            avatarContainer.style.left = `${percent}%`;
         }
         
-        // 恢復按鈕文字提示
-        if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
-            gameMsg.innerText = "等待對手行動中...";
-            gameMsg.style.color = "#333";
-        }
-    }, 1000); 
+        // 3. 移動結束後的處理 (1秒後)
+        setTimeout(() => {
+            isAnimating = false;
+            
+            // 解除鎖定
+            AvatarManager.movingStatus[playerId] = false;
+
+            if (newPos < 21) {
+                // 如果還沒到終點，強制恢復站立 (idle)
+                // 這會覆蓋掉 update_turn 可能造成的 ready
+                AvatarManager.setState(playerId, 'idle');
+            } else {
+                AvatarManager.setState(playerId, 'win');
+            }
+            
+            if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
+                gameMsg.innerText = "等待對手行動中...";
+                gameMsg.style.color = "#fff";
+            }
+        }, 1000); 
+    }, 1000); // 確保這裡延遲足夠讓動畫跑起來
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
@@ -265,7 +299,6 @@ socket.on('game_over', ({ rankings }) => {
             if (p.rank === 2) medal = '🥈';
             if (p.rank === 3) medal = '🥉';
             
-            // 🖼️ 這裡加入角色勝利圖
             const charType = AvatarManager.getCharType(p.id);
             const imgHtml = `<img src="images/avatar_${charType}_5.png" style="width:32px; height:32px; vertical-align:middle; margin-right:10px;">`;
             
@@ -285,6 +318,7 @@ socket.on('force_reload', () => {
 });
 
 socket.on('game_reset_positions', () => {
+    AvatarManager.movingStatus = {}; // 重置所有移動狀態
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'idle');
