@@ -3,75 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Square Run - 老師後台</title>
+    <title>Square Run - Teacher</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        #admin-panel { background: #333; color: white; padding: 15px; margin-bottom: 20px; border-radius: 8px;}
-        .admin-btn { padding: 8px 15px; margin-right: 10px; font-weight: bold;}
-        .btn-start { background-color: #28a745; }
-        .btn-restart { background-color: #fd7e14; color: white; } 
-        .btn-reset { background-color: #dc3545; }
-        
-        #initiative-list {
-            margin-top: 15px;
-            padding: 10px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 5px;
-            text-align: left;
-            font-size: 0.9rem;
-            max-height: 150px;
-            overflow-y: auto;
-            display: none;
-        }
-        #initiative-list h3 { margin: 0 0 5px 0; font-size: 1rem; color: #ffc107; }
-        #initiative-list ul { padding-left: 20px; margin: 0; }
-        #initiative-list li { margin-bottom: 3px; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
-
-    <button id="mute-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: rgba(255,255,255,0.9); border: 2px solid #333; color: #333; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.1s;">
-        🔊
-    </button>
+    <button id="mute-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">🔊</button>
 
     <div id="modal-overlay" class="hidden">
         <div class="modal-content">
-            <h2 id="modal-title" class="modal-title">標題</h2>
-            <div id="modal-body" class="modal-body">內容</div>
-            <div id="modal-actions" style="margin-top:20px;">
-                <button id="modal-btn-confirm" class="modal-btn">確定</button>
-                <button id="modal-btn-cancel" class="modal-btn cancel hidden">取消</button>
+            <h2 id="modal-title">標題</h2>
+            <div id="modal-body">內容</div>
+            <div style="margin-top:20px;">
+                <button id="modal-btn-confirm" style="background:#e74c3c; color:white; width:100px;">確定</button>
+                <button id="modal-btn-cancel" class="hidden" style="background:#95a5a6; color:white; width:100px;">取消</button>
             </div>
         </div>
     </div>
 
-    <div id="admin-controls">
+    <div id="stadium-wrapper">
+        <div id="audience-top" class="audience-section"></div>
+        <div id="game-scroll-area">
+            <div id="track-container"></div>
+        </div>
+        <div id="audience-bottom" class="audience-section"></div>
+    </div>
+
+    <div id="ui-layer">
         <div id="admin-panel">
-            <h2>👨‍🏫 老師控制台</h2>
+            <h2 style="font-size:1rem; margin:0 0 10px 0;">👨‍🏫 TEACHER CONTROL</h2>
             <div style="margin-bottom: 10px;">
-                <button class="admin-btn btn-start" id="start-btn">🚀 開始遊戲</button>
-                <button class="admin-btn btn-restart" id="restart-btn" disabled>↩️ 回起跑線 (下一局)</button>
+                <button id="start-btn" style="background:#27ae60; color:white; padding:10px;">🚀 START GAME</button>
+                <button id="restart-btn" disabled style="background:#e67e22; color:white; padding:10px;">↩️ RESTART</button>
             </div>
-            
-            <div style="border-top: 1px dashed #555; padding-top: 10px; margin-top: 10px;">
-                <button class="admin-btn btn-reset" id="reset-btn">⚠️ 踢除所有玩家</button>
+            <div style="border-top: 1px dashed #555; padding-top: 10px;">
+                <button id="reset-btn" style="background:#c0392b; color:white; padding:5px 10px; font-size:0.8rem;">⚠️ KICK ALL</button>
             </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                <p style="margin:0;">目前玩家數: <span id="player-count">0</span> / 10</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size:0.8rem;">
+                <p style="margin:0;">Players: <span id="player-count">0</span> / 10</p>
             </div>
-
             <div id="initiative-list">
-                <h3>🎲 初始擲骰順序結果：</h3>
-                <ul id="initiative-ul"></ul>
+                <h3 style="margin:0; font-size:0.8rem; color:#f1c40f;">🎲 ROLL ORDER</h3>
+                <ul id="initiative-ul" style="padding-left:20px; margin:5px 0;"></ul>
             </div>
         </div>
-
-        <div id="game-status-bar" style="text-align: center; margin: 15px 0; font-size: 1.5rem; font-weight: bold; color: #333; height: 30px;">
-            <span id="live-msg">等待遊戲開始...</span>
+        <div id="status-bar" style="padding:5px;">
+            <span id="live-msg" style="font-size:0.9rem;">Waiting...</span>
         </div>
-
-        <div id="track-container"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

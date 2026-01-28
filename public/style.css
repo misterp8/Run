@@ -1,189 +1,206 @@
 :root {
-    --track-cols: 22;  /* 總格數 */
+    --track-cols: 22;
+    --cell-size: 50px; /* 基礎格子大小 */
 }
 
-/* --- 全域設定：確保寬度計算包含 Padding --- */
-* {
-    box-sizing: border-box; 
-}
+* { box-sizing: border-box; user-select: none; }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Press Start 2P', 'Segoe UI', cursive, sans-serif; /* 建議引入像素字體 */
     margin: 0;
-    padding: 10px; /* 稍微縮小邊距 */
-    background-color: #f0f2f5;
-    text-align: center;
-    overflow-x: hidden; /* 防止整個頁面出現橫向卷軸 */
-}
-
-h1 { color: #333; margin: 10px 0; font-size: 1.5rem; }
-
-/* 隱藏元素用 */
-.hidden { display: none !important; }
-
-/* 容器樣式 */
-#lobby-screen, #game-screen, #admin-controls {
-    max-width: 100%; /* 改為 100% 以適應各種螢幕 */
-    width: 1200px;   /* 最大限制，避免在大螢幕太寬 */
-    margin: 0 auto;
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-
-input, button {
-    padding: 10px 20px;
-    font-size: 16px;
-    margin: 5px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-}
-
-button {
-    cursor: pointer;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    transition: background 0.3s;
-}
-
-button:hover { background-color: #0056b3; }
-button:disabled { background-color: #ccc; cursor: not-allowed; }
-
-#roll-btn {
-    background-color: #28a745;
-    font-size: 18px;
-    padding: 12px 30px;
-    margin-top: 15px;
-    width: 100%;         /* 手機版按鈕大一點比較好按 */
-    max-width: 300px;    /* 但不要大得太誇張 */
-}
-
-/* 跑道與人物 */
-#track-container {
-    margin-top: 20px;
+    padding: 0;
+    background-color: #2c3e50; /* 深色背景襯托 */
+    color: #333;
+    overflow: hidden; /* 隱藏捲軸，由內部容器處理 */
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    width: 100%;       /* 強制寬度 100% */
-    overflow: hidden;  /* 隱藏溢出，確保不出現卷軸 */
 }
 
+/* 隱藏元素 */
+.hidden { display: none !important; }
+
+/* --- 體育場整體容器 (Stadium Layout) --- */
+#stadium-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    max-width: 1400px; /* 限制最大寬度 */
+    margin: 0 auto;
+    background-color: #5d9e36; /* 草地底色 */
+    background-image: url('images/map_grass.png'); /* 草皮紋理 */
+    background-size: 64px 64px; /* 縮小一點紋理 */
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+/* --- 上方觀眾席 --- */
+.audience-section {
+    height: 80px; /* 觀眾席高度 */
+    width: 100%;
+    background-repeat: repeat-x;
+    background-size: auto 100%;
+    z-index: 50;
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+#audience-top {
+    border-bottom: 4px solid #333;
+    background-color: #444; /* 預載底色 */
+}
+
+#audience-bottom {
+    border-top: 4px solid #333;
+    background-color: #444;
+}
+
+/* --- 中間跑道捲動區 --- */
+#game-scroll-area {
+    flex: 1; /* 佔滿剩餘空間 */
+    overflow-y: auto; /* 允許垂直捲動 */
+    overflow-x: hidden;
+    padding: 20px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* 跑道間距 */
+}
+
+/* --- 跑道列 (Track Row) --- */
 .track-row {
     display: grid;
-    /* 關鍵修正：使用 minmax(0, 1fr) 強制壓縮格子以適應螢幕 */
-    grid-template-columns: repeat(var(--track-cols), minmax(0, 1fr)); 
-    gap: 2px;
-    background: #eee;
-    padding: 4px;
-    border-radius: 4px;
+    grid-template-columns: repeat(var(--track-cols), 1fr); 
+    height: 60px; /* 跑道高度 */
     position: relative;
-    height: 40px;      /* 稍微調矮一點，讓畫面能容納更多人 */
-    align-items: center;
-    width: 100%;       /* 確保跑道不超過容器 */
-}
-
-/* 終點線樣式 (改為內縮顯示，避免突出導致卷軸) */
-.track-row::after {
-    content: "🏁";
-    position: absolute;
-    right: -5px;     /* 微調位置 */
-    font-size: 1.2rem;
-    z-index: 5;
-    opacity: 0.5;
-}
-
-.grid-cell {
-    background: #fff;
-    height: 100%;
-    border-right: 1px dashed #ddd;
     width: 100%;
+    align-items: end; /* 人物站在跑道底部 */
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); /* 跑道陰影 */
 }
-.grid-cell:nth-child(22) { border-right: none; background: #ffeeba; }
 
-.avatar {
+/* --- 跑道格子材質 --- */
+.grid-cell {
+    width: 100%;
+    height: 100%;
+    background-size: 100% 100%;
+    image-rendering: pixelated; /* 強制像素清晰 */
+}
+
+/* 統一設定跑道貼圖 */
+.grid-cell { background-image: url('images/map_runway.png'); }
+.grid-cell:first-child { background-image: url('images/map_start.png'); }
+.grid-cell:last-child { background-image: url('images/map_finish.png'); }
+
+/* --- 角色 Avatar --- */
+.avatar-container {
     position: absolute;
-    /* 確保寬度剛好佔一格 */
-    width: calc(100% / var(--track-cols)); 
-    height: 80%;
-    background-color: #333;
-    color: white;
-    
-    /* 讓字體自適應，避免在手機上名字爆開 */
-    font-size: clamp(8px, 1.5vw, 12px); 
+    width: calc(100% / var(--track-cols) * 1.5); /* 人物稍微比格子大一點 (1.5倍) */
+    height: 140%; /* 高度也拉高，避免太小 */
+    bottom: 10px; /* 腳底對齊位置 */
+    left: 0%;
+    z-index: 100;
+    transition: left 0.8s cubic-bezier(0.25, 0.1, 0.25, 1); /* 平滑移動 */
     
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    border: 1px solid white; /* 邊框改細 */
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    z-index: 10;
-    transition: left 1s cubic-bezier(0.25, 1, 0.5, 1); 
-    left: 0%;
-    
-    white-space: nowrap; /* 禁止換行 */
-    overflow: hidden;    /* 超出隱藏 */
-    text-overflow: ellipsis; /* 變成 ... */
+    justify-content: flex-end;
 }
 
-/* 錯誤文字 */
-.error-text {
-    color: #dc3545;
-    font-size: 0.9rem;
-    margin-top: 5px;
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3));
+}
+
+/* --- 名字標籤 (人物左側) --- */
+.name-tag {
+    position: absolute;
+    left: -5px;
+    bottom: 20%;
+    transform: translateX(-100%); /* 往左推 */
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    border: 1px solid rgba(255,255,255,0.3);
+    pointer-events: none;
+    z-index: 101;
+}
+
+/* 特殊處理：如果在起點(0)，名字改放頭上，不然會被切掉 */
+.avatar-container[style*="left: 0%"] .name-tag {
+    left: 50%;
+    bottom: 100%;
+    transform: translateX(-50%);
+}
+
+/* --- UI 控制面板 (浮動在畫面上層) --- */
+#ui-layer {
+    position: absolute;
+    top: 90px; /* 避開觀眾席 */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    width: 90%;
+    max-width: 600px;
+    pointer-events: none; /* 讓點擊穿透 */
+}
+
+#lobby-screen, #admin-panel, #status-bar {
+    pointer-events: auto; /* 恢復點擊 */
+    background: rgba(255, 255, 255, 0.95);
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    margin-bottom: 10px;
+    text-align: center;
+    border: 2px solid #333;
+}
+
+/* 按鈕樣式優化 */
+button {
+    font-family: inherit;
+    border: 2px solid #000;
+    box-shadow: 2px 2px 0 #000;
+    transition: all 0.1s;
     font-weight: bold;
-    min-height: 20px;
+    text-transform: uppercase;
+}
+button:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 #000;
+}
+button:disabled {
+    box-shadow: none;
+    border-color: #888;
+    background-color: #ccc !important;
 }
 
 /* --- Modal 樣式 --- */
 #modal-overlay {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex; justify-content: center; align-items: center;
     z-index: 9999;
-    backdrop-filter: blur(5px);
 }
-
 .modal-content {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-    text-align: center;
-    max-width: 400px;
-    width: 85%; /* 手機版寬度 */
-    animation: popIn 0.3s ease-out;
+    background: #fff; padding: 20px; border-radius: 10px;
+    border: 4px solid #333;
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+    text-align: center; max-width: 400px; width: 90%;
 }
 
-.modal-title { font-size: 1.5rem; margin-bottom: 10px; color: #333; }
-.modal-body { font-size: 1.1rem; color: #555; margin-bottom: 20px; white-space: pre-line; }
-.modal-btn { background: #007bff; width: 100%; font-size: 1.1rem; }
-.modal-btn.danger { background: #dc3545; }
-.modal-btn.cancel { background: #6c757d; margin-top: 10px;}
+/* 錯誤文字 */
+.error-text { color: #e74c3c; font-weight: bold; margin-top: 5px; }
 
-@keyframes popIn {
-    0% { transform: scale(0.8); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-/* 老師端排名清單 */
+/* 排行榜 */
 #initiative-list {
-    margin-top: 15px;
-    padding: 10px;
-    background: rgba(0,0,0,0.05); /* 改深一點點 */
-    border-radius: 5px;
-    text-align: left;
-    font-size: 0.9rem;
-    max-height: 150px;
-    overflow-y: auto;
-    display: none;
+    background: rgba(0,0,0,0.05); padding: 10px; border-radius: 4px;
+    text-align: left; max-height: 120px; overflow-y: auto; display: none;
 }
-#initiative-list h3 { margin: 0 0 5px 0; font-size: 1rem; color: #d63384; } /* 改顏色 */
-#initiative-list ul { padding-left: 20px; margin: 0; }
-#initiative-list li { margin-bottom: 3px; }

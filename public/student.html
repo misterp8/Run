@@ -3,52 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Square Run - 學生端</title>
+    <title>Square Run Online</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
 
+    <button id="mute-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">🔊</button>
+
     <div id="modal-overlay" class="hidden">
         <div class="modal-content">
-            <h2 id="modal-title" class="modal-title">標題</h2>
-            <div id="modal-body" class="modal-body">內容</div>
-            <button id="modal-btn" class="modal-btn">確定</button>
+            <h2 id="modal-title">標題</h2>
+            <div id="modal-body">內容</div>
+            <button id="modal-btn" class="modal-btn" style="margin-top:15px; width:100%; background:#3498db; color:white;">確定</button>
         </div>
     </div>
 
-    <button id="mute-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: rgba(255,255,255,0.9); border: 2px solid #333; color: #333; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.1s;">
-        🔊
-    </button>
+    <div id="stadium-wrapper">
+        <div id="audience-top" class="audience-section"></div>
 
-    <div id="lobby-screen">
-        <h1>Square Run Online 🏃‍♂️</h1>
-        <p>輸入名字加入比賽</p>
-        <input type="text" id="username" placeholder="你的名字" maxlength="8">
-        <button id="join-btn">加入遊戲</button>
-        
-        <div id="login-error" class="error-text"></div>
+        <div id="game-scroll-area">
+            <div id="track-container"></div>
+        </div>
 
-        <div id="waiting-msg" class="hidden">
-            <div id="lobby-status-text">
-                <p>✅ 已加入！等待老師開始遊戲...</p>
+        <div id="audience-bottom" class="audience-section"></div>
+    </div>
+
+    <div id="ui-layer">
+        <div id="lobby-screen">
+            <h1 style="font-size:1.2rem; margin-bottom:10px;">SQUARE RUN 🏃</h1>
+            <input type="text" id="username" placeholder="輸入名字 (MAX 8)" maxlength="8" style="width:70%;">
+            <button id="join-btn" style="background:#2ecc71; color:white;">JOIN GAME</button>
+            <div id="login-error" class="error-text"></div>
+            
+            <div id="waiting-msg" class="hidden">
+                <div id="lobby-status-text">
+                    <p>✅ 已加入！等待老師...</p>
+                </div>
+                <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
+                <ul id="player-list-ul" style="text-align:left; font-size:0.8rem; padding-left:20px;"></ul>
             </div>
-            
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
-            
-            <h3>目前玩家列表：</h3>
-            <ul id="player-list-ul" style="text-align: left;"></ul>
         </div>
-    </div>
 
-    <div id="game-screen" class="hidden">
-        <div id="status-bar" style="background: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-weight: bold; font-size: 1.2rem;">
-            <span id="game-msg">遊戲進行中...</span>
-        </div>
-        
-        <div id="track-container"></div>
-
-        <div id="control-area">
-            <button id="roll-btn" disabled>🎲 等待對手...</button>
+        <div id="game-screen" class="hidden">
+            <div id="status-bar">
+                <span id="game-msg">遊戲進行中...</span>
+            </div>
+            <button id="roll-btn" disabled style="width:100%; padding:15px; font-size:1.2rem; background:#ccc; margin-top:10px;">
+                🎲 等待對手...
+            </button>
         </div>
     </div>
 
