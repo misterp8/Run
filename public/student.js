@@ -1,4 +1,3 @@
-// 使用自動偵測模式，避免網址寫死導致連不上
 const socket = io(); 
 
 const lobbyScreen = document.getElementById('lobby-screen');
@@ -71,8 +70,8 @@ const AudienceManager = {
         this.interval = setInterval(() => { this.toggle = (this.toggle === 1) ? 2 : 1; this.updateBg(); }, 800);
     },
     updateBg() {
-        this.topDiv.style.backgroundImage = `url('images/audience_up_${this.toggle}.png')`;
-        this.btmDiv.style.backgroundImage = `url('images/audience_down_${this.toggle}.png')`;
+        if(this.topDiv) this.topDiv.style.backgroundImage = `url('images/audience_up_${this.toggle}.png')`;
+        if(this.btmDiv) this.btmDiv.style.backgroundImage = `url('images/audience_down_${this.toggle}.png')`;
     }
 };
 AudienceManager.start();
@@ -105,8 +104,8 @@ function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
 }
 
 socket.on('connect', () => {
-    console.log('連線成功！');
-    // 如果之前有點擊過加入，這裡可以考慮自動重連邏輯，但目前先保持簡單
+    myId = socket.id; // 連線時確保 ID 寫入
+    console.log('連線成功, ID:', myId);
 });
 
 joinBtn.addEventListener('click', () => {
@@ -126,7 +125,7 @@ socket.on('error_msg', (msg) => {
 socket.on('update_player_list', (players) => {
     const me = players.find(p => p.id === socket.id);
     if (me) {
-        myId = socket.id; // 確保取得 ID
+        myId = socket.id;
         joinBtn.classList.add('hidden');
         usernameInput.classList.add('hidden');
         waitingMsg.classList.remove('hidden');
@@ -157,11 +156,13 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
     if (nextPlayerId) AvatarManager.setState(nextPlayerId, 'ready');
 
     if (nextPlayerId === myId) {
+        rollBtn.removeAttribute('disabled'); // 強制移除 disabled
         rollBtn.disabled = false;
         rollBtn.innerText = "🎲 輪到你了！按此擲骰";
         rollBtn.style.backgroundColor = "#27ae60"; 
         rollBtn.style.cursor = "pointer";
     } else {
+        rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
         rollBtn.innerText = "等待其他玩家...";
         rollBtn.style.backgroundColor = "#95a5a6"; 
@@ -179,15 +180,15 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
     }
 });
 
-// --- 修復點：點擊事件 ---
 rollBtn.addEventListener('click', () => {
-    console.log('Roll button clicked');
-    // 1. 發送指令
+    // 雙重檢查
+    if (rollBtn.disabled) return;
+    
     socket.emit('action_roll');
-    // 2. 視覺回饋 (立即鎖定，防止連點)
+    
+    // 立即鎖定給回饋
     rollBtn.disabled = true;
     rollBtn.innerText = "📡 傳送中...";
-    // 3. 播放音效
     SynthEngine.playRoll();
 });
 
@@ -224,7 +225,6 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
                 AvatarManager.setState(playerId, 'win');
             }
             
-            // 如果按鈕還沒被隱藏，恢復等待狀態文字
             if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
                 gameMsg.innerText = "等待對手行動中...";
                 gameMsg.style.color = "#333";
