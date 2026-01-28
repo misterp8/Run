@@ -1,6 +1,6 @@
 const socket = io(); 
 
-// --- DOM 元素 ---
+// DOM
 const loginOverlay = document.getElementById('login-overlay');
 const scoreboardHeader = document.getElementById('scoreboard-header');
 const stadiumWrapper = document.getElementById('stadium-wrapper');
@@ -9,56 +9,92 @@ const joinBtn = document.getElementById('join-btn');
 const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
-const loginError = document.getElementById('login-error');
-
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 const modalBtn = document.getElementById('modal-btn');
-const modalContent = document.querySelector('.modal-content'); 
+const modalContent = document.querySelector('.modal-content');
 
 let myId = null;
 let isAnimating = false; 
 const PLAYER_POSITIONS = {}; 
 
+// 圖片預載
 const CHAR_TYPES = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
-const PRELOADED_IMGS = {};
 function preloadImages() {
     CHAR_TYPES.forEach(char => {
         for(let i=1; i<=5; i++) {
             const img = new Image();
             img.src = `images/avatar_${char}_${i}.png`;
-            PRELOADED_IMGS[`${char}_${i}`] = img;
         }
     });
 }
 preloadImages();
 
-// --- 🎲 3D 骰子管理器 (加大尺寸版) ---
+// --- 🎲 3D 骰子 (邏輯修正) ---
 const DiceManager = {
     overlay: document.getElementById('dice-overlay'),
     cube: document.getElementById('dice-cube'),
-    rotations: {
-        1: [0, 0], 2: [0, -90], 3: [0, -180], 4: [0, 90], 5: [-90, 0], 6: [90, 0]
-    },
+    // 記錄目前的旋轉角度，確保每次都是累加
+    currentX: 0,
+    currentY: 0,
+
     async roll(targetNumber) {
         return new Promise((resolve) => {
             this.overlay.classList.add('active');
-            const randX = Math.floor(Math.random() * 4) * 360; 
-            const randY = Math.floor(Math.random() * 4) * 360;
-            this.cube.style.transition = 'none';
-            this.cube.style.transform = `rotateX(${randX}deg) rotateY(${randY}deg)`;
-            void this.cube.offsetWidth;
+            
+            // 播放聲音
             SynthEngine.playRoll();
-            const [targetX, targetY] = this.rotations[targetNumber];
-            const extraSpins = 1080; // 轉3圈
+
+            // 定義每一面的旋轉目標 (X, Y)
+            // 1: (0,0), 2: (0,-90), 3: (0,180), 4: (0,90), 5: (-90,0), 6: (90,0)
+            const targetRotations = {
+                1: {x: 0, y: 0},
+                2: {x: 0, y: -90},
+                3: {x: 0, y: 180}, // 注意方向
+                4: {x: 0, y: 90},
+                5: {x: -90, y: 0},
+                6: {x: 90, y: 0}
+            };
+
+            const target = targetRotations[targetNumber];
+            
+            // 隨機增加 2~4 圈 (360 * n)，確保旋轉動畫發生
+            const extraX = 360 * (Math.floor(Math.random() * 3) + 2);
+            const extraY = 360 * (Math.floor(Math.random() * 3) + 2);
+
+            // 算出絕對目標角度
+            // 這裡的邏輯是：將目前的角度歸零到「模360」的狀態，然後加上目標和圈數
+            // 為了簡單且保證正確，我們直接累加
+            // 我們不需重置 currentX，直接算差值？不，直接賦予新值最穩
+            // 但要確保不會「倒著轉」回去，所以要一直往上加
+            
+            // 簡單暴力法：每次都設定一個很大的新值
+            // 我們需要紀錄上一輪結束在哪個「面」，比較複雜
+            // 改用相對累加法：
+            
+            this.currentX += extraX; 
+            this.currentY += extraY;
+
+            // 修正：最後要停在 target.x, target.y
+            // 我們可以讓 currentX 變成 (N * 360) + target.x
+            // 找出最近的「N * 360 + target」且大於當前值
+            
+            const nextX = Math.ceil(this.currentX / 360) * 360 + target.x + 360; // 多加一圈保險
+            const nextY = Math.ceil(this.currentY / 360) * 360 + target.y + 360;
+
+            this.currentX = nextX;
+            this.currentY = nextY;
+
             this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
-            this.cube.style.transform = `rotateX(${targetX + extraSpins}deg) rotateY(${targetY + extraSpins}deg) translateZ(0)`;
+            this.cube.style.transform = `rotateX(${this.currentX}deg) rotateY(${this.currentY}deg)`;
+
+            // 等待動畫結束
             setTimeout(() => {
                 setTimeout(() => {
                     this.overlay.classList.remove('active');
                     resolve(); 
-                }, 500);
+                }, 800); // 停久一點讓大家看清楚
             }, 1500);
         });
     }
@@ -79,16 +115,21 @@ const ConfettiManager = {
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
-    getCharType(id) {
-        let hash = 0;
-        for (let i = 0; i < id.length; i++) hash += id.charCodeAt(i);
-        return CHAR_TYPES[hash % CHAR_TYPES.length];
+    
+    // 現在直接用 server 分配的 avatarChar，不需要計算了
+    // 但保留函式結構以免報錯，或是給 renderTracks 使用
+    getCharType(p) {
+        return p.avatarChar || 'a'; // 優先使用 server 分配的
     },
-    setState(playerId, state) {
+
+    setState(playerId, state, charType) {
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
         const img = document.getElementById(`img-${playerId}`);
         if (!img) return;
-        const charType = img.dataset.char;
+        
+        // 如果沒有傳入 charType，嘗試從 DOM 讀取
+        if (!charType) charType = img.dataset.char;
+
         if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
         switch (state) {
             case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
@@ -150,7 +191,7 @@ const SynthEngine = {
 document.getElementById('mute-btn').addEventListener('click', ()=>SynthEngine.toggleMute());
 
 function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
-    modalContent.className = "modal-content"; // 重置樣式
+    modalContent.className = "modal-content"; // 重置
     modalTitle.innerText = title;
     modalBody.innerHTML = text;
     modalBtn.innerText = btnText;
@@ -187,11 +228,15 @@ socket.on('update_player_list', (players) => {
     renderTracks(players);
 });
 
+// 修正：抽籤結果只顯示文字
 socket.on('show_initiative', (sortedPlayers) => {
-    const myData = sortedPlayers.find(p => p.id === socket.id);
-    const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
-    gameMsg.innerHTML = `🎲 擲骰順序：你擲出 <span style="color:#fff">${myData.initRoll}</span> 點，排第 ${myRank} 位`;
-    SynthEngine.playRoll();
+    let msg = "🎲 抽籤決定順序：\n";
+    sortedPlayers.forEach((p, i) => {
+        msg += `${i+1}. ${p.name} `;
+        if((i+1)%3 === 0) msg += "\n";
+    });
+    gameMsg.innerText = msg;
+    // 這裡不需播骰子動畫，純文字展示
 });
 
 socket.on('game_start', () => {
@@ -199,7 +244,7 @@ socket.on('game_start', () => {
     SynthEngine.playBGM();
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
-        AvatarManager.setState(id, 'ready');
+        AvatarManager.setState(id, 'ready', img.dataset.char);
     });
 });
 
@@ -209,9 +254,10 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
         const id = img.id.replace('img-', '');
         const currentPos = PLAYER_POSITIONS[id] || 0;
         if (id === nextPlayerId) {
-            if (currentPos === 0) AvatarManager.setState(id, 'ready'); else AvatarManager.setState(id, 'idle');
+            if (currentPos === 0) AvatarManager.setState(id, 'ready', img.dataset.char); 
+            else AvatarManager.setState(id, 'idle', img.dataset.char);
         } else {
-            if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle');
+            if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle', img.dataset.char);
         }
     });
 
@@ -248,8 +294,9 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
+// --- 核心流程：擲骰 -> 移動 -> 判斷勝利 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    // 1. 等待 3D 骰子
+    // 1. 3D 骰子演出
     await DiceManager.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -258,7 +305,12 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 
     PLAYER_POSITIONS[playerId] = newPos;
     AvatarManager.movingStatus[playerId] = true;
-    AvatarManager.setState(playerId, 'run');
+    
+    // 取得角色類型
+    const img = document.getElementById(`img-${playerId}`);
+    const charType = img ? img.dataset.char : 'a';
+
+    AvatarManager.setState(playerId, 'run', charType);
 
     if (isMe) {
         gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`;
@@ -277,11 +329,15 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
         setTimeout(() => {
             isAnimating = false;
             AvatarManager.movingStatus[playerId] = false;
+
             if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle');
+                AvatarManager.setState(playerId, 'idle', charType);
             } else {
-                AvatarManager.setState(playerId, 'win'); // 單人到達終點，先歡呼
+                AvatarManager.setState(playerId, 'win', charType);
+                // 這裡可以選擇是否針對個人噴紙花
+                // ConfettiManager.shoot(); 
             }
+            
             if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
                 gameMsg.innerText = "等待對手行動中...";
                 gameMsg.style.color = "#fff";
@@ -291,28 +347,32 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
+    // 延遲到移動動畫結束後才執行
     setTimeout(() => {
         SynthEngine.playWin(); 
-        AvatarManager.setState(player.id, 'win');
+        AvatarManager.setState(player.id, 'win', player.avatarChar);
+        // 單人慶祝
+        ConfettiManager.shoot();
+
         if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
             rollBtn.innerText = "🏆 已完賽";
         } else {
             gameMsg.innerText = `🏁 ${player.name} 奪得第 ${rank} 名！`;
         }
-    }, 1500); // 這裡的時間是「跑完步」之後多久顯示
+    }, 2500); // 確保在移動結束後 (1s move + 1.5s delay)
 });
 
 socket.on('game_over', ({ rankings }) => {
-    // 1. 先讓最後一個人跑完並歡呼，延遲 2.5 秒
+    // 延遲確保最後一個人跑完
     setTimeout(() => {
-        ConfettiManager.shoot(); // 噴紙花
+        ConfettiManager.shoot();
         SynthEngine.playWin();
         rollBtn.classList.add('hidden');
         gameMsg.innerText = `🏆 遊戲結束！`;
-        rankings.forEach(r => AvatarManager.setState(r.id, 'win'));
+        
+        rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
 
-        // 2. 再延遲 3 秒顯示豪華榜單
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {
@@ -321,7 +381,8 @@ socket.on('game_over', ({ rankings }) => {
                 if (p.rank === 2) medal = '<span class="rank-medal">🥈</span>';
                 if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
                 
-                const charType = AvatarManager.getCharType(p.id);
+                // 使用 server 記錄的 avatarChar
+                const charType = p.avatarChar || 'a';
                 const imgHtml = `<img class="rank-avatar" src="images/avatar_${charType}_5.png">`;
                 
                 rankHtml += `<li class="rank-item">
@@ -344,9 +405,10 @@ socket.on('game_reset_positions', () => {
     modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {};
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
+    
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
-        AvatarManager.setState(id, 'idle');
+        AvatarManager.setState(id, 'idle', img.dataset.char);
     });
     modalOverlay.classList.add('hidden');
     gameMsg.innerText = "準備開始新的一局...";
@@ -357,14 +419,10 @@ socket.on('game_reset_positions', () => {
     SynthEngine.stopBGM();
 });
 
-// --- 🛠️ 關鍵修正：排序渲染 ---
 function renderTracks(players) {
     trackContainer.innerHTML = ''; 
-    
-    // 強制排序：根據 ID 排序，確保老師端和學生端看到的順序永遠一致且不跳動
-    const sortedPlayers = [...players].sort((a, b) => a.id.localeCompare(b.id));
-
-    sortedPlayers.forEach(p => {
+    // ❗重點：完全不排序，依照 players 原始順序 (加入順序) 渲染
+    players.forEach(p => {
         PLAYER_POSITIONS[p.id] = p.position;
 
         const row = document.createElement('div');
@@ -379,7 +437,10 @@ function renderTracks(players) {
         avatarContainer.id = `avatar-${p.id}`;
         const percent = (p.position / 22) * 100;
         avatarContainer.style.left = `${percent}%`;
-        const charType = AvatarManager.getCharType(p.id);
+
+        // 使用 server 分配的角色
+        const charType = p.avatarChar || 'a';
+
         const img = document.createElement('img');
         img.className = 'avatar-img';
         img.id = `img-${p.id}`;
@@ -398,6 +459,7 @@ function renderTracks(players) {
         avatarContainer.appendChild(img);
         row.appendChild(avatarContainer);
         trackContainer.appendChild(row);
-        if(p.position >= 21) AvatarManager.setState(p.id, 'win');
+        
+        if(p.position >= 21) AvatarManager.setState(p.id, 'win', charType);
     });
 }

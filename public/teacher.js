@@ -35,27 +35,26 @@ preloadImages();
 const DiceManager = {
     overlay: document.getElementById('dice-overlay'),
     cube: document.getElementById('dice-cube'),
-    rotations: {
-        1: [0, 0], 2: [0, -90], 3: [0, -180], 4: [0, 90], 5: [-90, 0], 6: [90, 0]
-    },
+    currentX: 0, currentY: 0, // 狀態記憶
     async roll(targetNumber) {
         return new Promise((resolve) => {
             this.overlay.classList.add('active');
-            const randX = Math.floor(Math.random() * 4) * 360; 
-            const randY = Math.floor(Math.random() * 4) * 360;
-            this.cube.style.transition = 'none';
-            this.cube.style.transform = `rotateX(${randX}deg) rotateY(${randY}deg)`;
-            void this.cube.offsetWidth;
             SynthEngine.playRoll();
-            const [targetX, targetY] = this.rotations[targetNumber];
-            const extraSpins = 1080; 
+            const targetRotations = { 1: {x:0,y:0}, 2: {x:0,y:-90}, 3: {x:0,y:180}, 4: {x:0,y:90}, 5: {x:-90,y:0}, 6: {x:90,y:0} };
+            const target = targetRotations[targetNumber];
+            const extraX = 360 * (Math.floor(Math.random() * 3) + 2);
+            const extraY = 360 * (Math.floor(Math.random() * 3) + 2);
+            
+            this.currentX += extraX; 
+            this.currentY += extraY;
+            const nextX = Math.ceil(this.currentX / 360) * 360 + target.x + 360;
+            const nextY = Math.ceil(this.currentY / 360) * 360 + target.y + 360;
+            this.currentX = nextX; this.currentY = nextY;
+
             this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
-            this.cube.style.transform = `rotateX(${targetX + extraSpins}deg) rotateY(${targetY + extraSpins}deg) translateZ(0)`;
+            this.cube.style.transform = `rotateX(${nextX}deg) rotateY(${nextY}deg)`;
             setTimeout(() => {
-                setTimeout(() => {
-                    this.overlay.classList.remove('active');
-                    resolve(); 
-                }, 500);
+                setTimeout(() => { this.overlay.classList.remove('active'); resolve(); }, 800);
             }, 1500);
         });
     }
@@ -76,16 +75,12 @@ const ConfettiManager = {
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
-    getCharType(id) {
-        let hash = 0;
-        for (let i = 0; i < id.length; i++) hash += id.charCodeAt(i);
-        return CHAR_TYPES[hash % CHAR_TYPES.length];
-    },
-    setState(playerId, state) {
+    getCharType(p) { return p.avatarChar || 'a'; },
+    setState(playerId, state, charType) {
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
         const img = document.getElementById(`img-${playerId}`);
         if (!img) return;
-        const charType = img.dataset.char;
+        if(!charType) charType = img.dataset.char;
         if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
         switch (state) {
             case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
@@ -193,14 +188,16 @@ socket.on('game_reset_positions', () => {
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
-        AvatarManager.setState(id, 'idle');
+        AvatarManager.setState(id, 'idle', img.dataset.char);
     });
 });
 
 socket.on('show_initiative', (sortedPlayers) => {
-    let msg = `🎲 順序：`;
-    sortedPlayers.slice(0, 3).forEach((p, i) => { msg += `${i+1}.${p.name}(${p.initRoll}) `; });
-    if(sortedPlayers.length > 3) msg += "...";
+    let msg = "🎲 抽籤決定順序：\n";
+    sortedPlayers.forEach((p, i) => {
+        msg += `${i+1}. ${p.name} `;
+        if((i+1)%3 === 0) msg += "\n";
+    });
     liveMsg.innerText = msg;
     SynthEngine.init(); SynthEngine.playRoll();
 });
@@ -210,7 +207,7 @@ socket.on('game_start', () => {
     SynthEngine.playBGM();
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
-        AvatarManager.setState(id, 'ready');
+        AvatarManager.setState(id, 'ready', img.dataset.char);
     });
 });
 
@@ -220,23 +217,28 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
         const id = img.id.replace('img-', '');
         const currentPos = PLAYER_POSITIONS[id] || 0;
         if (id === nextPlayerId) {
-            if (currentPos === 0) AvatarManager.setState(id, 'ready'); else AvatarManager.setState(id, 'idle');
+            if (currentPos === 0) AvatarManager.setState(id, 'ready', img.dataset.char); 
+            else AvatarManager.setState(id, 'idle', img.dataset.char);
         } else {
-            if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle');
+            if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle', img.dataset.char);
         }
     });
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    await DiceManager.roll(roll); // 老師端也看骰子
+    await DiceManager.roll(roll); // 老師看骰子
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
     const playerName = nameTag ? nameTag.innerText : '未知玩家';
 
+    // 取得角色類型
+    const img = document.getElementById(`img-${playerId}`);
+    const charType = img ? img.dataset.char : 'a';
+
     PLAYER_POSITIONS[playerId] = newPos;
     AvatarManager.movingStatus[playerId] = true;
-    AvatarManager.setState(playerId, 'run');
+    AvatarManager.setState(playerId, 'run', charType);
 
     if (liveMsg) liveMsg.innerHTML = `<span style="color:#f1c40f">${playerName}</span> 擲出了 ${roll} 點`;
 
@@ -248,9 +250,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
         setTimeout(() => {
             AvatarManager.movingStatus[playerId] = false;
             if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle');
+                AvatarManager.setState(playerId, 'idle', charType);
             } else {
-                AvatarManager.setState(playerId, 'win');
+                AvatarManager.setState(playerId, 'win', charType);
             }
         }, 1000);
     }, 1000);
@@ -259,18 +261,17 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
         SynthEngine.playWin(); 
-        AvatarManager.setState(player.id, 'win');
-        ConfettiManager.shoot(); // 噴紙花
+        AvatarManager.setState(player.id, 'win', player.avatarChar);
+        ConfettiManager.shoot();
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
-    }, 1500);
+    }, 2500);
 });
 
 socket.on('game_over', ({ rankings }) => {
-    // 延遲流程
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playWin();
-        rankings.forEach(r => AvatarManager.setState(r.id, 'win'));
+        rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
 
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
@@ -280,7 +281,7 @@ socket.on('game_over', ({ rankings }) => {
                 if (p.rank === 2) medal = '<span class="rank-medal">🥈</span>';
                 if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
                 
-                const charType = AvatarManager.getCharType(p.id);
+                const charType = p.avatarChar || 'a';
                 const imgHtml = `<img class="rank-avatar" src="images/avatar_${charType}_5.png">`;
                 
                 rankHtml += `<li class="rank-item">
@@ -291,8 +292,8 @@ socket.on('game_over', ({ rankings }) => {
 
             modalContent.classList.add('premium-modal');
             showModal("🏆 榮譽榜 🏆", rankHtml);
-        }, 3000); // 3秒後顯示榜單
-    }, 2500); // 2.5秒後噴紙花
+        }, 3000);
+    }, 2500);
 });
 
 startBtn.addEventListener('click', () => {
@@ -323,10 +324,8 @@ function updateView(players) {
 
 function renderTracks(players) {
     trackContainer.innerHTML = ''; 
-    // 強制排序
-    const sortedPlayers = [...players].sort((a, b) => a.id.localeCompare(b.id));
-
-    sortedPlayers.forEach(p => {
+    // ❗重點：移除排序，直接依照原始順序渲染 (因為 Server 已經根據加入時間排序)
+    players.forEach(p => {
         PLAYER_POSITIONS[p.id] = p.position;
 
         const row = document.createElement('div');
@@ -341,12 +340,21 @@ function renderTracks(players) {
         avatarContainer.id = `avatar-${p.id}`;
         const percent = (p.position / 22) * 100;
         avatarContainer.style.left = `${percent}%`;
-        const charType = AvatarManager.getCharType(p.id);
+
+        // 使用 Server 分配的角色
+        const charType = p.avatarChar || 'a';
+
         const img = document.createElement('img');
         img.className = 'avatar-img';
         img.id = `img-${p.id}`;
         img.dataset.char = charType;
-        if (p.position >= 21) { img.src = `images/avatar_${charType}_5.png`; } else { img.src = `images/avatar_${charType}_1.png`; }
+        
+        if (p.position >= 21) {
+            img.src = `images/avatar_${charType}_5.png`;
+        } else {
+            img.src = `images/avatar_${charType}_1.png`;
+        }
+
         const nameTag = document.createElement('div');
         nameTag.className = 'name-tag';
         nameTag.innerText = p.name;
@@ -354,6 +362,9 @@ function renderTracks(players) {
         avatarContainer.appendChild(img);
         row.appendChild(avatarContainer);
         trackContainer.appendChild(row);
-        if(p.position >= 21) { AvatarManager.setState(p.id, 'win'); }
+
+        if(p.position >= 21) {
+            AvatarManager.setState(p.id, 'win', charType);
+        }
     });
 }
