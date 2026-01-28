@@ -53,29 +53,23 @@ io.on('connection', (socket) => {
         }, 3000);
     });
 
-    // --- 👇 新增：回起跑線 (下一局) 👇 ---
     socket.on('admin_restart_game', () => {
-        // 只有在遊戲結束後才能按 (雙重驗證)
         if (gameState.status !== 'ENDED') return;
 
         gameState.status = 'LOBBY';
         gameState.turnIndex = 0;
         gameState.rankings = [];
         
-        // 重置位置，但保留玩家
         gameState.players.forEach(p => {
             p.position = 0;
             p.initRoll = 0;
         });
 
-        // 通知所有人畫面重置
-        io.emit('game_reset_positions'); // 用這個新事件來清理前端 UI
+        io.emit('game_reset_positions');
         io.emit('update_game_state', gameState);
         io.emit('update_player_list', gameState.players);
     });
-    // --- 👆 新增結束 👆 ---
 
-    // 這是原本的「踢除所有人」
     socket.on('admin_reset_game', () => {
         gameState.status = 'LOBBY';
         gameState.turnIndex = 0;
@@ -93,8 +87,9 @@ io.on('connection', (socket) => {
             socket.emit('error_msg', '遊戲進行中，無法加入');
             return;
         }
-        if (gameState.players.length >= 10) {
-            socket.emit('error_msg', '房間已滿 (Max 10)');
+        // --- 修改：上限改為 8 人 ---
+        if (gameState.players.length >= 8) {
+            socket.emit('error_msg', '房間已滿 (最多 8 人)');
             return;
         }
         if (!playerName || playerName.trim() === "") {
@@ -153,9 +148,14 @@ io.on('connection', (socket) => {
                 const totalPlayers = gameState.players.length;
                 let shouldEnd = false;
 
-                if (totalPlayers <= 3) {
+                // 邏輯微調：如果只有1人玩，那他到了就結束
+                if (totalPlayers === 1) {
+                    if (gameState.rankings.length === 1) shouldEnd = true;
+                } else if (totalPlayers <= 3) {
+                    // 3人以下，第一名產生就結束 (或你希望全部跑完也可以，這邊維持原案)
                     if (gameState.rankings.length >= 1) shouldEnd = true;
                 } else {
+                    // 4人以上，取前3名
                     if (gameState.rankings.length >= 3 || gameState.rankings.length === totalPlayers) {
                         shouldEnd = true;
                     }
