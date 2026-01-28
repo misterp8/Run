@@ -105,10 +105,11 @@ const AvatarManager = {
         // 如果正在移動中，忽略其他狀態指令
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
 
-        const img = document.getElementById(`img-${playerId}`);
-        if (!img) return;
+        let img = document.getElementById(`img-${playerId}`);
+        if (!img && state !== 'idle') return;
         
-        if(!charType) charType = img.dataset.char;
+        if(!charType && img) charType = img.dataset.char;
+        if(!charType) charType = 'a';
 
         if (this.loopIntervals[playerId]) { 
             clearInterval(this.loopIntervals[playerId]); 
@@ -116,25 +117,39 @@ const AvatarManager = {
         }
 
         switch (state) {
-            case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
-            case 'ready': img.src = `images/avatar_${charType}_2.png`; break;
+            case 'idle': if(img) img.src = `images/avatar_${charType}_1.png`; break;
+            case 'ready': if(img) img.src = `images/avatar_${charType}_2.png`; break;
             case 'run': 
-                img.src = `images/avatar_${charType}_3.png`; 
+                if(img) img.src = `images/avatar_${charType}_3.png`; 
                 let runToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
+                    // 🛠️ 關鍵修正：重新抓取 DOM
+                    const currentImg = document.getElementById(`img-${playerId}`);
+                    if (!currentImg) {
+                        clearInterval(this.loopIntervals[playerId]);
+                        delete this.loopIntervals[playerId];
+                        return;
+                    }
                     runToggle = !runToggle;
                     const frame = runToggle ? 4 : 3;
-                    img.src = `images/avatar_${charType}_${frame}.png`;
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     SynthEngine.playStep();
                 }, 150);
                 break;
             case 'win': 
-                img.src = `images/avatar_${charType}_5.png`;
+                if(img) img.src = `images/avatar_${charType}_5.png`;
                 let winToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
+                    // 🛠️ 關鍵修正：重新抓取 DOM
+                    const currentImg = document.getElementById(`img-${playerId}`);
+                    if (!currentImg) {
+                        clearInterval(this.loopIntervals[playerId]);
+                        delete this.loopIntervals[playerId];
+                        return;
+                    }
                     winToggle = !winToggle;
                     const frame = winToggle ? 1 : 5;
-                    img.src = `images/avatar_${charType}_${frame}.png`;
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
                 }, 400);
                 break;
         }

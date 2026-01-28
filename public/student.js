@@ -91,35 +91,81 @@ const ConfettiManager = {
     }
 };
 
+// --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
+    
+    // 雖然 Server 已經分配，但這裡保留 Helper 函式
+    getCharType(p) {
+        return p.avatarChar || 'a'; // 優先使用 server 分配的
+    },
+
     setState(playerId, state, charType) {
+        // 如果正在移動中，忽略其他狀態指令 (除了強制停止的情況)
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
-        const img = document.getElementById(`img-${playerId}`);
-        if (!img) return;
-        if(!charType) charType = img.dataset.char;
-        if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
+
+        // 這裡抓到的 img 是設定當下的，稍後可能會被 renderTracks 清掉
+        let img = document.getElementById(`img-${playerId}`);
+        // 如果當下連圖都找不到，就先不做事
+        if (!img && state !== 'idle') return; 
+        
+        // 如果沒有傳入 charType，嘗試從 DOM 讀取
+        if (!charType && img) charType = img.dataset.char;
+        // 如果還是沒有 charType，就用預設 'a' 避免報錯
+        if (!charType) charType = 'a'; 
+
+        // 清除舊的計時器
+        if (this.loopIntervals[playerId]) { 
+            clearInterval(this.loopIntervals[playerId]); 
+            delete this.loopIntervals[playerId]; 
+        }
+
         switch (state) {
-            case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
-            case 'ready': img.src = `images/avatar_${charType}_2.png`; break;
+            case 'idle': 
+                if(img) img.src = `images/avatar_${charType}_1.png`; 
+                break;
+            case 'ready': 
+                if(img) img.src = `images/avatar_${charType}_2.png`; 
+                break;
             case 'run': 
-                img.src = `images/avatar_${charType}_3.png`; 
+                // 先立刻設定第一張跑圖
+                if(img) img.src = `images/avatar_${charType}_3.png`; 
+                
                 let runToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
+                    // 🛠️ 關鍵修正：每次循環都要重新抓取最新的 DOM 元素
+                    const currentImg = document.getElementById(`img-${playerId}`);
+                    // 如果元素不存在了（可能被重新渲染清掉了），就停止計時器
+                    if (!currentImg) {
+                        clearInterval(this.loopIntervals[playerId]);
+                        delete this.loopIntervals[playerId];
+                        return;
+                    }
+
                     runToggle = !runToggle;
                     const frame = runToggle ? 4 : 3;
-                    img.src = `images/avatar_${charType}_${frame}.png`;
+                    // 操作最新的元素
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     SynthEngine.playStep();
                 }, 150);
                 break;
             case 'win': 
-                img.src = `images/avatar_${charType}_5.png`;
+                if(img) img.src = `images/avatar_${charType}_5.png`;
+                
                 let winToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
+                    // 🛠️ 關鍵修正：勝利動畫也要重新抓取
+                    const currentImg = document.getElementById(`img-${playerId}`);
+                    if (!currentImg) {
+                        clearInterval(this.loopIntervals[playerId]);
+                        delete this.loopIntervals[playerId];
+                        return;
+                    }
+
                     winToggle = !winToggle;
                     const frame = winToggle ? 1 : 5;
-                    img.src = `images/avatar_${charType}_${frame}.png`;
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
                 }, 400);
                 break;
         }
