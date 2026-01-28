@@ -1,81 +1,15 @@
-:root {
-    --track-cols: 22;
-    --cell-size: 50px;
-}
-
+:root { --track-cols: 22; --cell-size: 50px; }
 * { box-sizing: border-box; user-select: none; }
-
-body {
-    font-family: "Microsoft JhengHei", "Heiti TC", "Segoe UI", sans-serif;
-    font-weight: bold;
-    margin: 0;
-    padding: 0;
-    background-color: #2c3e50;
-    color: #333;
-    overflow: hidden;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
+body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: bold; margin: 0; padding: 0; background-color: #2c3e50; color: #333; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 .hidden { display: none !important; }
 
-/* --- 🎲 3D 骰子 (美術升級版) --- */
-#dice-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7); /* 背景更暗，凸顯骰子 */
-    z-index: 500;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    perspective: 1200px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-#dice-overlay.active {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.dice-cube {
-    width: 150px; /* 加大尺寸 */
-    height: 150px;
-    position: relative;
-    transform-style: preserve-3d;
-    transition: transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1);
-}
-
-.dice-face {
-    position: absolute;
-    width: 150px;
-    height: 150px;
-    background: linear-gradient(145deg, #ffffff, #e6e6e6); /* 微漸層質感 */
-    border: 4px solid #ddd;
-    border-radius: 24px; /* 圓角更滑順 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-shadow: inset 0 0 15px rgba(0,0,0,0.1);
-    backface-visibility: hidden; /* 關鍵：隱藏背面，解決白影問題 */
-}
-
-/* 骰子點數 */
-.dice-dot {
-    width: 28px; height: 28px;
-    background: #333;
-    border-radius: 50%;
-    position: absolute;
-    box-shadow: inset 2px 2px 3px rgba(0,0,0,0.3), 1px 1px 0 rgba(255,255,255,0.8);
-}
-/* 紅色的一點 */
-.dice-face[data-face="1"] .dice-dot { 
-    background: #e74c3c; width: 40px; height: 40px; 
-    box-shadow: inset 3px 3px 5px rgba(0,0,0,0.3);
-}
-
-/* 3D 結構 (TranslateZ = width / 2) */
+/* 🎲 3D 骰子 (加大優化版) */
+#dice-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 500; display: flex; justify-content: center; align-items: center; perspective: 1200px; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+#dice-overlay.active { opacity: 1; pointer-events: auto; }
+.dice-cube { width: 150px; height: 150px; position: relative; transform-style: preserve-3d; }
+.dice-face { position: absolute; width: 150px; height: 150px; background: linear-gradient(145deg, #fff, #eee); border: 4px solid #ccc; border-radius: 24px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 15px rgba(0,0,0,0.1); backface-visibility: hidden; }
+.dice-dot { width: 28px; height: 28px; background: #333; border-radius: 50%; position: absolute; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5); }
+.dice-face[data-face="1"] .dice-dot { background: #e74c3c; width: 40px; height: 40px; }
 .dice-face[data-face="1"] { transform: rotateY(0deg) translateZ(75px); }
 .dice-face[data-face="2"] { transform: rotateY(90deg) translateZ(75px); }
 .dice-face[data-face="3"] { transform: rotateY(180deg) translateZ(75px); }
@@ -83,152 +17,57 @@ body {
 .dice-face[data-face="5"] { transform: rotateX(90deg) translateZ(75px); }
 .dice-face[data-face="6"] { transform: rotateX(-90deg) translateZ(75px); }
 
-/* --- 頂部電子計分板 --- */
-#scoreboard-header {
-    width: 100%; height: 140px; 
-    background: #222; border-bottom: 4px solid #111;
-    display: flex; justify-content: center; align-items: center;
-    padding: 10px; z-index: 200;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
-    position: relative; color: #fff;
-}
-.board-content {
-    width: 100%; max-width: 1200px;
-    display: flex; justify-content: space-between; align-items: center;
-    background: #333; border: 4px solid #555; border-radius: 8px;
-    padding: 10px 20px; height: 100%;
-}
-.board-status {
-    flex: 2; text-align: left; font-size: 1.5rem;
-    color: #f1c40f; text-shadow: 0 0 5px rgba(241, 196, 15, 0.5);
-    border-right: 2px dashed #555; padding-right: 20px;
-    display: flex; align-items: center; height: 100%;
-}
-.board-controls {
-    flex: 1; display: flex; justify-content: flex-end; align-items: center;
-    gap: 10px; padding-left: 20px;
-}
-.board-btn {
-    padding: 15px 30px; font-size: 1.2rem;
-    border: 2px solid #fff; border-radius: 6px;
-    cursor: pointer; font-weight: bold;
-    box-shadow: 0 4px 0 #000; transition: transform 0.1s;
-    pointer-events: auto;
-}
+/* 電子計分板 */
+#scoreboard-header { width: 100%; height: 140px; background: #222; border-bottom: 4px solid #111; display: flex; justify-content: center; align-items: center; padding: 10px; z-index: 200; box-shadow: 0 5px 20px rgba(0,0,0,0.5); position: relative; color: #fff; }
+.board-content { width: 100%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center; background: #333; border: 4px solid #555; border-radius: 8px; padding: 10px 20px; height: 100%; }
+.board-status { flex: 2; text-align: left; font-size: 1.5rem; color: #f1c40f; text-shadow: 0 0 5px rgba(241, 196, 15, 0.5); border-right: 2px dashed #555; padding-right: 20px; display: flex; align-items: center; height: 100%; white-space: pre-line; }
+.board-controls { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding-left: 20px; }
+.board-btn { padding: 15px 30px; font-size: 1.2rem; border: 2px solid #fff; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #000; transition: transform 0.1s; pointer-events: auto; }
 .board-btn:active { transform: translate(0, 4px); box-shadow: 0 0 0 #000; }
 .btn-green { background: #27ae60; color: white; }
 .btn-orange { background: #e67e22; color: white; }
 .btn-red { background: #c0392b; color: white; }
 .btn-grey { background: #7f8c8d; color: #ccc; border-color: #999; cursor: not-allowed; }
 
-/* --- 體育場容器 --- */
-#stadium-wrapper {
-    flex: 1; width: 100%; max-width: 1400px; margin: 0 auto;
-    background-color: #5d9e36; background-image: url('images/map_grass.png'); 
-    background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5);
-    position: relative; display: flex; flex-direction: column;
-}
-.audience-section {
-    height: 80px; width: 100%; background-repeat: repeat-x;
-    background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; 
-}
+/* 體育場 */
+#stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
+.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; }
 #audience-top { border-bottom: 4px solid #333; background-color: #444; }
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
-#game-scroll-area {
-    flex: 1; overflow-y: auto; overflow-x: hidden;
-    padding: 0 10px; display: flex; flex-direction: column;
-    gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; 
-}
-.track-row {
-    display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); 
-    height: 70px; position: relative; width: 100%; align-items: end; 
-    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); 
-}
+#game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
+.track-row { display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); height: 70px; position: relative; width: 100%; align-items: end; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); }
 .grid-cell { width: 100%; height: 100%; background-size: 100% 100%; image-rendering: pixelated; }
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
 .grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
-.avatar-container {
-    position: absolute; width: calc(100% / var(--track-cols) * 1.5); 
-    height: 140%; bottom: 10px; left: 0%; z-index: 100;
-    transition: left 1s linear; display: flex; flex-direction: column;
-    align-items: center; justify-content: flex-end;
-}
-.avatar-img {
-    width: 100%; height: 100%; object-fit: contain;
-    image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3));
-}
-.name-tag {
-    position: absolute; right: 65%; top: 40%;   
-    background: rgba(0, 0, 0, 0.6); color: #fff;
-    padding: 4px 8px; border-radius: 4px; font-size: 12px; 
-    white-space: nowrap; border: 1px solid rgba(255,255,255,0.3);
-    pointer-events: none; z-index: 101;
-}
+.avatar-container { position: absolute; width: calc(100% / var(--track-cols) * 1.5); height: 140%; bottom: 10px; left: 0%; z-index: 100; transition: left 1s linear; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.avatar-img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3)); }
+.name-tag { position: absolute; right: 65%; top: 40%; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3); pointer-events: none; z-index: 101; }
 
-#login-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(44, 62, 80, 0.95); z-index: 300;
-    display: flex; justify-content: center; align-items: center; pointer-events: auto;
-}
-#login-box {
-    background: white; padding: 40px; border-radius: 15px;
-    text-align: center; width: 90%; max-width: 400px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 4px solid #333;
-}
-#modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8); z-index: 9999;
-    display: flex; justify-content: center; align-items: center; pointer-events: auto;
-}
-.modal-content {
-    background: #fff; padding: 25px; border-radius: 12px;
-    border: 4px solid #333; box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
-    text-align: center; max-width: 400px; width: 90%;
-}
+/* 🚪 登入畫面 (修正) */
+#login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 300; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+#login-box { background: white; padding: 40px; border-radius: 15px; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 4px solid #333; }
 
-/* --- 🏆 冠軍榜單 (豪華升級版) --- */
+/* 通用 Modal */
+#modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+.modal-content { background: #fff; padding: 25px; border-radius: 12px; border: 4px solid #333; box-shadow: 8px 8px 0 rgba(0,0,0,0.5); text-align: center; max-width: 400px; width: 90%; }
+
+/* 🏆 榮譽榜 (白金風格) */
 .premium-modal {
-    background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); /* 華麗漸層 */
-    border: 6px solid #ffd700;
-    box-shadow: 0 0 50px rgba(255, 215, 0, 0.6), inset 0 0 30px rgba(0,0,0,0.5);
-    color: white;
-    transform: scale(0.8);
-    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    width: 95%; 
-    max-width: 500px;
-    padding: 30px;
+    background: linear-gradient(135deg, #ffffff 0%, #ecf0f1 100%);
+    border: 8px solid #f1c40f; 
+    box-shadow: 0 0 60px rgba(255, 215, 0, 0.5), inset 0 0 20px rgba(255,255,255,0.8);
+    color: #333; width: 95%; max-width: 600px; padding: 30px;
 }
-.premium-modal h2 {
-    font-size: 2.5rem; /* 字體加大 */
-    color: #fff; 
-    text-shadow: 3px 3px 0 #000, 0 0 10px #ffd700;
-    margin-bottom: 25px;
-    font-family: 'Segoe UI', sans-serif;
-    letter-spacing: 2px;
-}
-.rank-list {
-    list-style: none; padding: 0; text-align: left;
-}
+.premium-modal h2 { font-size: 2.5rem; color: #d35400; text-shadow: 2px 2px 0 #fff; margin-bottom: 25px; letter-spacing: 2px; }
+.rank-list { list-style: none; padding: 0; text-align: left; }
 .rank-item {
-    font-size: 1.8rem; /* 字體加大 */
-    margin-bottom: 15px; 
-    padding: 15px 20px;
-    background: rgba(0, 0, 0, 0.6); /* 半透明黑底 */
-    border-radius: 10px;
-    border: 2px solid rgba(255,255,255,0.2);
-    display: flex; 
-    align-items: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    font-size: 1.8rem; margin-bottom: 15px; padding: 15px 20px;
+    background: #fff; border-radius: 10px; border: 2px solid #ddd;
+    display: flex; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
-.rank-item:first-child { /* 第一名特別亮 */
-    background: linear-gradient(90deg, rgba(255,215,0,0.3), rgba(0,0,0,0.6));
-    border-color: #ffd700;
-}
-.rank-medal { font-size: 2.5rem; margin-right: 20px; filter: drop-shadow(2px 2px 0 #000); }
-.rank-avatar { width: 80px; height: 80px; object-fit: contain; margin-right: 20px; image-rendering: pixelated; filter: drop-shadow(4px 4px 0 rgba(0,0,0,0.5)); }
-.rank-name { font-weight: bold; color: #fff; text-shadow: 2px 2px 4px #000; }
-
+.rank-item:first-child { background: linear-gradient(to right, #fffdf0, #fff); border-color: #f1c40f; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
+.rank-medal { font-size: 2.5rem; margin-right: 20px; }
+.rank-avatar { width: 80px; height: 80px; object-fit: contain; margin-right: 20px; image-rendering: pixelated; }
+.rank-name { font-weight: 900; color: #2c3e50; }
 @keyframes popIn { to { transform: scale(1); } }
-.error-text { color: #e74c3c; font-weight: bold; margin-top: 5px; }
-#lobby-screen, #admin-panel, #status-bar, #game-screen { pointer-events: auto; }
