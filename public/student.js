@@ -19,29 +19,24 @@ const modalBtn = document.getElementById('modal-btn');
 let myId = null;
 let isAnimating = false; 
 
-// --- 🖼️ 圖片預載系統 (解決動畫閃爍問題) ---
+// --- 🖼️ 圖片預載 ---
 const CHAR_TYPES = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
 const PRELOADED_IMGS = {};
-
 function preloadImages() {
-    console.log("開始預載圖片...");
     CHAR_TYPES.forEach(char => {
         for(let i=1; i<=5; i++) {
             const img = new Image();
             img.src = `images/avatar_${char}_${i}.png`;
-            // 存入快取物件，防止被垃圾回收
             PRELOADED_IMGS[`${char}_${i}`] = img;
         }
     });
 }
-// 網頁一開啟就執行預載
 preloadImages();
-
 
 // --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {},
-    movingStatus: {}, // 新增：紀錄誰正在移動中，防止被蹲下動作覆蓋
+    movingStatus: {}, 
 
     getCharType(id) {
         let hash = 0;
@@ -50,44 +45,38 @@ const AvatarManager = {
     },
 
     setState(playerId, state) {
-        // 如果這個玩家正在移動中，且試圖被設定為 'ready' (蹲下)，則忽略該指令
-        // 這樣可以防止 update_turn 打斷跑步動畫
+        // 如果正在移動中，禁止變更為 ready，防止打斷跑步動畫
         if (this.movingStatus[playerId] === true && state === 'ready') {
-            return; 
+            return;
         }
 
         const img = document.getElementById(`img-${playerId}`);
         if (!img) return;
+
         const charType = img.dataset.char;
         
-        // 清除舊的計時器
         if (this.loopIntervals[playerId]) {
             clearInterval(this.loopIntervals[playerId]);
             delete this.loopIntervals[playerId];
         }
 
         switch (state) {
-            case 'idle': // 動作 1
+            case 'idle': // 站立
                 img.src = `images/avatar_${charType}_1.png`; 
                 break;
-            case 'ready': // 動作 2
+            case 'ready': // 蹲下準備
                 img.src = `images/avatar_${charType}_2.png`; 
                 break;
-            case 'run': 
-                // 🏃‍♂️ 動作 3 和 4 輪替
-                // 先強制設為動作 3，確保第一偵就是跑
+            case 'run': // 跑步 3-4
                 img.src = `images/avatar_${charType}_3.png`;
-                
                 let runToggle = false; 
                 this.loopIntervals[playerId] = setInterval(() => {
-                    // 切換 3 和 4
                     runToggle = !runToggle;
                     const frame = runToggle ? 4 : 3;
                     img.src = `images/avatar_${charType}_${frame}.png`;
-                }, 150); // 每 150ms 切換一次
+                }, 150);
                 break;
-            case 'win': 
-                // 動作 5 和 1 輪替
+            case 'win': // 勝利 5-1
                 img.src = `images/avatar_${charType}_5.png`;
                 let winToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
@@ -156,7 +145,7 @@ joinBtn.addEventListener('click', () => {
 
 socket.on('error_msg', (msg) => {
     loginError.innerText = `⚠️ ${msg}`;
-    if (!lobbyScreen.classList.contains('hidden') === false) showModal("錯誤", msg);
+    showModal("錯誤", msg);
 });
 
 socket.on('update_player_list', (players) => {
@@ -183,16 +172,43 @@ socket.on('game_start', () => {
     SynthEngine.playBGM();
 });
 
+// --- 🛠️ 修正點：避免大家一起蹲下 ---
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
-    // 當收到輪到誰的指令時，嘗試將該玩家設為 ready (蹲下)
-    // 但 AvatarManager 內部會檢查：如果該玩家正在移動中 (isMoving=true)，則會忽略此指令
-    if (nextPlayerId) AvatarManager.setState(nextPlayerId, 'ready');
+    
+    // 遍歷所有頭像，更新狀態
+    const allAvatars = document.querySelectorAll('.avatar-img');
+    allAvatars.forEach(img => {
+        const id = img.id.replace('img-', '');
+        
+        if (id === nextPlayerId) {
+            // 輪到的人 -> 蹲下準備
+            AvatarManager.setState(id, 'ready');
+        } else {
+            // 其他人 -> 檢查是否在移動中，或是否已勝利
+            // 為了簡化，如果不是贏家且不是正在移動，就強制站好 (Idle)
+            // 這樣可以把之前錯誤蹲下的人「叫起來」
+            
+            // 判斷是否為贏家 (透過圖片 src 簡單判斷，或你需要從 server 傳狀態)
+            // 這裡簡單檢查一下目前狀態
+            // 最保險的方式是，我們預設大家都設為 Idle，除非他是贏家
+            
+            // 由於這裡拿不到每個人的 position，我們做保守處理：
+            // 只要不是輪到他，就呼叫 setState(id, 'idle')
+            // 但 setState 內部會檢查：如果是 'win' 狀態或 'moving' 狀態，它會忽略 idle 指令嗎？
+            // 目前 setState 沒有這功能，所以我們改一下
+            
+            // 簡單版修正：僅重置那些「蹲下 (ready)」的人
+            if (img.src.includes('_2.png')) {
+                AvatarManager.setState(id, 'idle');
+            }
+        }
+    });
 
     if (nextPlayerId === myId) {
         rollBtn.removeAttribute('disabled');
         rollBtn.disabled = false;
         rollBtn.innerText = "🎲 輪到你了！按此擲骰";
-        rollBtn.className = "board-btn btn-green";
+        rollBtn.className = "board-btn btn-green"; 
         rollBtn.style.cursor = "pointer";
     } else {
         rollBtn.setAttribute('disabled', 'true');
@@ -227,10 +243,8 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const isMe = (playerId === myId);
     isAnimating = true; 
 
-    // 1. 鎖定狀態：標記此玩家正在移動中
+    // 🔒 鎖定狀態
     AvatarManager.movingStatus[playerId] = true;
-
-    // 2. 強制設定為跑步狀態 (忽略任何 ready 指令)
     AvatarManager.setState(playerId, 'run');
 
     if (isMe) {
@@ -248,16 +262,12 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
             avatarContainer.style.left = `${percent}%`;
         }
         
-        // 3. 移動結束後的處理 (1秒後)
         setTimeout(() => {
             isAnimating = false;
-            
-            // 解除鎖定
+            // 🔓 解鎖
             AvatarManager.movingStatus[playerId] = false;
 
             if (newPos < 21) {
-                // 如果還沒到終點，強制恢復站立 (idle)
-                // 這會覆蓋掉 update_turn 可能造成的 ready
                 AvatarManager.setState(playerId, 'idle');
             } else {
                 AvatarManager.setState(playerId, 'win');
@@ -268,7 +278,7 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
                 gameMsg.style.color = "#fff";
             }
         }, 1000); 
-    }, 1000); // 確保這裡延遲足夠讓動畫跑起來
+    }, 1000);
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
@@ -318,7 +328,7 @@ socket.on('force_reload', () => {
 });
 
 socket.on('game_reset_positions', () => {
-    AvatarManager.movingStatus = {}; // 重置所有移動狀態
+    AvatarManager.movingStatus = {};
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'idle');
@@ -352,7 +362,13 @@ function renderTracks(players) {
         img.className = 'avatar-img';
         img.id = `img-${p.id}`;
         img.dataset.char = charType; 
-        img.src = `images/avatar_${charType}_1.png`; 
+        
+        // 初始圖片邏輯
+        if (p.position >= 21) {
+             img.src = `images/avatar_${charType}_5.png`;
+        } else {
+             img.src = `images/avatar_${charType}_1.png`;
+        }
 
         const nameTag = document.createElement('div');
         nameTag.className = 'name-tag';

@@ -173,8 +173,20 @@ socket.on('show_initiative', (sortedPlayers) => {
 
 socket.on('game_start', () => { liveMsg.innerText = "🚀 比賽開始！"; SynthEngine.playBGM(); });
 
+// --- 🛠️ 修正點：避免大家一起蹲下 ---
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
-    if (nextPlayerId) AvatarManager.setState(nextPlayerId, 'ready');
+    const allAvatars = document.querySelectorAll('.avatar-img');
+    allAvatars.forEach(img => {
+        const id = img.id.replace('img-', '');
+        if (id === nextPlayerId) {
+            AvatarManager.setState(id, 'ready');
+        } else {
+            // 如果某人是蹲下狀態，但現在不輪到他，叫他站起來
+            if (img.src.includes('_2.png')) {
+                AvatarManager.setState(id, 'idle');
+            }
+        }
+    });
 });
 
 socket.on('player_moved', ({ playerId, roll, newPos }) => {
