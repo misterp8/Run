@@ -9,6 +9,8 @@ const joinBtn = document.getElementById('join-btn');
 const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
+const loginError = document.getElementById('login-error');
+
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
@@ -48,17 +50,12 @@ const DiceManager = {
             };
             const target = targetRotations[targetNumber];
             
-            // 隨機轉 2~4 圈 (720~1440度)
             const extraX = 360 * (Math.floor(Math.random() * 3) + 2);
             const extraY = 360 * (Math.floor(Math.random() * 3) + 2);
 
-            // 累加邏輯：確保數值一直增加，動畫才會順暢
             this.currentX += extraX;
             this.currentY += extraY;
 
-            // 計算目標角度 (取模後修正)
-            // 目標是讓 currentX % 360 === target.x
-            // 修正公式：將 currentX 推到下一個 "360的倍數 + target.x"
             const remainderX = this.currentX % 360;
             const remainderY = this.currentY % 360;
             
@@ -91,31 +88,27 @@ const ConfettiManager = {
     }
 };
 
-// --- 🎭 角色與動畫管理器 ---
+// --- 🎭 角色與動畫管理器 (關鍵修復) ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
     
     // 雖然 Server 已經分配，但這裡保留 Helper 函式
     getCharType(p) {
-        return p.avatarChar || 'a'; // 優先使用 server 分配的
+        return p.avatarChar || 'a'; 
     },
 
     setState(playerId, state, charType) {
-        // 如果正在移動中，忽略其他狀態指令 (除了強制停止的情況)
+        // 如果正在移動中，忽略 idle 或 ready 指令，確保跑步不被中斷
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
 
-        // 這裡抓到的 img 是設定當下的，稍後可能會被 renderTracks 清掉
         let img = document.getElementById(`img-${playerId}`);
-        // 如果當下連圖都找不到，就先不做事
-        if (!img && state !== 'idle') return; 
         
-        // 如果沒有傳入 charType，嘗試從 DOM 讀取
+        // 嘗試補救 charType
         if (!charType && img) charType = img.dataset.char;
-        // 如果還是沒有 charType，就用預設 'a' 避免報錯
         if (!charType) charType = 'a'; 
 
-        // 清除舊的計時器
+        // 清除舊計時器
         if (this.loopIntervals[playerId]) { 
             clearInterval(this.loopIntervals[playerId]); 
             delete this.loopIntervals[playerId]; 
@@ -129,25 +122,26 @@ const AvatarManager = {
                 if(img) img.src = `images/avatar_${charType}_2.png`; 
                 break;
             case 'run': 
-                // 先立刻設定第一張跑圖
+                // 立即設定第一張跑圖
                 if(img) img.src = `images/avatar_${charType}_3.png`; 
                 
                 let runToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
-                    // 🛠️ 關鍵修正：每次循環都要重新抓取最新的 DOM 元素
+                    // 🛠️ 關鍵修正：每次都重新抓 DOM，如果抓不到(正在重繪)就跳過，絕對不要清除計時器
                     const currentImg = document.getElementById(`img-${playerId}`);
-                    // 如果元素不存在了（可能被重新渲染清掉了），就停止計時器
-                    if (!currentImg) {
-                        clearInterval(this.loopIntervals[playerId]);
-                        delete this.loopIntervals[playerId];
-                        return;
+                    
+                    if (currentImg) {
+                        runToggle = !runToggle;
+                        const frame = runToggle ? 4 : 3;
+                        currentImg.src = `images/avatar_${charType}_${frame}.png`;
+                        
+                        // 確保移動時如果因為重繪導致 src 變回 1，這裡會強制刷成 3 或 4
+                        if (!currentImg.src.includes(`_${frame}.png`)) {
+                            currentImg.src = `images/avatar_${charType}_${frame}.png`;
+                        }
+                        
+                        SynthEngine.playStep();
                     }
-
-                    runToggle = !runToggle;
-                    const frame = runToggle ? 4 : 3;
-                    // 操作最新的元素
-                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                    SynthEngine.playStep();
                 }, 150);
                 break;
             case 'win': 
@@ -155,17 +149,12 @@ const AvatarManager = {
                 
                 let winToggle = false;
                 this.loopIntervals[playerId] = setInterval(() => {
-                    // 🛠️ 關鍵修正：勝利動畫也要重新抓取
                     const currentImg = document.getElementById(`img-${playerId}`);
-                    if (!currentImg) {
-                        clearInterval(this.loopIntervals[playerId]);
-                        delete this.loopIntervals[playerId];
-                        return;
+                    if (currentImg) {
+                        winToggle = !winToggle;
+                        const frame = winToggle ? 1 : 5;
+                        currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     }
-
-                    winToggle = !winToggle;
-                    const frame = winToggle ? 1 : 5;
-                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
                 }, 400);
                 break;
         }
@@ -225,9 +214,7 @@ joinBtn.addEventListener('click', () => {
     socket.emit('player_join', name);
 });
 
-socket.on('error_msg', (msg) => {
-    alert(msg);
-});
+socket.on('error_msg', (msg) => { alert(msg); });
 
 socket.on('update_player_list', (players) => {
     const me = players.find(p => p.id === socket.id);
@@ -242,11 +229,12 @@ socket.on('update_player_list', (players) => {
 });
 
 socket.on('show_initiative', (sortedPlayers) => {
-    // 簡單列出名單
-    let msg = `🎲 抽籤決定順序：\n`;
-    sortedPlayers.forEach((p, i) => { msg += `${i+1}. ${p.name} `; });
+    let msg = "🎲 抽籤決定順序：\n";
+    sortedPlayers.forEach((p, i) => {
+        msg += `${i+1}. ${p.name} `;
+        if((i+1)%3 === 0) msg += "\n";
+    });
     gameMsg.innerText = msg;
-    SynthEngine.playRoll();
 });
 
 socket.on('game_start', () => {
@@ -304,7 +292,6 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
-// --- 核心：移動 -> 骰子 -> 判斷勝利 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     await DiceManager.roll(roll);
 
@@ -356,15 +343,18 @@ socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
+        ConfettiManager.shoot();
+
         if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
             rollBtn.innerText = "🏆 已完賽";
+        } else {
+            gameMsg.innerText = `🏁 ${player.name} 奪得第 ${rank} 名！`;
         }
     }, 2500); 
 });
 
 socket.on('game_over', ({ rankings }) => {
-    // 遊戲結束流程：先等最後移動(2.5s) -> 噴花+勝利音效 -> 等待3秒 -> 顯示榜單
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playWin();
@@ -417,11 +407,8 @@ socket.on('game_reset_positions', () => {
 
 function renderTracks(players) {
     trackContainer.innerHTML = ''; 
-    // ❗重點：強制依照 ID 字串排序 (確保順序固定)
-    // 或者是依照 joinTime 排序？Server 已經幫忙排好了。
-    // 如果要完全對應 Server 的順序 (加入順序)，直接 forEach players 即可。
-    // 為了安全起見，我們假設 players 已經是正確順序。
     
+    // 渲染時，如果該玩家正在跑步，我們必須讓圖片維持在 "Run" 的狀態，而不是被重置成 "Idle"
     players.forEach(p => {
         PLAYER_POSITIONS[p.id] = p.position;
 
@@ -438,15 +425,21 @@ function renderTracks(players) {
         const percent = (p.position / 22) * 100;
         avatarContainer.style.left = `${percent}%`;
 
-        const charType = p.avatarChar || 'a'; // 使用 Server 分配的角色
+        const charType = p.avatarChar || 'a';
 
         const img = document.createElement('img');
         img.className = 'avatar-img';
         img.id = `img-${p.id}`;
         img.dataset.char = charType; 
         
-        if (p.position >= 21) img.src = `images/avatar_${charType}_5.png`;
-        else img.src = `images/avatar_${charType}_1.png`;
+        // 🛠️ 關鍵修正：檢查是否正在移動，如果是，初始化為跑步圖 (_3)，否則依位置決定
+        if (AvatarManager.movingStatus[p.id]) {
+            img.src = `images/avatar_${charType}_3.png`;
+        } else if (p.position >= 21) {
+            img.src = `images/avatar_${charType}_5.png`;
+        } else {
+            img.src = `images/avatar_${charType}_1.png`;
+        }
 
         const nameTag = document.createElement('div');
         nameTag.className = 'name-tag';
