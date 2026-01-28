@@ -20,10 +20,80 @@ body {
 
 .hidden { display: none !important; }
 
-#stadium-wrapper {
+/* --- 🏟️ 新增：頂部電子計分板 (Scoreboard / Billboard) --- */
+#scoreboard-header {
+    width: 100%;
+    height: 140px; /* 固定高度 */
+    background: #222; /* 電子板底色 */
+    border-bottom: 4px solid #111;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    z-index: 200;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    position: relative;
+    color: #fff;
+}
+
+/* 計分板內部的容器 */
+.board-content {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #333; /* 內框 */
+    border: 4px solid #555;
+    border-radius: 8px;
+    padding: 10px 20px;
     height: 100%;
+}
+
+/* 左側：狀態訊息 (跑馬燈感) */
+.board-status {
+    flex: 2;
+    text-align: left;
+    font-size: 1.5rem;
+    color: #f1c40f; /* 電子黃字 */
+    text-shadow: 0 0 5px rgba(241, 196, 15, 0.5);
+    border-right: 2px dashed #555;
+    padding-right: 20px;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+/* 右側：操作區 (按鈕) */
+.board-controls {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding-left: 20px;
+}
+
+/* 針對按鈕的特殊樣式 (適應暗色背景) */
+.board-btn {
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    border: 2px solid #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 4px 0 #000;
+    transition: transform 0.1s;
+}
+.board-btn:active { transform: translate(0, 4px); box-shadow: 0 0 0 #000; }
+.btn-green { background: #27ae60; color: white; }
+.btn-orange { background: #e67e22; color: white; }
+.btn-red { background: #c0392b; color: white; }
+.btn-grey { background: #7f8c8d; color: #ccc; border-color: #999; cursor: not-allowed; }
+
+/* --- 體育場容器 --- */
+#stadium-wrapper {
+    flex: 1; /* 佔滿剩餘高度 */
     width: 100%;
     max-width: 1400px; 
     margin: 0 auto;
@@ -32,6 +102,8 @@ body {
     background-size: 64px 64px; 
     box-shadow: 0 0 50px rgba(0,0,0,0.5);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .audience-section {
@@ -39,9 +111,9 @@ body {
     width: 100%;
     background-repeat: repeat-x;
     background-size: auto 100%;
-    z-index: 50;
+    z-index: 50; /* 確保在跑道上面，但在計分板下面 */
     position: relative;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    pointer-events: none; /* 讓滑鼠穿透 */
 }
 
 #audience-top {
@@ -58,10 +130,14 @@ body {
     flex: 1; 
     overflow-y: auto; 
     overflow-x: hidden;
-    padding: 20px 10px;
+    padding: 0 10px;
     display: flex;
     flex-direction: column;
     gap: 20px; 
+    
+    /* 🛠️ 修復點：增加上方內距，防止第一跑道被觀眾頭蓋住 */
+    padding-top: 40px; 
+    padding-bottom: 20px;
 }
 
 .track-row {
@@ -81,9 +157,10 @@ body {
     image-rendering: pixelated; 
 }
 
+/* 🛠️ 修復點：強制指定第 22 格為終點圖 */
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
-.grid-cell:last-child { background-image: url('images/map_finish.png'); }
+.grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
 
 .avatar-container {
     position: absolute;
@@ -130,58 +207,13 @@ body {
     transform: translateX(-50%);
 }
 
-#ui-layer {
-    position: absolute;
-    top: 90px; 
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 200;
-    width: 90%;
-    max-width: 600px;
-    pointer-events: none; /* 預設不擋滑鼠 */
-}
-
-/* 👇👇👇 重點修正：這裡加上了 #game-screen 👇👇👇 */
-#lobby-screen, #admin-panel, #status-bar, #game-screen {
-    pointer-events: auto; /* 恢復這些區域的點擊功能 */
-    background: rgba(255, 255, 255, 0.95);
-    padding: 20px;
-    border-radius: 12px; 
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    margin-bottom: 10px;
-    text-align: center;
-    border: 2px solid #333;
-}
-
-button {
-    font-family: inherit;
-    border: 2px solid #000;
-    box-shadow: 3px 3px 0 #000; 
-    transition: all 0.1s;
-    font-weight: bold;
-    font-size: 1rem;
-    cursor: pointer;
-    pointer-events: auto; /* 確保按鈕一定可點 */
-}
-button:active:not(:disabled) {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 #000;
-}
-button:disabled {
-    box-shadow: none;
-    border-color: #888;
-    background-color: #ccc !important;
-    cursor: not-allowed;
-    color: #666 !important;
-}
-
+/* Modal 樣式 */
 #modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.8);
     display: flex; justify-content: center; align-items: center;
     z-index: 9999;
-    pointer-events: auto;
 }
 .modal-content {
     background: #fff; padding: 25px; border-radius: 12px;
@@ -192,7 +224,19 @@ button:disabled {
 
 .error-text { color: #e74c3c; font-weight: bold; margin-top: 5px; }
 
-#initiative-list {
-    background: rgba(0,0,0,0.05); padding: 10px; border-radius: 4px;
-    text-align: left; max-height: 120px; overflow-y: auto; display: none;
+/* 登入畫面專用 (只有加入前會顯示) */
+#login-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(44, 62, 80, 0.95);
+    z-index: 300;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+#login-box {
+    background: white; padding: 40px; border-radius: 15px;
+    text-align: center; width: 90%; max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border: 4px solid #333;
 }

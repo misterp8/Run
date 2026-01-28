@@ -1,12 +1,11 @@
 const socket = io(); 
 
-const lobbyScreen = document.getElementById('lobby-screen');
-const gameScreen = document.getElementById('game-screen');
+// DOM 元素
+const loginOverlay = document.getElementById('login-overlay');
+const scoreboardHeader = document.getElementById('scoreboard-header');
+const stadiumWrapper = document.getElementById('stadium-wrapper');
 const usernameInput = document.getElementById('username');
 const joinBtn = document.getElementById('join-btn');
-const waitingMsg = document.getElementById('waiting-msg');
-const lobbyStatusText = document.getElementById('lobby-status-text');
-const playerListUl = document.getElementById('player-list-ul');
 const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
@@ -33,14 +32,22 @@ const AvatarManager = {
         const img = document.getElementById(`img-${playerId}`);
         if (!img) return;
         const charType = img.dataset.char;
+        
+        // 清除舊的計時器
         if (this.loopIntervals[playerId]) {
             clearInterval(this.loopIntervals[playerId]);
             delete this.loopIntervals[playerId];
         }
+
         switch (state) {
-            case 'idle': img.src = `images/avatar_${charType}_1.png`; break;
-            case 'ready': img.src = `images/avatar_${charType}_2.png`; break;
+            case 'idle': 
+                img.src = `images/avatar_${charType}_1.png`; 
+                break;
+            case 'ready': 
+                img.src = `images/avatar_${charType}_2.png`; 
+                break;
             case 'run': 
+                // 🏃‍♂️ 修復：確保 3 和 4 輪替
                 let runFrame = 3;
                 img.src = `images/avatar_${charType}_3.png`;
                 this.loopIntervals[playerId] = setInterval(() => {
@@ -49,9 +56,11 @@ const AvatarManager = {
                 }, 150);
                 break;
             case 'win': 
+                // 🎉 修復：確保 5 和 1 (或5單獨) 輪替
                 let winFrame = 5;
                 img.src = `images/avatar_${charType}_5.png`;
                 this.loopIntervals[playerId] = setInterval(() => {
+                    // 這裡設為 5 和 1 輪替，或者保持 5
                     winFrame = (winFrame === 5) ? 1 : 5;
                     img.src = `images/avatar_${charType}_${winFrame}.png`;
                 }, 400);
@@ -83,7 +92,7 @@ const SynthEngine = {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
         if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ if(!gameScreen.classList.contains('hidden'))this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff";}
+        else{ this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff";}
     },
     playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
     playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(150,t); o.frequency.linearRampToValueAtTime(300,t+0.1); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.1); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.1); },
@@ -103,10 +112,7 @@ function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
     if (autoCloseMs > 0) setTimeout(() => { modalOverlay.classList.add('hidden'); }, autoCloseMs);
 }
 
-socket.on('connect', () => {
-    myId = socket.id; // 連線時確保 ID 寫入
-    console.log('連線成功, ID:', myId);
-});
+socket.on('connect', () => { myId = socket.id; });
 
 joinBtn.addEventListener('click', () => {
     SynthEngine.init(); 
@@ -119,36 +125,30 @@ joinBtn.addEventListener('click', () => {
 
 socket.on('error_msg', (msg) => {
     loginError.innerText = `⚠️ ${msg}`;
-    if (!lobbyScreen.classList.contains('hidden') === false) showModal("錯誤", msg);
+    showModal("錯誤", msg);
 });
 
 socket.on('update_player_list', (players) => {
     const me = players.find(p => p.id === socket.id);
     if (me) {
         myId = socket.id;
-        joinBtn.classList.add('hidden');
-        usernameInput.classList.add('hidden');
-        waitingMsg.classList.remove('hidden');
-        loginError.innerText = "";
+        loginOverlay.classList.add('hidden'); // 隱藏登入
+        scoreboardHeader.classList.remove('hidden'); // 顯示計分板
+        stadiumWrapper.classList.remove('hidden');   // 顯示體育場
+        gameMsg.innerText = "✅ 已加入！等待老師開始...";
     }
-    playerListUl.innerHTML = players.map(p => `<li>${p.name}</li>`).join('');
     renderTracks(players);
 });
 
 socket.on('show_initiative', (sortedPlayers) => {
     const myData = sortedPlayers.find(p => p.id === socket.id);
     const myRank = sortedPlayers.findIndex(p => p.id === socket.id) + 1;
-    lobbyStatusText.innerHTML = `
-        <h2 style="color: #28a745; margin-bottom:5px;">🎲 擲骰順序決定！</h2>
-        <p style="font-size: 1.2rem; margin: 5px 0;">你擲出了 <b style="color:#d63384; font-size: 1.5rem;">${myData.initRoll}</b> 點</p>
-        <p style="font-size: 1.2rem; margin: 5px 0;">排在第 <b style="color:#007bff; font-size: 1.5rem;">${myRank}</b> 順位</p>
-    `;
+    gameMsg.innerHTML = `🎲 擲骰順序：你擲出 <span style="color:#fff">${myData.initRoll}</span> 點，排第 ${myRank} 位`;
     SynthEngine.playRoll();
 });
 
 socket.on('game_start', () => {
-    lobbyScreen.classList.add('hidden');
-    gameScreen.classList.remove('hidden');
+    gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
 });
 
@@ -156,39 +156,34 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
     if (nextPlayerId) AvatarManager.setState(nextPlayerId, 'ready');
 
     if (nextPlayerId === myId) {
-        rollBtn.removeAttribute('disabled'); // 強制移除 disabled
         rollBtn.disabled = false;
-        rollBtn.innerText = "🎲 輪到你了！按此擲骰";
-        rollBtn.style.backgroundColor = "#27ae60"; 
+        rollBtn.innerText = "🎲 按我擲骰！";
+        rollBtn.className = "board-btn btn-green"; // 變綠色
         rollBtn.style.cursor = "pointer";
     } else {
-        rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
-        rollBtn.innerText = "等待其他玩家...";
-        rollBtn.style.backgroundColor = "#95a5a6"; 
+        rollBtn.innerText = "等待對手...";
+        rollBtn.className = "board-btn btn-grey"; // 變灰色
         rollBtn.style.cursor = "not-allowed";
     }
 
     if (!isAnimating) {
         if (nextPlayerId === myId) {
-            gameMsg.innerText = "👉 輪到你行動！";
-            gameMsg.style.color = "#d63384";
+            gameMsg.innerText = "👉 輪到你了！請擲骰子";
+            gameMsg.style.color = "#f1c40f";
         } else {
             gameMsg.innerText = "等待對手行動中...";
-            gameMsg.style.color = "#333";
+            gameMsg.style.color = "#f1c40f";
         }
     }
 });
 
 rollBtn.addEventListener('click', () => {
-    // 雙重檢查
     if (rollBtn.disabled) return;
-    
     socket.emit('action_roll');
-    
-    // 立即鎖定給回饋
     rollBtn.disabled = true;
     rollBtn.innerText = "📡 傳送中...";
+    rollBtn.className = "board-btn btn-grey";
     SynthEngine.playRoll();
 });
 
@@ -197,17 +192,15 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const isMe = (playerId === myId);
     isAnimating = true; 
 
+    // 🏃‍♂️ 這裡觸發跑步動畫 (循環 3, 4)
     AvatarManager.setState(playerId, 'run');
 
     if (isMe) {
         gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`;
-        gameMsg.style.color = "#d63384";
-        rollBtn.innerText = `🎲 ${roll} 點！`;
     } else {
         const nameTag = avatarContainer.querySelector('.name-tag');
         const name = nameTag ? nameTag.innerText : '對手';
         gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`;
-        gameMsg.style.color = "#2980b9";
     }
 
     setTimeout(() => {
@@ -224,11 +217,6 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
             } else {
                 AvatarManager.setState(playerId, 'win');
             }
-            
-            if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
-                gameMsg.innerText = "等待對手行動中...";
-                gameMsg.style.color = "#333";
-            }
         }, 1000); 
     }, 1000);
 });
@@ -240,12 +228,9 @@ socket.on('player_finished_rank', ({ player, rank }) => {
 
         if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
-            gameMsg.style.color = "#27ae60";
-            rollBtn.disabled = true;
             rollBtn.innerText = "🏆 已完賽";
         } else {
             gameMsg.innerText = `🏁 ${player.name} 奪得第 ${rank} 名！`;
-            gameMsg.style.color = "#2980b9";
         }
     }, 1500);
 });
@@ -256,13 +241,23 @@ socket.on('game_over', ({ rankings }) => {
         rollBtn.classList.add('hidden');
         gameMsg.innerText = `🏆 遊戲結束！`;
         rankings.forEach(r => AvatarManager.setState(r.id, 'win'));
+        
         let rankHtml = '<ul style="text-align: left; margin-top: 10px; padding:0; list-style:none;">';
         rankings.forEach(p => {
             let medal = '';
             if (p.rank === 1) medal = '🥇';
             if (p.rank === 2) medal = '🥈';
             if (p.rank === 3) medal = '🥉';
-            rankHtml += `<li style="font-size: 1rem; margin-bottom: 8px; border-bottom:1px dashed #ccc; padding-bottom:5px;">${medal} 第 ${p.rank} 名：${p.name}</li>`;
+            
+            // 🖼️ 這裡加入角色勝利圖
+            const charType = AvatarManager.getCharType(p.id);
+            const imgHtml = `<img src="images/avatar_${charType}_5.png" style="width:32px; height:32px; vertical-align:middle; margin-right:10px;">`;
+            
+            rankHtml += `<li style="font-size: 1.2rem; margin-bottom: 10px; border-bottom:1px dashed #ccc; padding-bottom:5px; display:flex; align-items:center;">
+                <span style="margin-right:10px;">${medal} 第 ${p.rank} 名</span>
+                ${imgHtml}
+                <strong>${p.name}</strong>
+            </li>`;
         });
         rankHtml += '</ul>';
         showModal("🏁 比賽結束", `所有贏家已產生！<br>${rankHtml}`);
@@ -279,12 +274,11 @@ socket.on('game_reset_positions', () => {
         AvatarManager.setState(id, 'idle');
     });
     modalOverlay.classList.add('hidden');
-    lobbyStatusText.innerHTML = `<p>✅ 已加入！等待老師開始遊戲...</p>`;
     gameMsg.innerText = "準備開始新的一局...";
     rollBtn.classList.remove('hidden');
     rollBtn.disabled = true;
     rollBtn.innerText = "等待開始...";
-    rollBtn.style.backgroundColor = "#95a5a6";
+    rollBtn.className = "board-btn btn-grey";
     SynthEngine.stopBGM();
 });
 
