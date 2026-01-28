@@ -46,15 +46,18 @@ const AvatarManager = {
             case 'ready': 
                 img.src = `images/avatar_${charType}_2.png`; 
                 break;
-            case 'run': 
-                // 🏃‍♂️ 修復：確保 3 和 4 輪替
-                let runFrame = 3;
-                img.src = `images/avatar_${charType}_3.png`;
-                this.loopIntervals[playerId] = setInterval(() => {
-                    runFrame = (runFrame === 3) ? 4 : 3;
-                    img.src = `images/avatar_${charType}_${runFrame}.png`;
-                }, 150);
-                break;
+case 'run': 
+    // 🏃‍♂️ 跑步邏輯：確保是 3 和 4 交互
+    let runFrame = 3;
+    // 先立刻顯示第一張跑步圖 (避免延遲)
+    img.src = `images/avatar_${charType}_3.png`; 
+    
+    this.loopIntervals[playerId] = setInterval(() => {
+        // 切換 Frame
+        runFrame = (runFrame === 3) ? 4 : 3;
+        img.src = `images/avatar_${charType}_${runFrame}.png`;
+    }, 150); // 每 150 毫秒切換一次，速度適中
+    break;
             case 'win': 
                 // 🎉 修復：確保 5 和 1 (或5單獨) 輪替
                 let winFrame = 5;
@@ -192,9 +195,10 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const isMe = (playerId === myId);
     isAnimating = true; 
 
-    // 🏃‍♂️ 這裡觸發跑步動畫 (循環 3, 4)
+    // 1. 收到指令，立刻讓角色變成「跑步狀態」 (動作 3, 4 循環)
     AvatarManager.setState(playerId, 'run');
 
+    // 更新訊息
     if (isMe) {
         gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`;
     } else {
@@ -203,22 +207,34 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
         gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`;
     }
 
+    // 2. 執行移動 (CSS transition 會處理滑順效果)
+    if (avatarContainer) {
+        // 播放音效
+        SynthEngine.playStep();
+        
+        // 計算新位置
+        const percent = (newPos / 22) * 100; 
+        avatarContainer.style.left = `${percent}%`;
+    }
+
+    // 3. 設定計時器，等移動動畫結束後 (約 1 秒)，才變回站立或勝利
+    // (CSS transition 設定是 0.8s，我們抓 1000ms 比較保險)
     setTimeout(() => {
-        if (avatarContainer) {
-            SynthEngine.playStep();
-            const percent = (newPos / 22) * 100; 
-            avatarContainer.style.left = `${percent}%`;
+        isAnimating = false;
+        
+        // 判斷是否到達終點
+        if (newPos >= 21) {
+            AvatarManager.setState(playerId, 'win'); // 動作 5, 1 循環
+        } else {
+            AvatarManager.setState(playerId, 'idle'); // 恢復站立 動作 1
         }
         
-        setTimeout(() => {
-            isAnimating = false;
-            if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle');
-            } else {
-                AvatarManager.setState(playerId, 'win');
-            }
-        }, 1000); 
-    }, 1000);
+        // 恢復按鈕文字提示
+        if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
+            gameMsg.innerText = "等待對手行動中...";
+            gameMsg.style.color = "#333";
+        }
+    }, 1000); 
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {

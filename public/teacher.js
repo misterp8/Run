@@ -49,15 +49,18 @@ const AvatarManager = {
             case 'ready': 
                 img.src = `images/avatar_${charType}_2.png`;
                 break;
-            case 'run': 
-                // 🏃‍♂️ 修復：確保動作 3 和 4 輪替
-                let runFrame = 3;
-                img.src = `images/avatar_${charType}_3.png`;
-                this.loopIntervals[playerId] = setInterval(() => {
-                    runFrame = (runFrame === 3) ? 4 : 3;
-                    img.src = `images/avatar_${charType}_${runFrame}.png`;
-                }, 150);
-                break;
+case 'run': 
+    // 🏃‍♂️ 跑步邏輯：確保是 3 和 4 交互
+    let runFrame = 3;
+    // 先立刻顯示第一張跑步圖 (避免延遲)
+    img.src = `images/avatar_${charType}_3.png`; 
+    
+    this.loopIntervals[playerId] = setInterval(() => {
+        // 切換 Frame
+        runFrame = (runFrame === 3) ? 4 : 3;
+        img.src = `images/avatar_${charType}_${runFrame}.png`;
+    }, 150); // 每 150 毫秒切換一次，速度適中
+    break;
             case 'win': 
                 // 🎉 修復：確保動作 5 和 1 輪替 (歡呼效果)
                 let winFrame = 5;
@@ -251,26 +254,28 @@ socket.on('player_moved', ({ playerId, roll, newPos }) => {
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
     const playerName = nameTag ? nameTag.innerText : '未知玩家';
 
+    // 1. 立刻切換為跑步狀態 (動作 3, 4)
     AvatarManager.setState(playerId, 'run');
 
+    // 更新看板訊息
     if (liveMsg) {
         liveMsg.innerHTML = `<span style="color:#f1c40f">${playerName}</span> 擲出了 ${roll} 點`;
     }
 
-    setTimeout(() => {
-        if (avatarContainer) {
-            SynthEngine.playStep();
-            const percent = (newPos / 22) * 100;
-            avatarContainer.style.left = `${percent}%`;
-        }
+    // 2. 執行移動
+    if (avatarContainer) {
+        SynthEngine.playStep();
+        const percent = (newPos / 22) * 100;
+        avatarContainer.style.left = `${percent}%`;
+    }
 
-        setTimeout(() => {
-            if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle');
-            } else {
-                AvatarManager.setState(playerId, 'win');
-            }
-        }, 1000);
+    // 3. 移動結束後 (1秒後) 停止跑步
+    setTimeout(() => {
+        if (newPos >= 21) {
+            AvatarManager.setState(playerId, 'win');
+        } else {
+            AvatarManager.setState(playerId, 'idle');
+        }
     }, 1000);
 });
 
