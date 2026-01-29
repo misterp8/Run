@@ -31,12 +31,11 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3D 骰子管理器 (Teacher) ---
+// --- 🎲 3D 骰子 ---
 const DiceManager = {
     overlay: document.getElementById('dice-overlay'),
     cube: document.getElementById('dice-cube'),
     currentX: 0, currentY: 0, 
-    
     async roll(targetNumber) {
         return new Promise((resolve) => {
             this.overlay.classList.add('active');
@@ -46,14 +45,17 @@ const DiceManager = {
             const extraX = 360 * (Math.floor(Math.random() * 3) + 2);
             const extraY = 360 * (Math.floor(Math.random() * 3) + 2);
             
-            this.currentX += extraX; 
-            this.currentY += extraY;
-            const remainderX = this.currentX % 360;
-            const remainderY = this.currentY % 360;
+            let nextX = this.currentX + extraX;
+            let nextY = this.currentY + extraY;
+            const remainderX = nextX % 360;
+            const remainderY = nextY % 360;
             
-            this.currentX += (target.x - remainderX);
-            this.currentY += (target.y - remainderY);
+            nextX += (target.x - remainderX);
+            nextY += (target.y - remainderY);
+            if (nextX <= this.currentX) nextX += 360;
+            if (nextY <= this.currentY) nextY += 360;
 
+            this.currentX = nextX; this.currentY = nextY;
             this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
             this.cube.style.transform = `rotateX(${this.currentX}deg) rotateY(${this.currentY}deg)`;
             setTimeout(() => {
@@ -87,37 +89,37 @@ const AvatarManager = {
         if (!charType) charType = 'a';
 
         if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
-        switch (state) {
-            case 'idle': if(img) img.src = `images/avatar_${charType}_1.png`; break;
-            case 'ready': if(img) img.src = `images/avatar_${charType}_2.png`; break;
-            case 'run': 
-                if(img) img.src = `images/avatar_${charType}_3.png`; 
-                let runToggle = false;
-                this.loopIntervals[playerId] = setInterval(() => {
-                    const currentImg = document.getElementById(`img-${playerId}`);
-                    if (currentImg) {
-                        runToggle = !runToggle;
-                        const frame = runToggle ? 4 : 3;
-                        currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                        if (!currentImg.src.includes(`_${frame}.png`)) {
-                            currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                        }
-                        SynthEngine.playStep();
-                    }
-                }, 150);
-                break;
-            case 'win': 
-                if(img) img.src = `images/avatar_${charType}_5.png`;
-                let winToggle = false;
-                this.loopIntervals[playerId] = setInterval(() => {
-                    const currentImg = document.getElementById(`img-${playerId}`);
-                    if (currentImg) {
-                        winToggle = !winToggle;
-                        const frame = winToggle ? 1 : 5;
-                        currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                    }
-                }, 400);
-                break;
+        
+        // 立即設置第一張
+        if (img) {
+            if (state === 'idle') img.src = `images/avatar_${charType}_1.png`;
+            if (state === 'ready') img.src = `images/avatar_${charType}_2.png`;
+            if (state === 'run') img.src = `images/avatar_${charType}_3.png`;
+            if (state === 'win') img.src = `images/avatar_${charType}_5.png`;
+        }
+
+        if (state === 'run') {
+            let runToggle = false;
+            this.loopIntervals[playerId] = setInterval(() => {
+                const currentImg = document.getElementById(`img-${playerId}`);
+                if (currentImg) {
+                    runToggle = !runToggle;
+                    const frame = runToggle ? 4 : 3;
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
+                    if (!currentImg.src.includes(`_${frame}.png`)) currentImg.src = `images/avatar_${charType}_${frame}.png`;
+                    SynthEngine.playStep();
+                }
+            }, 150);
+        } else if (state === 'win') {
+            let winToggle = false;
+            this.loopIntervals[playerId] = setInterval(() => {
+                const currentImg = document.getElementById(`img-${playerId}`);
+                if (currentImg) {
+                    winToggle = !winToggle;
+                    const frame = winToggle ? 1 : 5;
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
+                }
+            }, 400);
         }
     }
 };
@@ -237,7 +239,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    await DiceManager.roll(roll); 
+    await DiceManager.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
@@ -252,19 +254,18 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 
     if (liveMsg) liveMsg.innerHTML = `<span style="color:#f1c40f">${playerName}</span> 擲出了 ${roll} 點`;
 
+    if (avatarContainer) {
+        const percent = (newPos / 22) * 100;
+        avatarContainer.style.left = `${percent}%`;
+    }
+
     setTimeout(() => {
-        if (avatarContainer) {
-            const percent = (newPos / 22) * 100;
-            avatarContainer.style.left = `${percent}%`;
+        AvatarManager.movingStatus[playerId] = false;
+        if (newPos < 21) {
+            AvatarManager.setState(playerId, 'idle', charType);
+        } else {
+            AvatarManager.setState(playerId, 'win', charType);
         }
-        setTimeout(() => {
-            AvatarManager.movingStatus[playerId] = false;
-            if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle', charType);
-            } else {
-                AvatarManager.setState(playerId, 'win', charType);
-            }
-        }, 1000);
     }, 1000);
 });
 
@@ -354,7 +355,6 @@ function renderTracks(players) {
         img.id = `img-${p.id}`;
         img.dataset.char = charType;
         
-        // 🛠️ 關鍵修正：渲染時也檢查狀態，確保圖片正確
         if (AvatarManager.movingStatus[p.id]) {
             img.src = `images/avatar_${charType}_3.png`;
         } else if (p.position >= 21) {

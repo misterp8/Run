@@ -9,8 +9,6 @@ const joinBtn = document.getElementById('join-btn');
 const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
-const loginError = document.getElementById('login-error');
-
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
@@ -33,7 +31,7 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3D 骰子 ---
+// --- 🎲 3D 骰子 (修正總是4點與倒轉問題) ---
 const DiceManager = {
     overlay: document.getElementById('dice-overlay'),
     cube: document.getElementById('dice-cube'),
@@ -50,17 +48,27 @@ const DiceManager = {
             };
             const target = targetRotations[targetNumber];
             
+            // 隨機多轉 2~4 圈
             const extraX = 360 * (Math.floor(Math.random() * 3) + 2);
             const extraY = 360 * (Math.floor(Math.random() * 3) + 2);
 
-            this.currentX += extraX;
-            this.currentY += extraY;
+            // 算出「下一個」正確角度 (確保永遠增加，不倒退)
+            let nextX = this.currentX + extraX;
+            let nextY = this.currentY + extraY;
 
-            const remainderX = this.currentX % 360;
-            const remainderY = this.currentY % 360;
-            
-            this.currentX += (target.x - remainderX);
-            this.currentY += (target.y - remainderY);
+            const remainderX = nextX % 360;
+            const remainderY = nextY % 360;
+
+            // 補償差值，對齊目標
+            nextX += (target.x - remainderX);
+            nextY += (target.y - remainderY);
+
+            // 如果計算出來比當前小(極少見)，強制加一圈
+            if (nextX <= this.currentX) nextX += 360;
+            if (nextY <= this.currentY) nextY += 360;
+
+            this.currentX = nextX;
+            this.currentY = nextY;
 
             this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
             this.cube.style.transform = `rotateX(${this.currentX}deg) rotateY(${this.currentY}deg)`;
@@ -88,75 +96,72 @@ const ConfettiManager = {
     }
 };
 
-// --- 🎭 角色與動畫管理器 (關鍵修復) ---
+// --- 🎭 角色與動畫管理器 (嚴格版) ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
     
-    // 雖然 Server 已經分配，但這裡保留 Helper 函式
-    getCharType(p) {
-        return p.avatarChar || 'a'; 
+    // 穩定的取得角色類型 (不依賴 DOM)
+    getCharType(playerId) {
+        // 從 DOM 取得這太慢了，我們用簡單的 Hash 備份，或者依賴傳入
+        // 這裡做一個簡單的 Hash 回退機制
+        let hash = 0;
+        for (let i = 0; i < playerId.length; i++) hash += playerId.charCodeAt(i);
+        return CHAR_TYPES[hash % CHAR_TYPES.length];
     },
 
     setState(playerId, state, charType) {
-        // 如果正在移動中，忽略 idle 或 ready 指令，確保跑步不被中斷
-        if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
+        // 🔒 鎖定檢查：如果正在跑，拒絕變成 idle 或 ready
+        if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) {
+            return;
+        }
 
-        let img = document.getElementById(`img-${playerId}`);
-        
-        // 嘗試補救 charType
-        if (!charType && img) charType = img.dataset.char;
-        if (!charType) charType = 'a'; 
+        // 如果沒有提供 charType，嘗試計算或預設
+        if (!charType) charType = this.getCharType(playerId);
 
-        // 清除舊計時器
+        // 先清除舊的
         if (this.loopIntervals[playerId]) { 
             clearInterval(this.loopIntervals[playerId]); 
             delete this.loopIntervals[playerId]; 
         }
 
-        switch (state) {
-            case 'idle': 
-                if(img) img.src = `images/avatar_${charType}_1.png`; 
-                break;
-            case 'ready': 
-                if(img) img.src = `images/avatar_${charType}_2.png`; 
-                break;
-            case 'run': 
-                // 立即設定第一張跑圖
-                if(img) img.src = `images/avatar_${charType}_3.png`; 
-                
-                let runToggle = false;
-                this.loopIntervals[playerId] = setInterval(() => {
-                    // 🛠️ 關鍵修正：每次都重新抓 DOM，如果抓不到(正在重繪)就跳過，絕對不要清除計時器
-                    const currentImg = document.getElementById(`img-${playerId}`);
+        // 立即設定第一張圖 (避免閃爍)
+        const immediateImg = document.getElementById(`img-${playerId}`);
+        if (immediateImg) {
+            if (state === 'idle') immediateImg.src = `images/avatar_${charType}_1.png`;
+            if (state === 'ready') immediateImg.src = `images/avatar_${charType}_2.png`;
+            if (state === 'run') immediateImg.src = `images/avatar_${charType}_3.png`;
+            if (state === 'win') immediateImg.src = `images/avatar_${charType}_5.png`;
+        }
+
+        // 針對動態設定計時器
+        if (state === 'run') {
+            let runToggle = false;
+            this.loopIntervals[playerId] = setInterval(() => {
+                const currentImg = document.getElementById(`img-${playerId}`);
+                if (currentImg) {
+                    runToggle = !runToggle;
+                    const frame = runToggle ? 4 : 3;
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     
-                    if (currentImg) {
-                        runToggle = !runToggle;
-                        const frame = runToggle ? 4 : 3;
-                        currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                        
-                        // 確保移動時如果因為重繪導致 src 變回 1，這裡會強制刷成 3 或 4
-                        if (!currentImg.src.includes(`_${frame}.png`)) {
-                            currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                        }
-                        
-                        SynthEngine.playStep();
-                    }
-                }, 150);
-                break;
-            case 'win': 
-                if(img) img.src = `images/avatar_${charType}_5.png`;
-                
-                let winToggle = false;
-                this.loopIntervals[playerId] = setInterval(() => {
-                    const currentImg = document.getElementById(`img-${playerId}`);
-                    if (currentImg) {
-                        winToggle = !winToggle;
-                        const frame = winToggle ? 1 : 5;
+                    // 強制檢查：如果重繪導致變回 _1，強制刷回 _3 或 _4
+                    if (!currentImg.src.includes(`_${frame}.png`)) {
                         currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     }
-                }, 400);
-                break;
+                    SynthEngine.playStep();
+                }
+            }, 150);
+        } 
+        else if (state === 'win') {
+            let winToggle = false;
+            this.loopIntervals[playerId] = setInterval(() => {
+                const currentImg = document.getElementById(`img-${playerId}`);
+                if (currentImg) {
+                    winToggle = !winToggle;
+                    const frame = winToggle ? 1 : 5;
+                    currentImg.src = `images/avatar_${charType}_${frame}.png`;
+                }
+            }, 400);
         }
     }
 };
@@ -230,11 +235,9 @@ socket.on('update_player_list', (players) => {
 
 socket.on('show_initiative', (sortedPlayers) => {
     let msg = "🎲 抽籤決定順序：\n";
-    sortedPlayers.forEach((p, i) => {
-        msg += `${i+1}. ${p.name} `;
-        if((i+1)%3 === 0) msg += "\n";
-    });
+    sortedPlayers.forEach((p, i) => { msg += `${i+1}. ${p.name} `; if((i+1)%3 === 0) msg += "\n"; });
     gameMsg.innerText = msg;
+    SynthEngine.playRoll();
 });
 
 socket.on('game_start', () => {
@@ -292,7 +295,9 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
+// --- 核心修復：移除多餘延遲，立即移動 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
+    // 1. 等待骰子 (1.5s)
     await DiceManager.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -300,11 +305,14 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     isAnimating = true; 
 
     PLAYER_POSITIONS[playerId] = newPos;
+    // 鎖定狀態
     AvatarManager.movingStatus[playerId] = true;
     
+    // 取得角色 (Server 分配的)
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
 
+    // 開始跑步動畫
     AvatarManager.setState(playerId, 'run', charType);
 
     if (isMe) {
@@ -315,31 +323,32 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
         gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`;
     }
 
+    // 2. 立即移動，不要再 setTimeout 1秒了！
+    if (avatarContainer) {
+        const percent = (newPos / 22) * 100; 
+        avatarContainer.style.left = `${percent}%`;
+    }
+        
+    // 3. 移動耗時 1秒 (CSS transition: 1s)，結束後恢復狀態
     setTimeout(() => {
-        if (avatarContainer) {
-            const percent = (newPos / 22) * 100; 
-            avatarContainer.style.left = `${percent}%`;
+        isAnimating = false;
+        AvatarManager.movingStatus[playerId] = false; // 解鎖
+
+        if (newPos < 21) {
+            AvatarManager.setState(playerId, 'idle', charType);
+        } else {
+            AvatarManager.setState(playerId, 'win', charType);
         }
         
-        setTimeout(() => {
-            isAnimating = false;
-            AvatarManager.movingStatus[playerId] = false;
-
-            if (newPos < 21) {
-                AvatarManager.setState(playerId, 'idle', charType);
-            } else {
-                AvatarManager.setState(playerId, 'win', charType);
-            }
-            
-            if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
-                gameMsg.innerText = "等待對手行動中...";
-                gameMsg.style.color = "#fff";
-            }
-        }, 1000); 
-    }, 1000);
+        if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
+            gameMsg.innerText = "等待對手行動中...";
+            gameMsg.style.color = "#fff";
+        }
+    }, 1000); 
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
+    // 延遲到移動結束後 (1s move) + 緩衝 (1.5s)
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
@@ -407,8 +416,6 @@ socket.on('game_reset_positions', () => {
 
 function renderTracks(players) {
     trackContainer.innerHTML = ''; 
-    
-    // 渲染時，如果該玩家正在跑步，我們必須讓圖片維持在 "Run" 的狀態，而不是被重置成 "Idle"
     players.forEach(p => {
         PLAYER_POSITIONS[p.id] = p.position;
 
@@ -425,6 +432,7 @@ function renderTracks(players) {
         const percent = (p.position / 22) * 100;
         avatarContainer.style.left = `${percent}%`;
 
+        // 使用 Server 分配的角色
         const charType = p.avatarChar || 'a';
 
         const img = document.createElement('img');
@@ -432,7 +440,7 @@ function renderTracks(players) {
         img.id = `img-${p.id}`;
         img.dataset.char = charType; 
         
-        // 🛠️ 關鍵修正：檢查是否正在移動，如果是，初始化為跑步圖 (_3)，否則依位置決定
+        // 渲染時：如果正在移動，強制設為 _3，否則依位置
         if (AvatarManager.movingStatus[p.id]) {
             img.src = `images/avatar_${charType}_3.png`;
         } else if (p.position >= 21) {
