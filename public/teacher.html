@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>老師後台 - 方塊大賽跑</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
-    <button id="mute-btn" style="position: fixed; top: 160px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border:2px solid #333;">🔊</button>
+    <button id="mute-btn" style="position: fixed; top: 170px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border:2px solid #333;">🔊</button>
 
     <div id="modal-overlay" class="hidden">
         <div class="modal-content">
@@ -21,24 +22,21 @@
         </div>
     </div>
 
-    <div id="dice-overlay">
-        <div class="dice-cube" id="dice-cube">
-            <div class="dice-face" data-face="1"><div class="dice-dot"></div></div>
-            <div class="dice-face" data-face="2"><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
-            <div class="dice-face" data-face="3"><div class="dice-dot"></div><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
-            <div class="dice-face" data-face="4"><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="top:20px;right:20px"></div><div class="dice-dot" style="bottom:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
-            <div class="dice-face" data-face="5"><div class="dice-dot"></div><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="top:20px;right:20px"></div><div class="dice-dot" style="bottom:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div></div>
-            <div class="dice-face" data-face="6"><div class="dice-dot" style="top:20px;left:20px"></div><div class="dice-dot" style="top:20px;right:20px"></div><div class="dice-dot" style="bottom:20px;left:20px"></div><div class="dice-dot" style="bottom:20px;right:20px"></div><div class="dice-dot" style="top:50%;left:20px;transform:translateY(-50%)"></div><div class="dice-dot" style="top:50%;right:20px;transform:translateY(-50%)"></div></div>
-        </div>
-    </div>
+    <div id="dice-3d-container"></div>
 
     <div id="scoreboard-header">
         <div class="board-content">
-            <div class="board-status" style="flex-direction: column; align-items: flex-start; justify-content: center; font-size:1.2rem; line-height:1.5;">
-                <div id="connection-status" style="font-size:0.9rem; color:#aaa;">🟢 伺服器已連線</div>
-                <div id="live-msg">等待學生加入...</div>
-                <div style="font-size:0.8rem; color:#ccc;">人數: <span id="player-count">0</span>/8</div>
+            <div class="board-order">
+                <h3>📜 擲骰順序</h3>
+                <div id="order-list">等待抽籤...</div>
             </div>
+
+            <div class="board-status">
+                <div id="connection-status" style="font-size:0.9rem; color:#aaa;">🟢 連線正常</div>
+                <div id="live-msg" style="font-size:1.4rem; color:#fff;">等待開始...</div>
+                <div style="font-size:0.8rem; color:#ccc; margin-top:5px;">線上人數: <span id="player-count">0</span>/8</div>
+            </div>
+
             <div class="board-controls">
                 <button id="start-btn" class="board-btn btn-green">開始</button>
                 <button id="restart-btn" class="board-btn btn-orange" disabled>下一局</button>

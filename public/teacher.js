@@ -8,6 +8,7 @@ const resetBtn = document.getElementById('reset-btn');
 const playerCountSpan = document.getElementById('player-count');
 const liveMsg = document.getElementById('live-msg');
 const connectionStatus = document.getElementById('connection-status');
+const orderList = document.getElementById('order-list'); // 老師端專屬看板
 
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
@@ -31,39 +32,108 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3D 骰子 ---
-const DiceManager = {
-    overlay: document.getElementById('dice-overlay'),
-    cube: document.getElementById('dice-cube'),
-    currentX: 0, currentY: 0, 
+// --- 🎲 3D 骰子管理器 (Three.js) ---
+const ThreeDice = {
+    container: document.getElementById('dice-3d-container'),
+    scene: null, camera: null, renderer: null, cube: null,
+    isRolling: false,
+    
+    init() {
+        if (!this.container) return; // 防呆
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        this.camera.position.z = 5;
+        this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.container.appendChild(this.renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        this.scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        this.scene.add(dirLight);
+
+        const materials = [];
+        for (let i = 1; i <= 6; i++) {
+            materials.push(new THREE.MeshStandardMaterial({ 
+                map: this.createDiceTexture(i), roughness: 0.2, metalness: 0.1
+            }));
+        }
+        this.cube = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), materials);
+        this.scene.add(this.cube);
+
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        this.animate();
+    },
+
+    createDiceTexture(number) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 256, 256);
+        ctx.strokeStyle = '#cccccc'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, 256, 256);
+        ctx.fillStyle = (number === 1) ? '#e74c3c' : '#333333';
+        const r = 25, c = 128, o = 60;
+        const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); };
+        if (number === 1) drawDot(c, c);
+        if (number === 2) { drawDot(c-o, c-o); drawDot(c+o, c+o); }
+        if (number === 3) { drawDot(c-o, c-o); drawDot(c, c); drawDot(c+o, c+o); }
+        if (number === 4) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c+o); drawDot(c+o, c+o); }
+        if (number === 5) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
+        if (number === 6) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c); drawDot(c+o, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
+        return new THREE.CanvasTexture(canvas);
+    },
+
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        if (this.isRolling) { this.cube.rotation.x += 0.2; this.cube.rotation.y += 0.2; }
+        if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
+    },
+
     async roll(targetNumber) {
         return new Promise((resolve) => {
-            this.overlay.classList.add('active');
+            this.container.classList.add('active');
+            this.isRolling = true;
             SynthEngine.playRoll();
-            const targetRotations = { 1: {x:0,y:0}, 2: {x:0,y:-90}, 3: {x:0,y:180}, 4: {x:0,y:90}, 5: {x:-90,y:0}, 6: {x:90,y:0} };
-            const target = targetRotations[targetNumber];
-            const extraX = 360 * (Math.floor(Math.random() * 3) + 2);
-            const extraY = 360 * (Math.floor(Math.random() * 3) + 2);
-            
-            let nextX = this.currentX + extraX;
-            let nextY = this.currentY + extraY;
-            const remainderX = nextX % 360;
-            const remainderY = nextY % 360;
-            
-            nextX += (target.x - remainderX);
-            nextY += (target.y - remainderY);
-            if (nextX <= this.currentX) nextX += 360; // 確保永遠往前
-            
-            this.currentX = nextX; this.currentY = nextY;
-            this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
-            this.cube.style.transform = `rotateX(${this.currentX}deg) rotateY(${this.currentY}deg)`;
+
             setTimeout(() => {
-                setTimeout(() => { this.overlay.classList.remove('active'); resolve(); }, 800);
-            }, 1500);
+                this.isRolling = false;
+                let targetRot = { x: 0, y: 0, z: 0 };
+                switch(targetNumber) {
+                    case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break;
+                    case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;
+                    case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break;
+                    case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break;
+                    case 5: targetRot = {x: 0, y: 0, z: 0}; break;
+                    case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;
+                }
+                const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2) };
+                const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4 };
+                const startTime = Date.now();
+                const duration = 800;
+
+                const settle = () => {
+                    const now = Date.now();
+                    const p = Math.min((now - startTime) / duration, 1);
+                    const ease = 1 - Math.pow(1 - p, 3);
+                    this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * ease;
+                    this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * ease;
+                    if (p < 1) requestAnimationFrame(settle);
+                    else setTimeout(() => { this.container.classList.remove('active'); resolve(); }, 500);
+                };
+                settle();
+            }, 1000);
         });
     }
 };
+ThreeDice.init();
 
+// --- 🎉 派對特效 ---
 const ConfettiManager = {
     shoot() {
         const duration = 3000;
@@ -76,19 +146,24 @@ const ConfettiManager = {
     }
 };
 
+// --- 🎭 角色與動畫管理器 (Smart Render 修正版) ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
     getCharType(p) { return p.avatarChar || 'a'; },
-    
+
     setState(playerId, state, charType) {
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
+
         let img = document.getElementById(`img-${playerId}`);
         if (!charType && img) charType = img.dataset.char;
-        if (!charType) charType = 'a';
+        if (!charType) charType = 'a'; 
 
-        if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
-        
+        if (this.loopIntervals[playerId]) { 
+            clearInterval(this.loopIntervals[playerId]); 
+            delete this.loopIntervals[playerId]; 
+        }
+
         if (img) {
             if (state === 'idle') img.src = `images/avatar_${charType}_1.png`;
             if (state === 'ready') img.src = `images/avatar_${charType}_2.png`;
@@ -122,6 +197,7 @@ const AvatarManager = {
     }
 };
 
+// --- 🏟️ 觀眾席動畫 ---
 const AudienceManager = {
     interval: null, toggle: 1,
     topDiv: document.getElementById('audience-top'),
@@ -200,6 +276,7 @@ socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
+    orderList.innerHTML = "等待抽籤...";
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'idle', img.dataset.char);
@@ -207,10 +284,16 @@ socket.on('game_reset_positions', () => {
 });
 
 socket.on('show_initiative', (sortedPlayers) => {
-    let msg = `🎲 抽籤決定順序：\n`;
-    sortedPlayers.forEach((p, i) => { msg += `${i+1}. ${p.name} `; if((i+1)%3 === 0) msg += "\n"; });
-    liveMsg.innerText = msg;
-    SynthEngine.init(); SynthEngine.playRoll();
+    let html = '';
+    sortedPlayers.forEach((p, i) => {
+        html += `<div style="margin-bottom:5px; border-bottom:1px solid #444; padding:2px;">
+            <span style="color:#aaa;">#${i+1}</span> 
+            <span style="font-weight:bold; color:#fff;">${p.name}</span>
+            <span style="font-size:0.8rem; color:#f1c40f;">(${p.initRoll})</span>
+        </div>`;
+    });
+    orderList.innerHTML = html;
+    SynthEngine.playRoll();
 });
 
 socket.on('game_start', () => {
@@ -223,6 +306,15 @@ socket.on('game_start', () => {
 });
 
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
+    // 高亮顯示當前玩家
+    const rows = orderList.querySelectorAll('div');
+    rows.forEach(r => r.classList.remove('order-active'));
+    // 注意：turnIndex 對應的是 sortedPlayers，這裡需要一個 mapping 機制
+    // 但因為排序是固定的，理論上順序一致。
+    // 如果要精準，應該用 ID 查找
+    // 這裡簡單處理：反白對應行 (假設順序不變)
+    if(rows[turnIndex]) rows[turnIndex].classList.add('order-active');
+
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
@@ -237,10 +329,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    // 鎖定！
-    AvatarManager.movingStatus[playerId] = true;
-
-    await DiceManager.roll(roll);
+    await ThreeDice.roll(roll); // 播放3D骰子
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
@@ -250,22 +339,24 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     const charType = img ? img.dataset.char : 'a';
 
     PLAYER_POSITIONS[playerId] = newPos;
+    AvatarManager.movingStatus[playerId] = true;
     AvatarManager.setState(playerId, 'run', charType);
 
     if (liveMsg) liveMsg.innerHTML = `<span style="color:#f1c40f">${playerName}</span> 擲出了 ${roll} 點`;
 
-    if (avatarContainer) {
-        const percent = (newPos / 22) * 100;
-        avatarContainer.style.left = `${percent}%`;
-    }
-
     setTimeout(() => {
-        AvatarManager.movingStatus[playerId] = false; // 解鎖
-        if (newPos < 21) {
-            AvatarManager.setState(playerId, 'idle', charType);
-        } else {
-            AvatarManager.setState(playerId, 'win', charType);
+        if (avatarContainer) {
+            const percent = (newPos / 22) * 100;
+            avatarContainer.style.left = `${percent}%`;
         }
+        setTimeout(() => {
+            AvatarManager.movingStatus[playerId] = false;
+            if (newPos < 21) {
+                AvatarManager.setState(playerId, 'idle', charType);
+            } else {
+                AvatarManager.setState(playerId, 'win', charType);
+            }
+        }, 1000);
     }, 1000);
 });
 
@@ -328,50 +419,71 @@ function updateView(players) {
     renderTracks(players); 
 }
 
+// 🛠️ Smart Rendering Logic 🛠️
 function renderTracks(players) {
-    trackContainer.innerHTML = ''; 
-    players.forEach(p => {
-        PLAYER_POSITIONS[p.id] = p.position;
+    // 取得現有的 track-row 元素
+    const existingRows = Array.from(trackContainer.children);
+    
+    // 如果數量不一致 (有新玩家或有人斷線)，則重繪
+    // 為了簡單穩定，這裡選擇：只要長度不同就重繪，相同就更新
+    if (existingRows.length !== players.length) {
+        trackContainer.innerHTML = '';
+        players.forEach(p => createRow(p));
+    } else {
+        // 長度一樣，進行 Diffing 更新
+        players.forEach((p, index) => {
+            const row = existingRows[index];
+            updateRow(row, p);
+        });
+    }
+}
 
-        const row = document.createElement('div');
-        row.className = 'track-row';
-        for(let i=0; i<22; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'grid-cell';
-            row.appendChild(cell);
-        }
-        const avatarContainer = document.createElement('div');
-        avatarContainer.className = 'avatar-container';
-        avatarContainer.id = `avatar-${p.id}`;
-        const percent = (p.position / 22) * 100;
+function createRow(p) {
+    PLAYER_POSITIONS[p.id] = p.position;
+    const row = document.createElement('div');
+    row.className = 'track-row';
+    row.dataset.id = p.id;
+    for(let i=0; i<22; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        row.appendChild(cell);
+    }
+    const avatarContainer = document.createElement('div');
+    avatarContainer.className = 'avatar-container';
+    avatarContainer.id = `avatar-${p.id}`;
+    const percent = (p.position / 22) * 100;
+    avatarContainer.style.left = `${percent}%`;
+    const charType = p.avatarChar || 'a';
+    const img = document.createElement('img');
+    img.className = 'avatar-img';
+    img.id = `img-${p.id}`;
+    img.dataset.char = charType;
+    img.src = `images/avatar_${charType}_1.png`;
+    const nameTag = document.createElement('div');
+    nameTag.className = 'name-tag';
+    nameTag.innerText = p.name;
+    avatarContainer.appendChild(nameTag);
+    avatarContainer.appendChild(img);
+    row.appendChild(avatarContainer);
+    trackContainer.appendChild(row);
+}
+
+function updateRow(row, p) {
+    // 確保 ID 對應正確
+    if (row.dataset.id !== p.id) {
+        // 如果順序亂了，這裡簡單處理：直接替換內容 (雖然比較暴力，但比全刷好)
+        row.innerHTML = '';
+        // 重新建立內容... 這裡呼叫 createRow 會導致多一層，所以為了保險，
+        // 若 ID 不對，我們直接 return，讓上面的 length check 下次處理
+        return; 
+    }
+
+    PLAYER_POSITIONS[p.id] = p.position;
+    const avatarContainer = row.querySelector('.avatar-container');
+    const percent = (p.position / 22) * 100;
+    
+    // 只更新位置，不碰圖片 (除非初始化)
+    if (avatarContainer.style.left !== `${percent}%`) {
         avatarContainer.style.left = `${percent}%`;
-
-        const charType = p.avatarChar || 'a';
-
-        const img = document.createElement('img');
-        img.className = 'avatar-img';
-        img.id = `img-${p.id}`;
-        img.dataset.char = charType;
-        
-        // 渲染時也檢查是否移動中
-        if (AvatarManager.movingStatus[p.id]) {
-            img.src = `images/avatar_${charType}_3.png`;
-        } else if (p.position >= 21) {
-            img.src = `images/avatar_${charType}_5.png`;
-        } else {
-            img.src = `images/avatar_${charType}_1.png`;
-        }
-
-        const nameTag = document.createElement('div');
-        nameTag.className = 'name-tag';
-        nameTag.innerText = p.name;
-        avatarContainer.appendChild(nameTag);
-        avatarContainer.appendChild(img);
-        row.appendChild(avatarContainer);
-        trackContainer.appendChild(row);
-
-        if(p.position >= 21) {
-            AvatarManager.setState(p.id, 'win', charType);
-        }
-    });
+    }
 }
