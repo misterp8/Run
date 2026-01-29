@@ -52,9 +52,8 @@ const DiceManager = {
             
             nextX += (target.x - remainderX);
             nextY += (target.y - remainderY);
-            if (nextX <= this.currentX) nextX += 360;
-            if (nextY <= this.currentY) nextY += 360;
-
+            if (nextX <= this.currentX) nextX += 360; // 確保永遠往前
+            
             this.currentX = nextX; this.currentY = nextY;
             this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
             this.cube.style.transform = `rotateX(${this.currentX}deg) rotateY(${this.currentY}deg)`;
@@ -90,7 +89,6 @@ const AvatarManager = {
 
         if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
         
-        // 立即設置第一張
         if (img) {
             if (state === 'idle') img.src = `images/avatar_${charType}_1.png`;
             if (state === 'ready') img.src = `images/avatar_${charType}_2.png`;
@@ -239,6 +237,9 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
+    // 鎖定！
+    AvatarManager.movingStatus[playerId] = true;
+
     await DiceManager.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -249,7 +250,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     const charType = img ? img.dataset.char : 'a';
 
     PLAYER_POSITIONS[playerId] = newPos;
-    AvatarManager.movingStatus[playerId] = true;
     AvatarManager.setState(playerId, 'run', charType);
 
     if (liveMsg) liveMsg.innerHTML = `<span style="color:#f1c40f">${playerName}</span> 擲出了 ${roll} 點`;
@@ -260,7 +260,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     }
 
     setTimeout(() => {
-        AvatarManager.movingStatus[playerId] = false;
+        AvatarManager.movingStatus[playerId] = false; // 解鎖
         if (newPos < 21) {
             AvatarManager.setState(playerId, 'idle', charType);
         } else {
@@ -293,9 +293,7 @@ socket.on('game_over', ({ rankings }) => {
                 if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
                 const charType = p.avatarChar || 'a';
                 const imgHtml = `<img class="rank-avatar" src="images/avatar_${charType}_5.png">`;
-                rankHtml += `<li class="rank-item">
-                    ${medal} ${imgHtml} <span class="rank-name">${p.name}</span>
-                </li>`;
+                rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
             modalContent.classList.add('premium-modal');
@@ -355,6 +353,7 @@ function renderTracks(players) {
         img.id = `img-${p.id}`;
         img.dataset.char = charType;
         
+        // 渲染時也檢查是否移動中
         if (AvatarManager.movingStatus[p.id]) {
             img.src = `images/avatar_${charType}_3.png`;
         } else if (p.position >= 21) {

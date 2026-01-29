@@ -31,7 +31,7 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3D 骰子 (修正總是4點與倒轉問題) ---
+// --- 🎲 3D 骰子 ---
 const DiceManager = {
     overlay: document.getElementById('dice-overlay'),
     cube: document.getElementById('dice-cube'),
@@ -48,28 +48,21 @@ const DiceManager = {
             };
             const target = targetRotations[targetNumber];
             
-            // 隨機多轉 2~4 圈
             const extraX = 360 * (Math.floor(Math.random() * 3) + 2);
             const extraY = 360 * (Math.floor(Math.random() * 3) + 2);
 
-            // 算出「下一個」正確角度 (確保永遠增加，不倒退)
-            let nextX = this.currentX + extraX;
-            let nextY = this.currentY + extraY;
+            this.currentX += extraX;
+            this.currentY += extraY;
 
-            const remainderX = nextX % 360;
-            const remainderY = nextY % 360;
+            const remainderX = this.currentX % 360;
+            const remainderY = this.currentY % 360;
+            
+            this.currentX += (target.x - remainderX);
+            this.currentY += (target.y - remainderY);
 
-            // 補償差值，對齊目標
-            nextX += (target.x - remainderX);
-            nextY += (target.y - remainderY);
-
-            // 如果計算出來比當前小(極少見)，強制加一圈
-            if (nextX <= this.currentX) nextX += 360;
-            if (nextY <= this.currentY) nextY += 360;
-
-            this.currentX = nextX;
-            this.currentY = nextY;
-
+            // 確保永遠往前轉
+            if (this.currentX <= (this.currentX - extraX)) this.currentX += 360;
+            
             this.cube.style.transition = 'transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
             this.cube.style.transform = `rotateX(${this.currentX}deg) rotateY(${this.currentY}deg)`;
 
@@ -96,63 +89,54 @@ const ConfettiManager = {
     }
 };
 
-// --- 🎭 角色與動畫管理器 (嚴格版) ---
+// --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
     
-    // 穩定的取得角色類型 (不依賴 DOM)
-    getCharType(playerId) {
-        // 從 DOM 取得這太慢了，我們用簡單的 Hash 備份，或者依賴傳入
-        // 這裡做一個簡單的 Hash 回退機制
-        let hash = 0;
-        for (let i = 0; i < playerId.length; i++) hash += playerId.charCodeAt(i);
-        return CHAR_TYPES[hash % CHAR_TYPES.length];
-    },
+    getCharType(p) { return p.avatarChar || 'a'; },
 
     setState(playerId, state, charType) {
-        // 🔒 鎖定檢查：如果正在跑，拒絕變成 idle 或 ready
+        // 🔒 關鍵保護：如果正在移動中，拒絕變成 idle 或 ready
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) {
             return;
         }
 
-        // 如果沒有提供 charType，嘗試計算或預設
-        if (!charType) charType = this.getCharType(playerId);
+        let img = document.getElementById(`img-${playerId}`);
+        if (!charType && img) charType = img.dataset.char;
+        if (!charType) charType = 'a'; 
 
-        // 先清除舊的
         if (this.loopIntervals[playerId]) { 
             clearInterval(this.loopIntervals[playerId]); 
             delete this.loopIntervals[playerId]; 
         }
 
-        // 立即設定第一張圖 (避免閃爍)
-        const immediateImg = document.getElementById(`img-${playerId}`);
-        if (immediateImg) {
-            if (state === 'idle') immediateImg.src = `images/avatar_${charType}_1.png`;
-            if (state === 'ready') immediateImg.src = `images/avatar_${charType}_2.png`;
-            if (state === 'run') immediateImg.src = `images/avatar_${charType}_3.png`;
-            if (state === 'win') immediateImg.src = `images/avatar_${charType}_5.png`;
+        // 立即設定第一張圖
+        if (img) {
+            if (state === 'idle') img.src = `images/avatar_${charType}_1.png`;
+            if (state === 'ready') img.src = `images/avatar_${charType}_2.png`;
+            if (state === 'run') img.src = `images/avatar_${charType}_3.png`;
+            if (state === 'win') img.src = `images/avatar_${charType}_5.png`;
         }
 
-        // 針對動態設定計時器
         if (state === 'run') {
             let runToggle = false;
             this.loopIntervals[playerId] = setInterval(() => {
+                // 每次都要重新抓取，防止重繪導致動畫失效
                 const currentImg = document.getElementById(`img-${playerId}`);
                 if (currentImg) {
                     runToggle = !runToggle;
                     const frame = runToggle ? 4 : 3;
                     currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     
-                    // 強制檢查：如果重繪導致變回 _1，強制刷回 _3 或 _4
+                    // 強制檢查：防止被重置回 1
                     if (!currentImg.src.includes(`_${frame}.png`)) {
                         currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     }
                     SynthEngine.playStep();
                 }
             }, 150);
-        } 
-        else if (state === 'win') {
+        } else if (state === 'win') {
             let winToggle = false;
             this.loopIntervals[playerId] = setInterval(() => {
                 const currentImg = document.getElementById(`img-${playerId}`);
@@ -254,6 +238,8 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
         const currentPos = PLAYER_POSITIONS[id] || 0;
+        
+        // 這裡會檢查 movingStatus，所以移動中的人不會被強制蹲下或站立
         if (id === nextPlayerId) {
             if (currentPos === 0) AvatarManager.setState(id, 'ready', img.dataset.char); 
             else AvatarManager.setState(id, 'idle', img.dataset.char);
@@ -295,9 +281,12 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
-// --- 核心修復：移除多餘延遲，立即移動 ---
+// --- 核心修正：立即鎖定，防止被 update_turn 干擾 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    // 1. 等待骰子 (1.5s)
+    // 1. 收到指令，馬上鎖定狀態！這行最重要！
+    AvatarManager.movingStatus[playerId] = true;
+
+    // 2. 播放骰子 (等待 1.5 秒)
     await DiceManager.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -305,14 +294,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     isAnimating = true; 
 
     PLAYER_POSITIONS[playerId] = newPos;
-    // 鎖定狀態
-    AvatarManager.movingStatus[playerId] = true;
     
-    // 取得角色 (Server 分配的)
+    // 3. 取得角色類型並開始跑
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
-
-    // 開始跑步動畫
     AvatarManager.setState(playerId, 'run', charType);
 
     if (isMe) {
@@ -323,13 +308,13 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
         gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`;
     }
 
-    // 2. 立即移動，不要再 setTimeout 1秒了！
+    // 4. 開始 CSS 移動
     if (avatarContainer) {
         const percent = (newPos / 22) * 100; 
         avatarContainer.style.left = `${percent}%`;
     }
         
-    // 3. 移動耗時 1秒 (CSS transition: 1s)，結束後恢復狀態
+    // 5. 1秒後結束移動，解鎖狀態
     setTimeout(() => {
         isAnimating = false;
         AvatarManager.movingStatus[playerId] = false; // 解鎖
@@ -348,12 +333,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
-    // 延遲到移動結束後 (1s move) + 緩衝 (1.5s)
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
-        ConfettiManager.shoot();
-
+        ConfettiManager.shoot(); 
         if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
             rollBtn.innerText = "🏆 已完賽";
@@ -378,16 +361,11 @@ socket.on('game_over', ({ rankings }) => {
                 if (p.rank === 1) medal = '<span class="rank-medal">🥇</span>';
                 if (p.rank === 2) medal = '<span class="rank-medal">🥈</span>';
                 if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
-                
                 const charType = p.avatarChar || 'a';
                 const imgHtml = `<img class="rank-avatar" src="images/avatar_${charType}_5.png">`;
-                
-                rankHtml += `<li class="rank-item">
-                    ${medal} ${imgHtml} <span class="rank-name">${p.name}</span>
-                </li>`;
+                rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
-
             modalContent.classList.add('premium-modal');
             showModal("🏆 榮譽榜 🏆", rankHtml);
         }, 3000);
@@ -400,7 +378,6 @@ socket.on('game_reset_positions', () => {
     modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {};
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
-    
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'idle', img.dataset.char);
@@ -432,15 +409,14 @@ function renderTracks(players) {
         const percent = (p.position / 22) * 100;
         avatarContainer.style.left = `${percent}%`;
 
-        // 使用 Server 分配的角色
         const charType = p.avatarChar || 'a';
 
         const img = document.createElement('img');
         img.className = 'avatar-img';
         img.id = `img-${p.id}`;
-        img.dataset.char = charType; 
+        img.dataset.char = charType;
         
-        // 渲染時：如果正在移動，強制設為 _3，否則依位置
+        // 渲染時也要檢查是否移動中，避免重繪導致動畫中斷
         if (AvatarManager.movingStatus[p.id]) {
             img.src = `images/avatar_${charType}_3.png`;
         } else if (p.position >= 21) {
@@ -456,7 +432,7 @@ function renderTracks(players) {
         avatarContainer.appendChild(img);
         row.appendChild(avatarContainer);
         trackContainer.appendChild(row);
-        
+
         if(p.position >= 21) AvatarManager.setState(p.id, 'win', charType);
     });
 }
