@@ -20,7 +20,6 @@ let gameState = {
     }
 };
 
-// 記錄上一次骰出的點數，用於防重複
 let globalLastRoll = 0;
 
 const CHAR_POOL = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
@@ -46,7 +45,6 @@ io.on('connection', (socket) => {
     socket.on('admin_start_game', (options) => {
         if (gameState.players.length < 1) return;
         
-        // 1. 套用設定
         gameState.config.enableTraps = options?.enableTraps || false;
         gameState.config.enableFate = options?.enableFate || false;
 
@@ -56,18 +54,15 @@ io.on('connection', (socket) => {
         gameState.players.forEach(p => p.position = 0);
         globalLastRoll = 0; 
 
-        // 2. 初始化特殊格子
         gameState.players.forEach(p => { 
             p.position = 0;
             p.trapIndex = -1;
             p.fateIndex = -1;
 
-            // 生成陷阱 (排除起點0 與 終點21，範圍 3-20)
             if (gameState.config.enableTraps) {
                 p.trapIndex = Math.floor(Math.random() * 18) + 3; 
             }
 
-            // 生成命運問號 (範圍 2-17)
             if (gameState.config.enableFate) {
                 let fIdx;
                 let attempts = 0;
@@ -164,7 +159,6 @@ io.on('connection', (socket) => {
         if (!currentPlayer || currentPlayer.id !== socket.id) return;
         if (gameState.status !== 'PLAYING') return;
 
-        // 🎲 骰子演算法
         let roll = Math.floor(Math.random() * 6) + 1;
         if (roll === globalLastRoll) {
             if (Math.random() > 0.3) {
@@ -173,34 +167,39 @@ io.on('connection', (socket) => {
         }
         globalLastRoll = roll; 
 
-        // 1. 計算初步落點
         let tempPos = currentPlayer.position + roll;
         if (tempPos >= 21) tempPos = 21; 
 
         let finalPos = tempPos;
         let triggerType = 'NORMAL'; 
         let fateResult = 0; 
+        
+        // 暫存陷阱位置，因為下面清空後，回傳給前端會找不到
+        const triggeredTrapPos = currentPlayer.trapIndex; 
 
-        // 2. 判斷事件
+        // 2. 判斷事件 (🔥 修正：觸發後立即設為 -1，變成普通跑道)
         if (gameState.config.enableTraps && tempPos === currentPlayer.trapIndex) {
-            // --- A. 踩到陷阱 ---
             triggerType = 'TRAP';
             finalPos = 0; 
+            currentPlayer.trapIndex = -1; // 消耗掉陷阱
         } 
         else if (gameState.config.enableFate && tempPos === currentPlayer.fateIndex) {
-            // --- B. 踩到機會命運 ---
             triggerType = 'FATE';
             const fateOptions = [-3, -2, -1, 1, 2, 3];
             fateResult = fateOptions[Math.floor(Math.random() * fateOptions.length)];
             
+            // 消耗掉這個問號
+            currentPlayer.fateIndex = -1;
+
             let afterFatePos = tempPos + fateResult;
             if (afterFatePos < 0) afterFatePos = 0;
             if (afterFatePos > 21) afterFatePos = 21;
 
-            // 🔥 C. 連鎖判斷：命運後是否掉進陷阱？
+            // 連鎖反應：命運後踩到陷阱
             if (gameState.config.enableTraps && afterFatePos === currentPlayer.trapIndex) {
                 triggerType = 'FATE_TRAP';
                 finalPos = 0;
+                currentPlayer.trapIndex = -1; // 連鎖的陷阱也被消耗掉
             } else {
                 finalPos = afterFatePos;
             }
@@ -215,7 +214,8 @@ io.on('connection', (socket) => {
             initialLandPos: tempPos,
             triggerType: triggerType,
             fateResult: fateResult,
-            trapPos: (triggerType === 'FATE_TRAP') ? currentPlayer.trapIndex : -1 
+            // 確保回傳正確的陷阱位置給前端做動畫
+            trapPos: (triggerType === 'FATE_TRAP') ? triggeredTrapPos : -1 
         });
 
         if (finalPos === 21) {
