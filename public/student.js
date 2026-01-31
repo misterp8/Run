@@ -1,6 +1,6 @@
 const socket = io(); 
 
-// DOM
+// --- DOM ---
 const loginOverlay = document.getElementById('login-overlay');
 const scoreboardHeader = document.getElementById('scoreboard-header');
 const stadiumWrapper = document.getElementById('stadium-wrapper');
@@ -18,7 +18,6 @@ const modalContent = document.querySelector('.modal-content');
 let myId = null;
 const PLAYER_POSITIONS = {}; 
 
-// 圖片預載
 const CHAR_TYPES = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
 const PRELOADED_IMGS = {};
 function preloadImages() {
@@ -32,7 +31,7 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3A級 Three.js 骰子 (物理質感版) ---
+// --- 🎲 3A級 Three.js 骰子 (物理彈跳版) ---
 const ThreeDice = {
     container: document.getElementById('dice-3d-container'),
     scene: null, camera: null, renderer: null, cube: null,
@@ -42,54 +41,45 @@ const ThreeDice = {
         if (!this.container) return;
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        this.camera.position.set(0, 0, 8); // 相機拉遠
+        this.camera.position.set(0, 3, 8); // 視角調高，看地板
+        this.camera.lookAt(0, 0, 0);
 
-        // 渲染器 (開啟陰影與反鋸齒)
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true; // 開啟陰影
+        this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
 
-        // 燈光系統
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(ambientLight);
-
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(5, 10, 7);
+        dirLight.position.set(5, 15, 10);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 1024;
         dirLight.shadow.mapSize.height = 1024;
         this.scene.add(dirLight);
 
-        const pointLight = new THREE.PointLight(0xffaa00, 0.5); // 暖色補光
-        pointLight.position.set(-5, -5, 5);
-        this.scene.add(pointLight);
-
-        // 地板 (接收陰影用，透明)
-        const planeGeometry = new THREE.PlaneGeometry(50, 50);
+        // 隱形地板 (接收陰影)
+        const planeGeometry = new THREE.PlaneGeometry(100, 100);
         const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.rotation.x = -Math.PI / 2; // 躺平
-        plane.position.y = -2; // 骰子下方
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = -2; // 地面高度
         plane.receiveShadow = true;
         this.scene.add(plane);
 
-        // 骰子材質 (PBR 物理材質)
         const materials = [];
         for (let i = 1; i <= 6; i++) {
             materials.push(new THREE.MeshPhysicalMaterial({ 
                 map: this.createDiceTexture(i),
                 color: 0xffffff,
-                roughness: 0.1,  // 光滑
-                metalness: 0.0,  // 非金屬
-                clearcoat: 1.0,  // 像塗了一層亮光漆
+                roughness: 0.1,
+                metalness: 0.0,
+                clearcoat: 1.0,
                 clearcoatRoughness: 0.1
             }));
         }
-
-        // 立方體
         this.cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), materials);
         this.cube.castShadow = true;
         this.cube.receiveShadow = true;
@@ -105,46 +95,29 @@ const ThreeDice = {
 
     createDiceTexture(number) {
         const canvas = document.createElement('canvas');
-        canvas.width = 512; canvas.height = 512; // 高解析度
+        canvas.width = 512; canvas.height = 512;
         const ctx = canvas.getContext('2d');
-        
-        // 背景 (圓角矩形模擬)
-        ctx.fillStyle = '#f0f0f0'; // 微微灰白
-        ctx.fillRect(0, 0, 512, 512);
-        
-        // 邊框質感
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 20;
-        ctx.strokeRect(0, 0, 512, 512);
-
-        // 點數繪製
+        ctx.fillStyle = '#f8f9fa'; ctx.fillRect(0, 0, 512, 512);
+        ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 20; ctx.strokeRect(0, 0, 512, 512);
         ctx.fillStyle = (number === 1) ? '#e74c3c' : '#2c3e50';
-        // 加上一點陰影讓點像是凹下去的
-        ctx.shadowColor = "rgba(0,0,0,0.2)";
-        ctx.shadowBlur = 5;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-
-        const r = 50; const c = 256; const o = 120;
-        const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
-
+        ctx.shadowColor = "rgba(0,0,0,0.2)"; ctx.shadowBlur = 10; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4;
+        const r = 50, c = 256, o = 120;
+        const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); };
         if (number === 1) drawDot(c, c);
         if (number === 2) { drawDot(c-o, c-o); drawDot(c+o, c+o); }
         if (number === 3) { drawDot(c-o, c-o); drawDot(c, c); drawDot(c+o, c+o); }
         if (number === 4) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c+o); drawDot(c+o, c+o); }
         if (number === 5) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
         if (number === 6) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c); drawDot(c+o, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
-        
         return new THREE.CanvasTexture(canvas);
     },
 
     animate() {
         requestAnimationFrame(() => this.animate());
         if (this.isRolling) {
-            // 滾動時隨機旋轉
             this.cube.rotation.x += 0.3;
             this.cube.rotation.y += 0.4;
-            this.cube.rotation.z += 0.2;
+            this.cube.rotation.z += 0.1;
         }
         if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
     },
@@ -155,13 +128,12 @@ const ThreeDice = {
             this.isRolling = true;
             SynthEngine.playRoll();
 
-            // 1. 旋轉 1 秒
+            // 1. 物理落下演出 (1.5秒)
             setTimeout(() => {
                 this.isRolling = false;
                 
-                // 3D 空間目標角度計算
+                // 計算目標角度
                 let targetRot = { x: 0, y: 0, z: 0 };
-                // 這裡的映射需要根據 BoxGeometry 的 UV 貼圖方向調整
                 switch(targetNumber) {
                     case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; 
                     case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;  
@@ -171,41 +143,47 @@ const ThreeDice = {
                     case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;    
                 }
 
-                // 補間動畫
                 const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
+                const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4, z: targetRot.z + Math.PI * 2 };
                 
-                // 為了自然，目標角度要加上 "整圈 (2PI)"，確保它順勢轉過去
-                const endRot = { 
-                    x: targetRot.x + Math.PI * 4, 
-                    y: targetRot.y + Math.PI * 4,
-                    z: targetRot.z + Math.PI * 2
-                };
-                
+                // 物理彈跳參數
                 const startTime = Date.now();
-                const duration = 1000;
+                const duration = 1200;
+                const startY = 5; // 從高處落下
+                const floorY = 0;
 
                 const settle = () => {
                     const now = Date.now();
                     const p = Math.min((now - startTime) / duration, 1);
-                    // Elastic Easing: 彈跳效果
-                    // const ease = p === 1 ? 1 : 1 - Math.pow(2, -10 * p); // Exponential out
-                    const ease = 1 - Math.pow(1 - p, 4); // Quartic out
+                    
+                    // 旋轉插值 (Ease Out)
+                    const easeRot = 1 - Math.pow(1 - p, 4); 
+                    this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * easeRot;
+                    this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * easeRot;
+                    this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
 
-                    this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * ease;
-                    this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * ease;
-                    this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * ease;
-
-                    if (p < 1) {
-                        requestAnimationFrame(settle);
+                    // 彈跳插值 (Bounce)
+                    // 模擬 3 次彈跳
+                    let y = floorY;
+                    if (p < 0.4) { // 第一次落下
+                        const t = p / 0.4;
+                        y = startY * (1 - t*t);
+                    } else if (p < 0.7) { // 第一次彈起
+                        const t = (p - 0.4) / 0.3;
+                        y = 1.5 * (1 - (2*t - 1)*(2*t - 1)); // 拋物線
+                    } else if (p < 0.9) { // 第二次彈起
+                        const t = (p - 0.7) / 0.2;
+                        y = 0.5 * (1 - (2*t - 1)*(2*t - 1));
                     } else {
-                        setTimeout(() => {
-                            this.container.classList.remove('active');
-                            resolve();
-                        }, 500);
+                        y = floorY;
                     }
+                    this.cube.position.y = y;
+
+                    if (p < 1) requestAnimationFrame(settle);
+                    else setTimeout(() => { this.container.classList.remove('active'); resolve(); }, 500);
                 };
                 settle();
-            }, 1000);
+            }, 500); // 縮短空轉時間，把時間留給彈跳
         });
     }
 };
@@ -224,11 +202,10 @@ const ConfettiManager = {
     }
 };
 
-// --- 🎭 角色與動畫管理器 (Smart Render) ---
+// --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
-    
     getCharType(p) { return p.avatarChar || 'a'; },
 
     setState(playerId, state, charType) {
@@ -243,7 +220,6 @@ const AvatarManager = {
             delete this.loopIntervals[playerId]; 
         }
 
-        // 靜態圖
         if (img) {
             if (state === 'idle') img.src = `images/avatar_${charType}_1.png`;
             if (state === 'ready') img.src = `images/avatar_${charType}_2.png`;
@@ -251,7 +227,6 @@ const AvatarManager = {
             if (state === 'win') img.src = `images/avatar_${charType}_5.png`;
         }
 
-        // 動態圖循環
         if (state === 'run') {
             let runToggle = false;
             this.loopIntervals[playerId] = setInterval(() => {
@@ -278,6 +253,7 @@ const AvatarManager = {
     }
 };
 
+// --- 🏟️ 觀眾席動畫 ---
 const AudienceManager = {
     interval: null, toggle: 1,
     topDiv: document.getElementById('audience-top'),
@@ -301,7 +277,10 @@ const SynthEngine = {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
         if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff";}
+        else{ 
+            if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM();
+            btn.innerText="🔊"; btn.style.background="#fff";
+        }
     },
     playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
     playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
@@ -309,7 +288,7 @@ const SynthEngine = {
     playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
     stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
 };
-document.getElementById('mute-btn').addEventListener('click', ()=>SynthEngine.toggleMute());
+document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
 function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
     modalContent.className = "modal-content"; 
@@ -346,7 +325,10 @@ socket.on('update_player_list', (players) => {
 });
 
 socket.on('show_initiative', (sortedPlayers) => {
-    gameMsg.innerText = "🎲 抽籤決定順序...";
+    let msg = `🎲 抽籤決定順序：\n`;
+    sortedPlayers.forEach((p, i) => { msg += `${i+1}. ${p.name} `; if((i+1)%3 === 0) msg += "\n"; });
+    gameMsg.innerText = msg;
+    SynthEngine.init(); SynthEngine.playRoll();
 });
 
 socket.on('game_start', () => {
@@ -358,7 +340,7 @@ socket.on('game_start', () => {
     });
 });
 
-socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
+socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
@@ -371,28 +353,22 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
         }
     });
 
+    // 🛠️ 修正：看板顯示當前玩家
+    gameMsg.style.color = "#f1c40f";
     if (nextPlayerId === myId) {
         rollBtn.removeAttribute('disabled');
         rollBtn.disabled = false;
         rollBtn.innerText = "🎲 輪到你了！按此擲骰";
         rollBtn.className = "board-btn btn-green"; 
         rollBtn.style.cursor = "pointer";
+        gameMsg.innerText = `👉 輪到你了！ (${playerName})`;
     } else {
         rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
         rollBtn.innerText = "等待其他玩家...";
         rollBtn.className = "board-btn btn-grey"; 
         rollBtn.style.cursor = "not-allowed";
-    }
-
-    if (!isAnimating) {
-        if (nextPlayerId === myId) {
-            gameMsg.innerText = "👉 輪到你了！請擲骰子";
-            gameMsg.style.color = "#f1c40f";
-        } else {
-            gameMsg.innerText = "等待對手行動中...";
-            gameMsg.style.color = "#f1c40f";
-        }
+        gameMsg.innerText = `⏳ 等待 ${playerName} 擲骰...`;
     }
 });
 
@@ -404,9 +380,9 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
-// --- 核心流程：移動 -> 骰子 -> 判斷勝利 ---
+// --- 核心：移動 -> 骰子 -> 判斷勝利 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    // 1. 播放 3D 骰子
+    // 1. 播放 3D 骰子 (1.5s + 0.5s buffer)
     await ThreeDice.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -414,13 +390,11 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     isAnimating = true; 
 
     PLAYER_POSITIONS[playerId] = newPos;
-    // 鎖定狀態
     AvatarManager.movingStatus[playerId] = true;
     
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
 
-    // 強制設定為跑步
     AvatarManager.setState(playerId, 'run', charType);
 
     if (isMe) {
@@ -437,32 +411,29 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
             avatarContainer.style.left = `${percent}%`;
         }
         
-        // 移動時間 1 秒
         setTimeout(() => {
             isAnimating = false;
-            AvatarManager.movingStatus[playerId] = false; // 解鎖
+            AvatarManager.movingStatus[playerId] = false;
 
             if (newPos < 21) {
                 AvatarManager.setState(playerId, 'idle', charType);
             } else {
                 AvatarManager.setState(playerId, 'win', charType);
-                // 單人到達終點的歡呼交給 win state 處理
             }
             
             if (rollBtn.disabled && !rollBtn.classList.contains('hidden')) {
-                gameMsg.innerText = "等待對手行動中...";
-                gameMsg.style.color = "#fff";
+                // gameMsg.innerText = "等待對手行動中..."; // 讓 update_turn 去更新比較準
             }
         }, 1000); 
     }, 1000);
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
-    // 延遲至移動結束後
+    // 延遲到移動結束(1.0s) + 骰子時間(2.0s) + 緩衝 = 3.5s
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
-        ConfettiManager.shoot(); // 單人噴花
+        ConfettiManager.shoot(); // 只有抵達的人噴花
 
         if(player.id === myId) {
             gameMsg.innerText = `🎉 恭喜！你是第 ${rank} 名！`;
@@ -470,10 +441,11 @@ socket.on('player_finished_rank', ({ player, rank }) => {
         } else {
             gameMsg.innerText = `🏁 ${player.name} 奪得第 ${rank} 名！`;
         }
-    }, 2500); 
+    }, 3500); 
 });
 
 socket.on('game_over', ({ rankings }) => {
+    // 嚴格延遲：3.5s 之後才開始結算
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playWin();
@@ -481,6 +453,7 @@ socket.on('game_over', ({ rankings }) => {
         gameMsg.innerText = `🏆 遊戲結束！`;
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
 
+        // 再等 3 秒顯示榜單
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {
@@ -488,8 +461,10 @@ socket.on('game_over', ({ rankings }) => {
                 if (p.rank === 1) medal = '<span class="rank-medal">🥇</span>';
                 if (p.rank === 2) medal = '<span class="rank-medal">🥈</span>';
                 if (p.rank === 3) medal = '<span class="rank-medal">🥉</span>';
+                
                 const charType = p.avatarChar || 'a';
                 const imgHtml = `<img class="rank-avatar" src="images/avatar_${charType}_5.png">`;
+                
                 rankHtml += `<li class="rank-item">
                     ${medal} ${imgHtml} <span class="rank-name">${p.name}</span>
                 </li>`;
@@ -499,16 +474,16 @@ socket.on('game_over', ({ rankings }) => {
             modalContent.classList.add('premium-modal');
             showModal("🏆 榮譽榜 🏆", rankHtml);
         }, 3000);
-    }, 2500);
+    }, 3500);
 });
 
 socket.on('force_reload', () => { location.reload(); });
 
 socket.on('game_reset_positions', () => {
     modalContent.classList.remove('premium-modal');
-    AvatarManager.movingStatus = {};
+    AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
-    
+    if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'idle', img.dataset.char);
@@ -524,7 +499,6 @@ socket.on('game_reset_positions', () => {
 
 function renderTracks(players) {
     const existingRows = Array.from(trackContainer.children);
-    
     if (existingRows.length !== players.length) {
         trackContainer.innerHTML = '';
         players.forEach(p => createRow(p));
@@ -551,14 +525,12 @@ function createRow(p) {
     avatarContainer.id = `avatar-${p.id}`;
     const percent = (p.position / 22) * 100;
     avatarContainer.style.left = `${percent}%`;
-
     const charType = p.avatarChar || 'a';
     const img = document.createElement('img');
     img.className = 'avatar-img';
     img.id = `img-${p.id}`;
     img.dataset.char = charType;
     img.src = `images/avatar_${charType}_1.png`;
-
     const nameTag = document.createElement('div');
     nameTag.className = 'name-tag';
     nameTag.innerText = p.name;
@@ -573,8 +545,14 @@ function updateRow(row, p) {
     PLAYER_POSITIONS[p.id] = p.position;
     const avatarContainer = row.querySelector('.avatar-container');
     const percent = (p.position / 22) * 100;
-    
     if (avatarContainer.style.left !== `${percent}%`) {
         avatarContainer.style.left = `${percent}%`;
+    }
+    const img = row.querySelector('.avatar-img');
+    const charType = p.avatarChar || 'a';
+    if (AvatarManager.movingStatus[p.id]) {
+        if (!img.src.includes('_3.png') && !img.src.includes('_4.png')) {
+            img.src = `images/avatar_${charType}_3.png`;
+        }
     }
 }
