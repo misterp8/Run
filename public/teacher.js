@@ -283,25 +283,31 @@ const SynthEngine = {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
         if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ 
-            if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM();
-            btn.innerText="🔊"; btn.style.background="#fff";
-        }
+        else{ if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff"; }
     },
     playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
     playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
     playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
     
-    // 🛠️ 6點特效：雙音階
+    // 🛠️ 6點特效：Win 3.1 Tada 風格 (C Major Chord)
     playSix(){
         if(this.isMuted||!this.ctx)return;
         const t=this.ctx.currentTime;
-        [600, 900].forEach((f,i) => {
+        // C4, E4, G4, C5 快速琶音 + 和弦
+        const notes = [261.63, 329.63, 392.00, 523.25]; 
+        notes.forEach((f, i) => {
             const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
-            o.type='sine'; o.frequency.value=f;
-            g.gain.setValueAtTime(0.2, t+i*0.15); g.gain.exponentialRampToValueAtTime(0.01, t+i*0.15+0.3);
+            o.type='triangle'; // 用 Triangle 波比較像
+            o.frequency.value = f;
+            
+            // 每個音稍微延遲一點點，製造 "刷" 下去的感覺
+            const startTime = t + (i * 0.05);
+            g.gain.setValueAtTime(0, startTime);
+            g.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+            g.gain.exponentialRampToValueAtTime(0.001, startTime + 1.5); // 長尾音
+            
             o.connect(g); g.connect(this.ctx.destination);
-            o.start(t+i*0.15); o.stop(t+i*0.15+0.3);
+            o.start(startTime); o.stop(startTime + 1.5);
         });
     },
 
