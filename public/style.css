@@ -57,7 +57,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
 #game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
 
-/* 跑道間距 */
+/* 跑道 */
 .track-row { 
     display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); 
     height: 70px; position: relative; width: 100%; align-items: end; 
@@ -69,7 +69,21 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
 .grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
-.avatar-container { position: absolute; width: calc(100% / var(--track-cols) * 1.5); height: 140%; bottom: 10px; left: 0%; z-index: 100; transition: left 1s linear; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+
+.avatar-container { 
+    position: absolute; 
+    width: calc(100% / var(--track-cols) * 1.5); 
+    height: 140%; 
+    bottom: 10px; 
+    left: 0%; 
+    z-index: 100; 
+    
+    /* 🛠️ 關鍵修正：向左偏移 15px，讓人物視覺上置中於格子 */
+    margin-left: -15px;
+    
+    transition: left 1s linear; 
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; 
+}
 .avatar-img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3)); }
 .name-tag { position: absolute; right: 65%; top: 40%; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3); pointer-events: none; z-index: 101; }
 
@@ -81,14 +95,14 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
 .modal-content { background: #fff; padding: 25px; border-radius: 12px; border: 4px solid #333; box-shadow: 8px 8px 0 rgba(0,0,0,0.5); text-align: center; max-width: 400px; width: 90%; }
 
-/* 🏆 白金榮譽榜 (強制變寬修正版) */
+/* 🏆 白金榮譽榜 (強制修正寬度) */
 .premium-modal {
     background: radial-gradient(circle, #ffffff 0%, #dcdcdc 100%);
     border: 8px solid #f1c40f; 
     box-shadow: 0 0 100px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255,255,255,1);
     color: #333; 
     
-    /* 🛠️ 強制覆蓋舊樣式 */
+    /* 🛠️ 強制加寬：直接佔據畫面 95% */
     width: 95vw !important; 
     max-width: 1000px !important; 
     padding: 40px;

@@ -153,7 +153,7 @@ const ThreeDice = {
                 
                 const startTime = Date.now();
                 const duration = 1200;
-                const startY = 12; 
+                const startY = 12;
                 const floorY = 0;
 
                 const settle = () => {
@@ -186,7 +186,7 @@ const ThreeDice = {
                             this.container.classList.remove('active');
                             if(diceResultText) diceResultText.classList.remove('show');
                             resolve();
-                        }, 1200); // 停留讓玩家看
+                        }, 1200); 
                     }
                 };
                 settle();
@@ -283,31 +283,25 @@ const SynthEngine = {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
         if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff"; }
+        else{ 
+            if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM();
+            btn.innerText="🔊"; btn.style.background="#fff";
+        }
     },
     playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
     playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
     playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
     
-    // 🛠️ 6點特效：Win 3.1 Tada 風格 (C Major Chord)
+    // 🛠️ 6點特效：雙音階 (Win 3.1 風格)
     playSix(){
         if(this.isMuted||!this.ctx)return;
         const t=this.ctx.currentTime;
-        // C4, E4, G4, C5 快速琶音 + 和弦
-        const notes = [261.63, 329.63, 392.00, 523.25]; 
-        notes.forEach((f, i) => {
+        [600, 900].forEach((f,i) => {
             const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
-            o.type='triangle'; // 用 Triangle 波比較像
-            o.frequency.value = f;
-            
-            // 每個音稍微延遲一點點，製造 "刷" 下去的感覺
-            const startTime = t + (i * 0.05);
-            g.gain.setValueAtTime(0, startTime);
-            g.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
-            g.gain.exponentialRampToValueAtTime(0.001, startTime + 1.5); // 長尾音
-            
+            o.type='sine'; o.frequency.value=f;
+            g.gain.setValueAtTime(0.2, t+i*0.15); g.gain.exponentialRampToValueAtTime(0.01, t+i*0.15+0.3);
             o.connect(g); g.connect(this.ctx.destination);
-            o.start(startTime); o.stop(startTime + 1.5);
+            o.start(t+i*0.15); o.stop(t+i*0.15+0.3);
         });
     },
 
@@ -407,9 +401,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     liveMsg.style.color = "#f1c40f";
 });
 
-// --- 核心：移動 -> 3D骰子 -> 判斷 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    // 1. 播放 3D 骰子
     await ThreeDice.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -431,6 +423,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
             avatarContainer.style.left = `${percent}%`;
         }
         
+        // 延遲結束移動 (1s)
         setTimeout(() => {
             AvatarManager.movingStatus[playerId] = false;
             if (newPos < 21) {
@@ -439,21 +432,20 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
                 AvatarManager.setState(playerId, 'win', charType);
             }
         }, 1000); 
-    }, 1000);
+    }, 1000); 
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
-    // 延遲到移動結束後 (4.0s)
+    // 延遲 4.0s (包含骰子與移動)
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
-        // 單人暫不噴花
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 4000); 
 });
 
 socket.on('game_over', ({ rankings }) => {
-    // 1. 延遲 (4.0s) 後開始慶祝
+    // 1. 延遲 (4.0s) 後噴花
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playWin();
@@ -472,8 +464,10 @@ socket.on('game_over', ({ rankings }) => {
                 rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
-            modalContent.classList.add('premium-modal');
+            
+            // 🛠️ 強制套用白金樣式
             showModal("🏆 榮譽榜 🏆", rankHtml);
+            modalContent.classList.add('premium-modal'); 
         }, 3000);
     }, 4000);
 });
