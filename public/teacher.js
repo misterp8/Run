@@ -465,6 +465,9 @@ socket.on('show_initiative', (sortedPlayers) => {
 socket.on('game_start', () => {
     liveMsg.innerText = "🚀 比賽開始！";
     SynthEngine.playBGM();
+// 🔥 新增：強制清空跑道，讓隨後的 update_game_state 重新繪製地圖
+    trackContainer.innerHTML = '';
+
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'ready', img.dataset.char);

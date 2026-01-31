@@ -392,6 +392,9 @@ socket.on('show_initiative', (sortedPlayers) => {
 socket.on('game_start', () => {
     gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
+// 🔥 新增：強制清空跑道，確保看到陷阱與命運格
+    trackContainer.innerHTML = '';
+
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
         AvatarManager.setState(id, 'ready', img.dataset.char);
