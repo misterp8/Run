@@ -43,6 +43,64 @@ function preloadImages() {
 }
 preloadImages();
 
+// --- 🎹 SynthEngine (Win 3.1 音效) ---
+const SynthEngine = {
+    ctx: null, isMuted: false, bgmInterval: null,
+    
+    init() { 
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+    },
+
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        const btn = document.getElementById('mute-btn');
+        if (this.isMuted) {
+            this.stopBGM();
+            btn.innerText = "🔇";
+            btn.style.background = "#ffcccc";
+        } else {
+            if (startBtn.disabled && !restartBtn.disabled === false) { 
+                this.playBGM();
+            }
+            btn.innerText = "🔊";
+            btn.style.background = "#fff";
+        }
+    },
+    
+    playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
+    playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
+    playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
+    
+    // 🛠️ 6點特效：Win 3.1 Tada 風格 (C Major Chord)
+    playSix(){
+        if(this.isMuted||!this.ctx)return;
+        const t=this.ctx.currentTime;
+        // C4, E4, G4, C5 快速琶音 + 和弦
+        const notes = [261.63, 329.63, 392.00, 523.25]; 
+        notes.forEach((f, i) => {
+            const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
+            o.type='triangle'; 
+            o.frequency.value = f;
+            
+            const startTime = t + (i * 0.05);
+            g.gain.setValueAtTime(0, startTime);
+            g.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+            g.gain.exponentialRampToValueAtTime(0.001, startTime + 1.2); 
+            
+            o.connect(g); g.connect(this.ctx.destination);
+            o.start(startTime); o.stop(startTime + 1.2);
+        });
+    },
+
+    playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
+    stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
+};
+document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
+
 // --- 🎲 3A級 Three.js 骰子 (物理彈跳版) ---
 const ThreeDice = {
     container: document.getElementById('dice-3d-container'),
@@ -120,12 +178,9 @@ const ThreeDice = {
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        if (this.isRolling) {
-            this.cube.rotation.x += 0.3;
-            this.cube.rotation.y += 0.4;
-            this.cube.rotation.z += 0.1;
-        } else if (!this.container.classList.contains('active')) {
-            this.cube.rotation.y += 0.005; // 閒置時微轉
+        // 只有不滾動時才慢慢轉展示
+        if (!this.isRolling && !this.container.classList.contains('active')) {
+            this.cube.rotation.y += 0.005;
         }
         if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
     },
@@ -136,61 +191,78 @@ const ThreeDice = {
             this.isRolling = true;
             SynthEngine.playRoll();
 
-            setTimeout(() => {
-                this.isRolling = false;
-                let targetRot = { x: 0, y: 0, z: 0 };
-                switch(targetNumber) {
-                    case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; 
-                    case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;  
-                    case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break;  
-                    case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break; 
-                    case 5: targetRot = {x: 0, y: 0, z: 0}; break;          
-                    case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;    
-                }
+            // 1. 物理彈跳開始
+            let targetRot = { x: 0, y: 0, z: 0 };
+            switch(targetNumber) {
+                case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; 
+                case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;  
+                case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break;  
+                case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break; 
+                case 5: targetRot = {x: 0, y: 0, z: 0}; break;          
+                case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;    
+            }
 
-                const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
-                const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4, z: targetRot.z + Math.PI * 2 };
+            const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
+            
+            // 隨機多轉 2~3 圈
+            const extraRot = Math.PI * 4; 
+            const endRot = { 
+                x: targetRot.x + extraRot, 
+                y: targetRot.y + extraRot, 
+                z: targetRot.z + extraRot 
+            };
+            
+            const startTime = Date.now();
+            const duration = 1200; // 1.2秒動畫
+            const startY = 12; 
+            const floorY = 0;
+
+            const settle = () => {
+                const now = Date.now();
+                const p = Math.min((now - startTime) / duration, 1);
                 
-                const startTime = Date.now();
-                const duration = 1200;
-                const startY = 12;
-                const floorY = 0;
+                const easeRot = 1 - Math.pow(1 - p, 4); 
+                this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * easeRot;
+                this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * easeRot;
+                this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
 
-                const settle = () => {
-                    const now = Date.now();
-                    const p = Math.min((now - startTime) / duration, 1);
-                    const easeRot = 1 - Math.pow(1 - p, 4); 
-                    this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * easeRot;
-                    this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * easeRot;
-                    this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
+                // 物理彈跳模擬 (兩次反彈)
+                let y = floorY;
+                if (p < 0.35) { // 落下
+                    const t = p / 0.35;
+                    y = startY * (1 - t*t);
+                } else if (p < 0.7) { // 第一次彈
+                    const t = (p - 0.35) / 0.35;
+                    y = 3.0 * (1 - (2*t - 1)*(2*t - 1));
+                } else if (p < 0.9) { // 第二次彈
+                    const t = (p - 0.7) / 0.2;
+                    y = 1.0 * (1 - (2*t - 1)*(2*t - 1));
+                } else {
+                    y = floorY;
+                }
+                this.cube.position.y = y;
 
-                    let y = floorY;
-                    if (p < 0.35) { y = startY * (1 - (p/0.35)*(p/0.35)); } 
-                    else if (p < 0.7) { const t = (p - 0.35) / 0.35; y = 3.0 * (1 - (2*t - 1)*(2*t - 1)); } 
-                    else if (p < 0.9) { const t = (p - 0.7) / 0.2; y = 1.0 * (1 - (2*t - 1)*(2*t - 1)); }
-                    this.cube.position.y = y;
+                if (p < 1) {
+                    requestAnimationFrame(settle);
+                } else {
+                    // 結束
+                    this.isRolling = false;
+                    
+                    if (targetNumber === 6) SynthEngine.playSix();
 
-                    if (p < 1) {
-                        requestAnimationFrame(settle);
-                    } else {
-                        // 6點特效
-                        if (targetNumber === 6) SynthEngine.playSix();
-
-                        // 顯示文字
-                        if(diceResultText) {
-                            diceResultText.innerText = `${targetNumber} 點!`;
-                            diceResultText.classList.add('show');
-                        }
-                        
-                        setTimeout(() => {
-                            this.container.classList.remove('active');
-                            if(diceResultText) diceResultText.classList.remove('show');
-                            resolve();
-                        }, 1200); 
+                    if(diceResultText) {
+                        diceResultText.innerText = `${targetNumber} 點!`;
+                        diceResultText.classList.add('show');
                     }
-                };
-                settle();
-            }, 500);
+                    
+                    setTimeout(() => {
+                        this.container.classList.remove('active');
+                        if(diceResultText) diceResultText.classList.remove('show');
+                        resolve();
+                    }, 1200); // 停留時間
+                }
+            };
+            settle();
         });
     }
 };
@@ -276,55 +348,16 @@ const AudienceManager = {
 };
 AudienceManager.start();
 
-const SynthEngine = {
-    ctx: null, isMuted: false, bgmInterval: null,
-    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
-    toggleMute() {
-        this.isMuted = !this.isMuted;
-        const btn = document.getElementById('mute-btn');
-        if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ 
-            if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM();
-            btn.innerText="🔊"; btn.style.background="#fff";
-        }
-    },
-    playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
-    playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
-    playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
-    
-    // 🛠️ 6點特效：雙音階 (Win 3.1 風格)
-    playSix(){
-        if(this.isMuted||!this.ctx)return;
-        const t=this.ctx.currentTime;
-        [600, 900].forEach((f,i) => {
-            const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
-            o.type='sine'; o.frequency.value=f;
-            g.gain.setValueAtTime(0.2, t+i*0.15); g.gain.exponentialRampToValueAtTime(0.01, t+i*0.15+0.3);
-            o.connect(g); g.connect(this.ctx.destination);
-            o.start(t+i*0.15); o.stop(t+i*0.15+0.3);
-        });
-    },
-
-    playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
-    stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
-};
-document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
-
-function showModal(title, text, isConfirm = false, onConfirm = null) {
+function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
     modalContent.className = "modal-content"; // 重置
     modalTitle.innerText = title;
-    modalBody.innerHTML = text; 
+    modalBody.innerHTML = text;
+    modalBtn.innerText = btnText;
+    modalBtn.onclick = () => { modalOverlay.classList.add('hidden'); }; 
+    if (title === "遊戲重置") modalBtn.onclick = () => { location.reload(); };
     modalOverlay.classList.remove('hidden');
-    if (isConfirm) {
-        btnConfirm.innerText = "確定執行"; btnConfirm.className = "board-btn btn-green"; btnCancel.classList.remove('hidden');
-        btnConfirm.onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
-        btnCancel.onclick = closeModal;
-    } else {
-        btnConfirm.innerText = "知道了"; btnConfirm.className = "board-btn btn-green"; btnCancel.classList.add('hidden');
-        btnConfirm.onclick = closeModal;
-    }
+    if (autoCloseMs > 0) setTimeout(() => { modalOverlay.classList.add('hidden'); }, autoCloseMs);
 }
-function closeModal() { modalOverlay.classList.add('hidden'); }
 
 socket.on('connect', () => { connectionStatus.innerText = "🟢 伺服器已連線"; connectionStatus.style.color = "#2ecc71"; socket.emit('admin_login'); });
 socket.on('disconnect', () => { connectionStatus.innerText = "🔴 與伺服器斷線"; connectionStatus.style.color = "#e74c3c"; });
@@ -401,7 +434,9 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     liveMsg.style.color = "#f1c40f";
 });
 
+// --- 核心：移動 -> 3D骰子 -> 判斷 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
+    // 1. 播放 3D 骰子 (2.4s)
     await ThreeDice.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -436,7 +471,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
-    // 延遲 4.0s (包含骰子與移動)
+    // 延遲 4.0s (包含骰子與移動) 確保跑完才顯示
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);

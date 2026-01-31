@@ -33,7 +33,7 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎹 SynthEngine ---
+// --- 🎹 SynthEngine (Win 3.1 音效) ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
     init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
@@ -47,16 +47,20 @@ const SynthEngine = {
     playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
     playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
     
-    // 🛠️ 6點特效：雙音階
+    // 🛠️ 6點特效：Win 3.1 Tada 風格
     playSix(){
         if(this.isMuted||!this.ctx)return;
         const t=this.ctx.currentTime;
-        [600, 900].forEach((f,i) => {
+        [523.25, 659.25, 783.99, 1046.50].forEach((f,i) => { // C Major Chord
             const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
-            o.type='sine'; o.frequency.value=f;
-            g.gain.setValueAtTime(0.2, t+i*0.15); g.gain.exponentialRampToValueAtTime(0.01, t+i*0.15+0.3);
+            o.type='triangle'; 
+            o.frequency.value = f;
+            const startTime = t + (i * 0.05);
+            g.gain.setValueAtTime(0, startTime);
+            g.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+            g.gain.exponentialRampToValueAtTime(0.001, startTime + 1.2); 
             o.connect(g); g.connect(this.ctx.destination);
-            o.start(t+i*0.15); o.stop(t+i*0.15+0.3);
+            o.start(startTime); o.stop(startTime + 1.2);
         });
     },
 
@@ -65,7 +69,7 @@ const SynthEngine = {
 };
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
-// --- 🎲 3D 骰子 (物理彈跳版) ---
+// --- 🎲 3D 骰子 (物理彈跳修正) ---
 const ThreeDice = {
     container: document.getElementById('dice-3d-container'),
     scene: null, camera: null, renderer: null, cube: null,
@@ -140,11 +144,8 @@ const ThreeDice = {
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        if (this.isRolling) {
-            this.cube.rotation.x += 0.3;
-            this.cube.rotation.y += 0.4;
-            this.cube.rotation.z += 0.1;
-        } else if (!this.container.classList.contains('active')) {
+        // 只有不滾動時才慢慢轉展示
+        if (!this.isRolling && !this.container.classList.contains('active')) {
             this.cube.rotation.y += 0.005;
         }
         if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
@@ -156,61 +157,80 @@ const ThreeDice = {
             this.isRolling = true;
             SynthEngine.playRoll();
 
-            setTimeout(() => {
-                this.isRolling = false;
-                let targetRot = { x: 0, y: 0, z: 0 };
-                switch(targetNumber) {
-                    case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; 
-                    case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;  
-                    case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break;  
-                    case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break; 
-                    case 5: targetRot = {x: 0, y: 0, z: 0}; break;          
-                    case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;    
-                }
+            // 🛠️ 修正：移除空轉，直接開始物理運算
+            let targetRot = { x: 0, y: 0, z: 0 };
+            switch(targetNumber) {
+                case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; 
+                case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;  
+                case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break;  
+                case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break; 
+                case 5: targetRot = {x: 0, y: 0, z: 0}; break;          
+                case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;    
+            }
 
-                const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
-                const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4, z: targetRot.z + Math.PI * 2 };
+            const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
+            
+            // 隨機多轉 2~3 圈
+            const extraRot = Math.PI * 4; 
+            const endRot = { 
+                x: targetRot.x + extraRot, 
+                y: targetRot.y + extraRot, 
+                z: targetRot.z + extraRot 
+            };
+            
+            const startTime = Date.now();
+            const duration = 1200; // 1.2秒落地
+            const startY = 12; 
+            const floorY = 0;
+
+            const settle = () => {
+                const now = Date.now();
+                const p = Math.min((now - startTime) / duration, 1);
                 
-                const startTime = Date.now();
-                const duration = 1200;
-                const startY = 12;
-                const floorY = 0;
+                // 旋轉插值 (Ease Out Quart)
+                const easeRot = 1 - Math.pow(1 - p, 4); 
+                this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * easeRot;
+                this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * easeRot;
+                this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
 
-                const settle = () => {
-                    const now = Date.now();
-                    const p = Math.min((now - startTime) / duration, 1);
-                    const easeRot = 1 - Math.pow(1 - p, 4); 
-                    this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * easeRot;
-                    this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * easeRot;
-                    this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
+                // 物理彈跳插值 (Bounce)
+                let y = floorY;
+                if (p < 0.35) { // 落下
+                    const t = p / 0.35;
+                    y = startY * (1 - t*t);
+                } else if (p < 0.7) { // 第一次彈
+                    const t = (p - 0.35) / 0.35;
+                    y = 3.0 * (1 - (2*t - 1)*(2*t - 1));
+                } else if (p < 0.9) { // 第二次彈
+                    const t = (p - 0.7) / 0.2;
+                    y = 1.0 * (1 - (2*t - 1)*(2*t - 1));
+                } else {
+                    y = floorY;
+                }
+                this.cube.position.y = y;
 
-                    let y = floorY;
-                    if (p < 0.35) { y = startY * (1 - (p/0.35)*(p/0.35)); } 
-                    else if (p < 0.7) { const t = (p - 0.35) / 0.35; y = 3.0 * (1 - (2*t - 1)*(2*t - 1)); } 
-                    else if (p < 0.9) { const t = (p - 0.7) / 0.2; y = 1.0 * (1 - (2*t - 1)*(2*t - 1)); }
-                    this.cube.position.y = y;
+                if (p < 1) {
+                    requestAnimationFrame(settle);
+                } else {
+                    // 結束
+                    this.isRolling = false;
+                    
+                    if (targetNumber === 6) SynthEngine.playSix();
 
-                    if (p < 1) {
-                        requestAnimationFrame(settle);
-                    } else {
-                        // 6點特效
-                        if (targetNumber === 6) SynthEngine.playSix();
-
-                        // 顯示文字
-                        if(diceResultText) {
-                            diceResultText.innerText = `${targetNumber} 點!`;
-                            diceResultText.classList.add('show');
-                        }
-                        
-                        setTimeout(() => {
-                            this.container.classList.remove('active');
-                            if(diceResultText) diceResultText.classList.remove('show');
-                            resolve();
-                        }, 1200); 
+                    if(diceResultText) {
+                        diceResultText.innerText = `${targetNumber} 點!`;
+                        diceResultText.classList.add('show');
                     }
-                };
-                settle();
-            }, 500);
+                    
+                    // 停留 1 秒讓玩家看結果
+                    setTimeout(() => {
+                        this.container.classList.remove('active');
+                        if(diceResultText) diceResultText.classList.remove('show');
+                        resolve();
+                    }, 1000);
+                }
+            };
+            settle();
         });
     }
 };
@@ -229,7 +249,7 @@ const ConfettiManager = {
     }
 };
 
-// --- 🎭 角色與動畫管理器 (Smart Render) ---
+// --- 🎭 角色與動畫管理器 ---
 const AvatarManager = {
     loopIntervals: {}, movingStatus: {}, 
     getCharType(p) { return p.avatarChar || 'a'; },
@@ -290,7 +310,6 @@ const AudienceManager = {
 AudienceManager.start();
 
 function showModal(title, text, btnText = "確定", autoCloseMs = 0) {
-    // 🛠️ 關鍵修正：先重置，但稍後會被 game_over 加回 premium-modal
     modalContent.className = "modal-content"; 
     modalTitle.innerText = title;
     modalBody.innerHTML = text;
@@ -380,6 +399,7 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
+// --- 核心：移動 -> 3D骰子 -> 判斷 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     await ThreeDice.roll(roll);
 
@@ -409,10 +429,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
             avatarContainer.style.left = `${percent}%`;
         }
         
+        // 延遲結束移動 (1s)
         setTimeout(() => {
-            isAnimating = false;
             AvatarManager.movingStatus[playerId] = false;
-
             if (newPos < 21) {
                 AvatarManager.setState(playerId, 'idle', charType);
             } else {
@@ -423,6 +442,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
+    // 延遲到移動結束後 (4.0s)
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
@@ -431,6 +451,7 @@ socket.on('player_finished_rank', ({ player, rank }) => {
 });
 
 socket.on('game_over', ({ rankings }) => {
+    // 1. 延遲 (4.0s) 後噴花
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playWin();
@@ -438,6 +459,7 @@ socket.on('game_over', ({ rankings }) => {
         gameMsg.innerText = `🏆 遊戲結束！`;
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
 
+        // 2. 延遲 (3.0s) 後顯示榜單
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {
@@ -451,7 +473,7 @@ socket.on('game_over', ({ rankings }) => {
             });
             rankHtml += '</ul>';
             
-            // 🛠️ 關鍵修正：先開 Modal，再加 Class，確保覆蓋
+            // 🛠️ 強制套用白金樣式
             showModal("🏆 榮譽榜 🏆", rankHtml);
             modalContent.classList.add('premium-modal'); 
         }, 3000);
