@@ -6,20 +6,46 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 🎲 3D 骰子容器 */
 #dice-3d-container {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 800; pointer-events: none; opacity: 0; transition: opacity 0.3s;
-    background: rgba(0,0,0,0.5); 
+    z-index: 800; pointer-events: none; opacity: 0; transition: opacity 0.2s;
+    background: rgba(0,0,0,0.4); 
     display: flex; justify-content: center; align-items: center;
+    flex-direction: column;
 }
 #dice-3d-container.active { opacity: 1; pointer-events: auto; }
-#dice-3d-container canvas { filter: drop-shadow(0 40px 60px rgba(0,0,0,0.6)); }
+#dice-3d-container canvas { filter: drop-shadow(0 50px 80px rgba(0,0,0,0.7)); }
+
+/* 🎲 骰子結果大字體特效 */
+#dice-result-text {
+    position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0);
+    font-size: 8rem; font-weight: 900; color: #fff;
+    text-shadow: 0 0 20px #f1c40f, 4px 4px 0 #c0392b;
+    z-index: 850; pointer-events: none;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    opacity: 0;
+}
+#dice-result-text.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
 
 /* 電子計分板 */
 #scoreboard-header { width: 100%; height: 160px; background: #222; border-bottom: 4px solid #111; display: flex; justify-content: center; align-items: center; padding: 10px; z-index: 200; box-shadow: 0 5px 20px rgba(0,0,0,0.5); position: relative; color: #fff; }
 .board-content { width: 100%; max-width: 1400px; display: flex; justify-content: space-between; align-items: center; background: #333; border: 4px solid #555; border-radius: 8px; padding: 5px 20px; height: 100%; }
+
+/* 老師端看板 */
 .board-order { width: 180px; height: 100%; border-right: 2px dashed #555; padding-right: 15px; margin-right: 15px; display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; }
 .board-order h3 { margin: 5px 0; font-size: 1rem; color: #aaa; text-transform: uppercase; border-bottom: 1px solid #555; padding-bottom: 5px; }
 #order-list { font-size: 0.9rem; color: #fff; line-height: 1.4; text-align: left; overflow-y: auto; height: 100%; }
 .order-active { color: #f1c40f; font-weight: bold; animation: blink 1s infinite; }
+
+/* 學生端個人資訊 */
+.my-info-box {
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+    border-right: 2px dashed #555; padding-right: 20px; margin-right: 20px; min-width: 150px;
+}
+.my-label { font-size: 0.9rem; color: #aaa; }
+.my-name { font-size: 1.8rem; color: #2ecc71; font-weight: bold; text-shadow: 0 0 10px rgba(46, 204, 113, 0.3); }
+
 .board-status { flex: 1; text-align: left; display: flex; flex-direction: column; justify-content: center; height: 100%; }
 .board-controls { display: flex; align-items: center; gap: 10px; padding-left: 20px; border-left: 2px dashed #555; margin-left: 20px; }
 @keyframes blink { 50% { opacity: 0.5; } }
@@ -36,7 +62,15 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 #audience-top { border-bottom: 4px solid #333; background-color: #444; }
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
 #game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
-.track-row { display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); height: 70px; position: relative; width: 100%; align-items: end; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); }
+
+/* 🛠️ 跑道間距增加 */
+.track-row { 
+    display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); 
+    height: 70px; position: relative; width: 100%; align-items: end; 
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); 
+    margin-bottom: 12px; /* 增加間距 */
+}
+
 .grid-cell { width: 100%; height: 100%; background-size: 100% 100%; image-rendering: pixelated; }
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
@@ -53,12 +87,15 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
 .modal-content { background: #fff; padding: 25px; border-radius: 12px; border: 4px solid #333; box-shadow: 8px 8px 0 rgba(0,0,0,0.5); text-align: center; max-width: 400px; width: 90%; }
 
-/* 🏆 白金榮譽榜 (防爆版面) */
+/* 🏆 白金榮譽榜 (加寬版) */
 .premium-modal {
     background: radial-gradient(circle, #ffffff 0%, #dcdcdc 100%);
     border: 8px solid #f1c40f; 
     box-shadow: 0 0 80px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255,255,255,1);
-    color: #333; width: 95%; max-width: 600px; padding: 40px;
+    color: #333; 
+    width: 95%; 
+    max-width: 800px; /* 🛠️ 加寬以容納長名字 */
+    padding: 40px;
 }
 .premium-modal h2 { font-size: 2.8rem; color: #d35400; text-shadow: 2px 2px 0 #fff; margin-bottom: 25px; letter-spacing: 3px; font-weight: 900; }
 .rank-list { list-style: none; padding: 0; text-align: left; }
@@ -66,14 +103,14 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     font-size: 2rem; margin-bottom: 20px; padding: 20px;
     background: #fff; border-radius: 15px; border: 3px solid #eee;
     display: flex; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    overflow: hidden; /* 防止溢出 */
+    overflow: hidden; 
 }
 .rank-item:first-child { background: linear-gradient(to right, #fffbec, #fff); border-color: #f1c40f; box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5); }
 .rank-medal { font-size: 3.5rem; margin-right: 25px; flex-shrink: 0; }
 .rank-avatar { width: 100px; height: 100px; object-fit: contain; margin-right: 25px; image-rendering: pixelated; flex-shrink: 0; }
 .rank-name { 
     font-weight: 900; color: #2c3e50; font-size: 2rem; 
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* 截斷長文字 */
-    flex: 1; /* 佔滿剩餘空間 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    flex: 1; 
 }
 @keyframes popIn { to { transform: scale(1); } }

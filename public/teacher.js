@@ -16,6 +16,17 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 const modalContent = document.querySelector('.modal-content');
+// 🎲 骰子結果特效文字 (老師端也要顯示)
+let diceResultText = document.getElementById('dice-result-text'); 
+// 如果 HTML 還沒加這個 ID，動態建立一個避免報錯
+if (!diceResultText) {
+    const container = document.getElementById('dice-3d-container');
+    if (container) {
+        diceResultText = document.createElement('div');
+        diceResultText.id = 'dice-result-text';
+        container.appendChild(diceResultText);
+    }
+}
 
 const PLAYER_POSITIONS = {}; 
 
@@ -32,79 +43,148 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3A級 3D 骰子 (與 Student 相同) ---
+// --- 🎲 3A級 Three.js 骰子 (物理彈跳版) ---
 const ThreeDice = {
     container: document.getElementById('dice-3d-container'),
     scene: null, camera: null, renderer: null, cube: null,
     isRolling: false,
+    
     init() {
         if (!this.container) return;
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        this.camera.position.set(0, 3, 8); this.camera.lookAt(0, 0, 0);
+        this.camera.position.set(0, 4, 10);
+        this.camera.lookAt(0, 0, 0);
+
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); this.scene.add(ambientLight);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        this.scene.add(ambientLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(5, 15, 10); dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 1024; dirLight.shadow.mapSize.height = 1024; this.scene.add(dirLight);
+        dirLight.position.set(5, 15, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        this.scene.add(dirLight);
+
         const planeGeometry = new THREE.PlaneGeometry(100, 100);
         const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.rotation.x = -Math.PI / 2; plane.position.y = -2; plane.receiveShadow = true; this.scene.add(plane);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = -2;
+        plane.receiveShadow = true;
+        this.scene.add(plane);
+
         const materials = [];
         for (let i = 1; i <= 6; i++) {
-            materials.push(new THREE.MeshPhysicalMaterial({ map: this.createDiceTexture(i), color: 0xffffff, roughness: 0.1, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.1 }));
+            materials.push(new THREE.MeshPhysicalMaterial({ 
+                map: this.createDiceTexture(i), color: 0xffffff, roughness: 0.1, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.1
+            }));
         }
         this.cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), materials);
-        this.cube.castShadow = true; this.cube.receiveShadow = true; this.scene.add(this.cube);
-        window.addEventListener('resize', () => { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); });
+        this.cube.castShadow = true;
+        this.cube.receiveShadow = true;
+        this.scene.add(this.cube);
+
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
         this.animate();
     },
+
     createDiceTexture(number) {
-        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512; const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#f8f9fa'; ctx.fillRect(0, 0, 512, 512); ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 20; ctx.strokeRect(0, 0, 512, 512);
-        ctx.fillStyle = (number === 1) ? '#e74c3c' : '#2c3e50'; ctx.shadowColor = "rgba(0,0,0,0.2)"; ctx.shadowBlur = 10; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4;
-        const r = 50, c = 256, o = 120; const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); };
-        if (number === 1) drawDot(c, c); if (number === 2) { drawDot(c-o, c-o); drawDot(c+o, c+o); }
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f8f9fa'; ctx.fillRect(0, 0, 512, 512);
+        ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 20; ctx.strokeRect(0, 0, 512, 512);
+        ctx.fillStyle = (number === 1) ? '#e74c3c' : '#2c3e50';
+        ctx.shadowColor = "rgba(0,0,0,0.2)"; ctx.shadowBlur = 10; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4;
+        const r = 50, c = 256, o = 120;
+        const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); };
+        if (number === 1) drawDot(c, c);
+        if (number === 2) { drawDot(c-o, c-o); drawDot(c+o, c+o); }
         if (number === 3) { drawDot(c-o, c-o); drawDot(c, c); drawDot(c+o, c+o); }
         if (number === 4) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c+o); drawDot(c+o, c+o); }
         if (number === 5) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
         if (number === 6) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c); drawDot(c+o, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
         return new THREE.CanvasTexture(canvas);
     },
+
     animate() {
         requestAnimationFrame(() => this.animate());
-        if (this.isRolling) { this.cube.rotation.x += 0.3; this.cube.rotation.y += 0.4; this.cube.rotation.z += 0.1; }
+        if (this.isRolling) {
+            this.cube.rotation.x += 0.3;
+            this.cube.rotation.y += 0.4;
+            this.cube.rotation.z += 0.1;
+        } else if (!this.container.classList.contains('active')) {
+            // 待機時微轉
+            this.cube.rotation.y += 0.005;
+        }
         if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
     },
+
     async roll(targetNumber) {
         return new Promise((resolve) => {
-            this.container.classList.add('active'); this.isRolling = true; SynthEngine.playRoll();
+            this.container.classList.add('active');
+            this.isRolling = true;
+            SynthEngine.playRoll();
+
             setTimeout(() => {
                 this.isRolling = false;
                 let targetRot = { x: 0, y: 0, z: 0 };
                 switch(targetNumber) {
-                    case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;
-                    case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break; case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break;
-                    case 5: targetRot = {x: 0, y: 0, z: 0}; break; case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;
+                    case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; 
+                    case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;  
+                    case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break;  
+                    case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break; 
+                    case 5: targetRot = {x: 0, y: 0, z: 0}; break;          
+                    case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;    
                 }
+
                 const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
                 const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4, z: targetRot.z + Math.PI * 2 };
-                const startTime = Date.now(); const duration = 1200; const startY = 5; const floorY = 0;
+                const startTime = Date.now();
+                const duration = 1200;
+                const startY = 10;
+                const floorY = 0;
+
                 const settle = () => {
-                    const now = Date.now(); const p = Math.min((now - startTime) / duration, 1);
-                    const easeRot = 1 - Math.pow(1 - p, 4);
+                    const now = Date.now();
+                    const p = Math.min((now - startTime) / duration, 1);
+                    const easeRot = 1 - Math.pow(1 - p, 4); 
                     this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * easeRot;
                     this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * easeRot;
                     this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
+
                     let y = floorY;
-                    if (p < 0.4) { y = startY * (1 - (p/0.4)*(p/0.4)); } else if (p < 0.7) { const t = (p-0.4)/0.3; y = 1.5 * (1 - (2*t-1)*(2*t-1)); } else if (p < 0.9) { const t = (p-0.7)/0.2; y = 0.5 * (1 - (2*t-1)*(2*t-1)); }
+                    if (p < 0.3) { y = startY * (1 - (p/0.3)*(p/0.3)); } 
+                    else if (p < 0.6) { const t = (p - 0.3) / 0.3; y = 2.5 * (1 - (2*t - 1)*(2*t - 1)); } 
+                    else if (p < 0.85) { const t = (p - 0.6) / 0.25; y = 0.8 * (1 - (2*t - 1)*(2*t - 1)); }
                     this.cube.position.y = y;
-                    if (p < 1) requestAnimationFrame(settle); else setTimeout(() => { this.container.classList.remove('active'); resolve(); }, 500);
+
+                    if (p < 1) {
+                        requestAnimationFrame(settle);
+                    } else {
+                        // 顯示特效文字
+                        if(diceResultText) {
+                            diceResultText.innerText = `${targetNumber} 點!`;
+                            diceResultText.classList.add('show');
+                        }
+                        
+                        setTimeout(() => {
+                            this.container.classList.remove('active');
+                            if(diceResultText) diceResultText.classList.remove('show');
+                            resolve();
+                        }, 1000);
+                    }
                 };
                 settle();
             }, 500);
@@ -113,9 +193,11 @@ const ThreeDice = {
 };
 ThreeDice.init();
 
+// --- 🎉 派對特效 ---
 const ConfettiManager = {
     shoot() {
-        const duration = 3000; const end = Date.now() + duration;
+        const duration = 3000;
+        const end = Date.now() + duration;
         (function frame() {
             confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
             confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
@@ -124,21 +206,32 @@ const ConfettiManager = {
     }
 };
 
+// --- 🎭 角色與動畫管理器 (Smart Render) ---
 const AvatarManager = {
-    loopIntervals: {}, movingStatus: {}, 
+    loopIntervals: {},
+    movingStatus: {}, 
+    
     getCharType(p) { return p.avatarChar || 'a'; },
+
     setState(playerId, state, charType) {
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
+
         let img = document.getElementById(`img-${playerId}`);
         if (!charType && img) charType = img.dataset.char;
-        if (!charType) charType = 'a';
-        if (this.loopIntervals[playerId]) { clearInterval(this.loopIntervals[playerId]); delete this.loopIntervals[playerId]; }
+        if (!charType) charType = 'a'; 
+
+        if (this.loopIntervals[playerId]) { 
+            clearInterval(this.loopIntervals[playerId]); 
+            delete this.loopIntervals[playerId]; 
+        }
+
         if (img) {
             if (state === 'idle') img.src = `images/avatar_${charType}_1.png`;
             if (state === 'ready') img.src = `images/avatar_${charType}_2.png`;
             if (state === 'run') img.src = `images/avatar_${charType}_3.png`;
             if (state === 'win') img.src = `images/avatar_${charType}_5.png`;
         }
+
         if (state === 'run') {
             let runToggle = false;
             this.loopIntervals[playerId] = setInterval(() => {
@@ -188,7 +281,10 @@ const SynthEngine = {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
         if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff"; }
+        else{ 
+            if (startBtn.disabled && !restartBtn.disabled === false) this.playBGM();
+            btn.innerText="🔊"; btn.style.background="#fff";
+        }
     },
     playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
     playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
@@ -199,7 +295,7 @@ const SynthEngine = {
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
 function showModal(title, text, isConfirm = false, onConfirm = null) {
-    modalContent.className = "modal-content"; 
+    modalContent.className = "modal-content"; // 重置
     modalTitle.innerText = title;
     modalBody.innerHTML = text; 
     modalOverlay.classList.remove('hidden');
@@ -285,12 +381,12 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
         }
     });
     
-    // 🛠️ 修正：看板同步顯示
     liveMsg.innerText = `👉 輪到 ${playerName}`;
     liveMsg.style.color = "#f1c40f";
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
+    // 1. 播放 3D 骰子
     await ThreeDice.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
@@ -308,9 +404,11 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 
     setTimeout(() => {
         if (avatarContainer) {
-            const percent = (newPos / 22) * 100;
+            const percent = (newPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
         }
+        
+        // 移動動畫結束後
         setTimeout(() => {
             AvatarManager.movingStatus[playerId] = false;
             if (newPos < 21) {
@@ -318,25 +416,29 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
             } else {
                 AvatarManager.setState(playerId, 'win', charType);
             }
-        }, 1000);
+        }, 1000); 
     }, 1000);
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
+    // 等移動結束(1.0) + 骰子時間(2.5) = 3.5s
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
-        ConfettiManager.shoot(); 
+        // 單人噴花：不噴，避免混淆，只在 Game Over 噴
+        // ConfettiManager.shoot(); 
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 3500); 
 });
 
 socket.on('game_over', ({ rankings }) => {
+    // 1. 等跑完 (3.5s) -> 噴花
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playWin();
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
 
+        // 2. 等 3 秒 -> 顯示白金榜單
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {

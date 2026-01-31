@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
-    <button id="mute-btn" style="position: fixed; top: 160px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border:2px solid #333;">🔊</button>
+    <button id="mute-btn" style="position: fixed; top: 170px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border:2px solid #333;">🔊</button>
 
     <div id="modal-overlay" class="hidden">
         <div class="modal-content">
@@ -19,7 +19,9 @@
         </div>
     </div>
 
-    <div id="dice-3d-container"></div>
+    <div id="dice-3d-container">
+        <div id="dice-result-text">6 點!</div>
+    </div>
 
     <div id="login-overlay">
         <div id="login-box">
@@ -32,6 +34,11 @@
 
     <div id="scoreboard-header" class="hidden">
         <div class="board-content">
+            <div class="my-info-box">
+                <div class="my-label">我是</div>
+                <div id="my-name-display" class="my-name">---</div>
+            </div>
+
             <div id="game-msg" class="board-status">等待遊戲開始...</div>
             <div class="board-controls">
                 <button id="roll-btn" class="board-btn btn-grey" disabled>等待中...</button>
