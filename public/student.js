@@ -1,6 +1,6 @@
 const socket = io(); 
 
-// DOM
+// --- DOM 元素 ---
 const loginOverlay = document.getElementById('login-overlay');
 const scoreboardHeader = document.getElementById('scoreboard-header');
 const stadiumWrapper = document.getElementById('stadium-wrapper');
@@ -43,12 +43,30 @@ preloadImages();
 // --- 🎹 SynthEngine (擴充：慘兮兮 + 開心) ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
-    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
+    
+    init() { 
+        if(!this.ctx){
+            const AC = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AC();
+        } 
+        if(this.ctx.state === 'suspended') this.ctx.resume(); 
+    },
+
     toggleMute() {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
-        if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ if (startBtn && !startBtn.disabled) this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff"; }
+        if(this.isMuted){
+            this.stopBGM(); 
+            btn.innerText="🔇"; 
+            btn.style.background="#ffcccc";
+        } else { 
+            // 如果遊戲正在進行，解除靜音時恢復背景音樂
+            if (scoreboardHeader && !scoreboardHeader.classList.contains('hidden')) {
+                this.playBGM(); 
+            }
+            btn.innerText="🔊"; 
+            btn.style.background="#fff"; 
+        }
     },
     
     playImpact() {
@@ -382,6 +400,11 @@ socket.on('update_player_list', (players) => {
     renderTracks(players);
 });
 
+// 🔥 新增：監聽遊戲狀態更新 (修復跑道消失的關鍵)
+socket.on('update_game_state', (gameState) => {
+    renderTracks(gameState.players);
+});
+
 socket.on('show_initiative', (sortedPlayers) => {
     let msg = `🎲 抽籤決定順序：\n`;
     sortedPlayers.forEach((p, i) => { msg += `${i+1}. ${p.name} `; if((i+1)%3 === 0) msg += "\n"; });
@@ -392,8 +415,8 @@ socket.on('show_initiative', (sortedPlayers) => {
 socket.on('game_start', () => {
     gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
-// 🔥 新增：強制清空跑道，確保看到陷阱與命運格
-    trackContainer.innerHTML = '';
+    
+    // ❌ 已移除清空指令，改用 updateRow 原地換圖
 
     document.querySelectorAll('.avatar-img').forEach(img => {
         const id = img.id.replace('img-', '');
@@ -698,13 +721,29 @@ function createRow(p) {
     trackContainer.appendChild(row);
 }
 
+// 🔥 核心更新：原地換圖邏輯，解決白板問題
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
+    
+    const cells = row.querySelectorAll('.grid-cell');
+    
+    if (p.trapIndex !== -1) {
+        const cell = cells[p.trapIndex];
+        if (cell && !cell.style.backgroundImage.includes('hole')) {
+            cell.style.backgroundImage = "url('images/map_hole.png')";
+        }
+    }
+    if (p.fateIndex !== -1) {
+        const cell = cells[p.fateIndex];
+        if (cell && !cell.style.backgroundImage.includes('question')) {
+            cell.style.backgroundImage = "url('images/map_question.png')";
+        }
+    }
+
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
     
-    // 防呆同步
     if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) {
         avatarContainer.style.left = `${targetLeft}%`;
     }
