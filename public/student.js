@@ -308,9 +308,9 @@ const AvatarManager = {
                 const currentImg = document.getElementById(`img-${playerId}`);
                 if (currentImg) {
                     runToggle = !runToggle;
-                    const frame = runToggle ? 4 : 3;
+                    const currentSrc = currentImg.getAttribute('src');
+                    const frame = currentSrc.includes('_3.png') ? 4 : 3;
                     currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                    if (!currentImg.src.includes(`_${frame}.png`)) currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     SynthEngine.playStep();
                 }
             }, 150);
@@ -364,6 +364,17 @@ function clearAllSpecialTiles() {
     });
 }
 
+// 🔥 用於將已經觸發的格子變回普通跑道
+function restoreTile(playerId, tileIndex) {
+    if (tileIndex < 0) return;
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (!row) return;
+    const cells = row.querySelectorAll('.grid-cell');
+    if (cells[tileIndex]) {
+        cells[tileIndex].style.backgroundImage = "url('images/map_runway.png')";
+    }
+}
+
 socket.on('connect', () => { myId = socket.id; });
 
 joinBtn.addEventListener('click', () => {
@@ -388,7 +399,6 @@ socket.on('update_player_list', (players) => {
     renderTracks(players);
 });
 
-// 🔥 監聽遊戲狀態，以更新特殊格子
 socket.on('update_game_state', (gameState) => {
     renderTracks(gameState.players);
 });
@@ -404,7 +414,6 @@ socket.on('game_start', () => {
     gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
     
-    // 🔥 清除可能的舊圖，準備迎接新圖
     clearAllSpecialTiles();
 
     document.querySelectorAll('.avatar-img').forEach(img => {
@@ -418,7 +427,7 @@ socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
-    // 🔥 大掃除
+    // 🔥 清除舊圖
     clearAllSpecialTiles();
 
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
@@ -428,6 +437,7 @@ socket.on('game_reset_positions', () => {
         img.className = 'avatar-img'; 
     });
     modalOverlay.classList.add('hidden');
+    
     gameMsg.innerText = "準備開始新的一局...";
     rollBtn.classList.remove('hidden');
     rollBtn.disabled = true;
@@ -475,7 +485,7 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
-// --- 核心：支援連鎖判定的動畫序列 ---
+// --- 核心更新：支援陷阱/命運的非同步移動序列 ---
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
     await ThreeDice.roll(roll);
 
@@ -493,19 +503,23 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
 
-    // 1. 初步落點
     await moveAvatar(playerId, initialLandPos, charType);
 
-    // 2. 事件判斷
     if (triggerType === 'TRAP') {
         if(isMe) gameMsg.innerText = "😱 糟了！踩到陷阱！";
         else gameMsg.innerText = "😱 哎呀！他踩到陷阱了！";
+        
+        // 🔥 動畫開始前，把陷阱變回跑道
+        restoreTile(playerId, initialLandPos);
         await playTrapAnimation(img, playerId, newPos, charType);
     
     } else if (triggerType === 'FATE') {
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
         else gameMsg.innerText = "❓ 觸發了命運機會...";
         
+        // 🔥 問號消除
+        restoreTile(playerId, initialLandPos);
+
         showFateCard(fateResult);
         await wait(2500); 
 
@@ -520,6 +534,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     } else if (triggerType === 'FATE_TRAP') {
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
         
+        // 🔥 問號消除
+        restoreTile(playerId, initialLandPos);
+        
         showFateCard(fateResult);
         await wait(2500);
 
@@ -529,12 +546,13 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
         gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
         
-        // 移動到陷阱位置
         await moveAvatar(playerId, trapPos, charType);
         
         await wait(500);
         gameMsg.innerText = "😱 天啊！剛好掉進洞裡！";
         
+        // 🔥 連鎖的陷阱消除
+        restoreTile(playerId, trapPos);
         await playTrapAnimation(img, playerId, newPos, charType);
     }
 
@@ -545,26 +563,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         AvatarManager.setState(playerId, 'idle', charType);
     }
 });
-
-async function playTrapAnimation(img, playerId, resetPos, charType) {
-    if(img) img.classList.add('avatar-trap-shake');
-    SynthEngine.playSad(); 
-    await wait(500);
-    
-    if(img) {
-        img.classList.remove('avatar-trap-shake');
-        img.classList.add('avatar-trap-fall');
-    }
-    await wait(800);
-
-    await moveAvatar(playerId, resetPos, charType, true); 
-    
-    if(img) {
-        img.classList.remove('avatar-trap-fall');
-        img.style.opacity = '1';
-        img.style.transform = 'none';
-    }
-}
 
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
@@ -594,6 +592,26 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
             }, 1000); 
         }
     });
+}
+
+async function playTrapAnimation(img, playerId, resetPos, charType) {
+    if(img) img.classList.add('avatar-trap-shake');
+    SynthEngine.playSad(); 
+    await wait(500);
+    
+    if(img) {
+        img.classList.remove('avatar-trap-shake');
+        img.classList.add('avatar-trap-fall');
+    }
+    await wait(800);
+
+    await moveAvatar(playerId, resetPos, charType, true); 
+    
+    if(img) {
+        img.classList.remove('avatar-trap-fall');
+        img.style.opacity = '1';
+        img.style.transform = 'none';
+    }
 }
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -710,7 +728,7 @@ function createRow(p) {
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     
-    // 🔥 原地更新圖案，防止白板
+    // 🔥 原地更新圖案
     const cells = row.querySelectorAll('.grid-cell');
     if (p.trapIndex !== -1) {
         const cell = cells[p.trapIndex];

@@ -19,7 +19,7 @@ const fateIcon = document.getElementById('fate-icon');
 const fateTitle = document.getElementById('fate-title');
 const fateDesc = document.getElementById('fate-desc');
 
-// Modal 相關元素
+// Modal
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
@@ -27,7 +27,7 @@ const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 const modalContent = document.querySelector('.modal-content');
 
-// 🎲 骰子結果特效文字
+// 骰子結果
 let diceResultText = document.getElementById('dice-result-text'); 
 if (!diceResultText) {
     const container = document.getElementById('dice-3d-container');
@@ -331,9 +331,9 @@ const AvatarManager = {
                 const currentImg = document.getElementById(`img-${playerId}`);
                 if (currentImg) {
                     runToggle = !runToggle;
-                    const frame = runToggle ? 4 : 3;
+                    const currentSrc = currentImg.getAttribute('src');
+                    const frame = currentSrc.includes('_3.png') ? 4 : 3;
                     currentImg.src = `images/avatar_${charType}_${frame}.png`;
-                    if (!currentImg.src.includes(`_${frame}.png`)) currentImg.src = `images/avatar_${charType}_${frame}.png`;
                     SynthEngine.playStep();
                 }
             }, 150);
@@ -405,6 +405,17 @@ function clearAllSpecialTiles() {
     });
 }
 
+// 🔥 用於將已經觸發的格子變回普通跑道
+function restoreTile(playerId, tileIndex) {
+    if (tileIndex < 0) return;
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (!row) return;
+    const cells = row.querySelectorAll('.grid-cell');
+    if (cells[tileIndex]) {
+        cells[tileIndex].style.backgroundImage = "url('images/map_runway.png')";
+    }
+}
+
 socket.on('connect', () => { connectionStatus.innerText = "🟢 伺服器已連線"; connectionStatus.style.color = "#2ecc71"; socket.emit('admin_login'); });
 socket.on('disconnect', () => { connectionStatus.innerText = "🔴 與伺服器斷線"; connectionStatus.style.color = "#e74c3c"; });
 socket.on('update_player_list', (players) => { updateView(players); });
@@ -414,7 +425,7 @@ socket.on('update_game_state', (gameState) => {
     if (gameState.status === 'PLAYING') {
         startBtn.disabled = true; startBtn.innerText = "遊戲進行中"; startBtn.className = "board-btn btn-grey";
         restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey";
-        chkTrap.disabled = true; chkFate.disabled = true; // 鎖定開關
+        chkTrap.disabled = true; chkFate.disabled = true; 
     } else if (gameState.status === 'ENDED') {
         startBtn.disabled = true; startBtn.innerText = "本局結束"; startBtn.className = "board-btn btn-grey";
         restartBtn.disabled = false; restartBtn.className = "board-btn btn-orange";
@@ -422,7 +433,7 @@ socket.on('update_game_state', (gameState) => {
     } else {
         startBtn.disabled = false; startBtn.innerText = "開始遊戲"; startBtn.className = "board-btn btn-green"; 
         restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey";
-        chkTrap.disabled = false; chkFate.disabled = false; // 解鎖開關
+        chkTrap.disabled = false; chkFate.disabled = false; 
         SynthEngine.stopBGM();
     }
 });
@@ -444,14 +455,6 @@ socket.on('game_reset_positions', () => {
         img.className = 'avatar-img'; 
     });
     modalOverlay.classList.add('hidden');
-    
-    // 清除特殊格顯示 (保險起見再清一次 grid-cell，雖已有 clearAllSpecialTiles)
-    const cells = document.querySelectorAll('.grid-cell');
-    cells.forEach(c => {
-        if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) {
-            c.style.backgroundImage = "url('images/map_runway.png')";
-        }
-    });
     
     startBtn.innerText = "開始遊戲"; 
     startBtn.disabled = false;
@@ -476,7 +479,6 @@ socket.on('game_start', () => {
     liveMsg.innerText = "🚀 比賽開始！";
     SynthEngine.playBGM();
 
-    // 🔥 強制清除舊圖
     clearAllSpecialTiles();
 
     document.querySelectorAll('.avatar-img').forEach(img => {
@@ -524,10 +526,16 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
 
     if (triggerType === 'TRAP') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 ${playerName} 踩到了陷阱！</span>`;
+        // 🔥 動畫開始前，先把陷阱變回跑道
+        restoreTile(playerId, initialLandPos);
         await playTrapAnimation(img, playerId, newPos, charType);
     
     } else if (triggerType === 'FATE') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會！</span>`;
+        
+        // 🔥 卡牌出現時，把問號變回跑道
+        restoreTile(playerId, initialLandPos);
+        
         showFateCard(fateResult);
         await wait(2500); 
 
@@ -539,6 +547,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
 
     } else if (triggerType === 'FATE_TRAP') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會...</span>`;
+        
+        // 🔥 問號消除
+        restoreTile(playerId, initialLandPos);
+
         showFateCard(fateResult);
         await wait(2500);
 
@@ -552,6 +564,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         await wait(500);
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
 
+        // 🔥 連鎖的陷阱消除
+        restoreTile(playerId, trapPos);
+
         await playTrapAnimation(img, playerId, newPos, charType);
     }
 
@@ -563,7 +578,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     }
 });
 
-// 輔助函式：移動並等待完成
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         PLAYER_POSITIONS[playerId] = targetPos;
@@ -594,7 +608,6 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
-// 抽離的陷阱動畫
 async function playTrapAnimation(img, playerId, resetPos, charType) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -756,6 +769,17 @@ function createRow(p) {
 
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
+    
+    // 🔥 修復老師端：加入更新格子圖片的邏輯
+    const cells = row.querySelectorAll('.grid-cell');
+    if (p.trapIndex !== -1) {
+        const cell = cells[p.trapIndex];
+        if (cell && !cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')";
+    }
+    if (p.fateIndex !== -1) {
+        const cell = cells[p.fateIndex];
+        if (cell && !cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
+    }
 
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
