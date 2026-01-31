@@ -16,6 +16,9 @@ let gameState = {
     rankings: [] 
 };
 
+// 記錄上一次骰出的點數，用於防重複
+let globalLastRoll = 0;
+
 const CHAR_POOL = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
 const COLORS = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF5', '#F5FF33', '#FF8C33', '#8C33FF'];
 
@@ -23,7 +26,6 @@ function assignAvatar(existingPlayers) {
     const usedChars = existingPlayers.map(p => p.avatarChar);
     const available = CHAR_POOL.filter(c => !usedChars.includes(c));
     if (available.length === 0) return 'a'; 
-    // 完全隨機選取
     const randomIndex = Math.floor(Math.random() * available.length);
     return available[randomIndex];
 }
@@ -43,6 +45,7 @@ io.on('connection', (socket) => {
         gameState.turnIndex = 0;
         gameState.rankings = []; 
         gameState.players.forEach(p => p.position = 0);
+        globalLastRoll = 0; // 重置骰子歷史
 
         const shuffledPlayers = [...gameState.players].sort(() => 0.5 - Math.random());
         io.emit('show_initiative', shuffledPlayers);
@@ -59,6 +62,7 @@ io.on('connection', (socket) => {
         gameState.status = 'LOBBY';
         gameState.turnIndex = 0;
         gameState.rankings = [];
+        globalLastRoll = 0;
         gameState.players.forEach(p => { p.position = 0; });
         io.emit('game_reset_positions');
         io.emit('update_game_state', gameState);
@@ -70,6 +74,7 @@ io.on('connection', (socket) => {
         gameState.turnIndex = 0;
         gameState.players = [];
         gameState.rankings = [];
+        globalLastRoll = 0;
         io.emit('update_player_list', []);
         io.emit('update_game_state', gameState); 
         io.emit('force_reload');
@@ -107,7 +112,7 @@ io.on('connection', (socket) => {
         };
 
         gameState.players.push(newPlayer);
-        gameState.players.sort((a, b) => a.joinTime - b.joinTime); // 保持跑道順序
+        gameState.players.sort((a, b) => a.joinTime - b.joinTime); 
 
         io.emit('update_player_list', gameState.players);
     });
@@ -117,7 +122,17 @@ io.on('connection', (socket) => {
         if (!currentPlayer || currentPlayer.id !== socket.id) return;
         if (gameState.status !== 'PLAYING') return;
 
-        const roll = Math.floor(Math.random() * 6) + 1;
+        // 🎲 骰子演算法優化 (防連續)
+        let roll = Math.floor(Math.random() * 6) + 1;
+        
+        // 如果跟上次一樣，有 70% 機率重骰
+        if (roll === globalLastRoll) {
+            if (Math.random() > 0.3) {
+                roll = Math.floor(Math.random() * 6) + 1;
+            }
+        }
+        globalLastRoll = roll; // 更新紀錄
+
         let newPos = currentPlayer.position + roll;
         if (newPos >= 21) newPos = 21; 
         currentPlayer.position = newPos;
@@ -203,7 +218,7 @@ function notifyNextTurn() {
             io.emit('update_turn', { 
                 turnIndex: gameState.turnIndex, 
                 nextPlayerId: currentPlayer.id,
-                playerName: currentPlayer.name // 傳送名字給前端顯示
+                playerName: currentPlayer.name 
             });
             return;
         }
