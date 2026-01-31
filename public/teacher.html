@@ -16,9 +16,17 @@
             <h2 id="modal-title">標題</h2>
             <div id="modal-body">內容</div>
             <div id="modal-actions" style="margin-top:20px;">
-                <button id="modal-btn-confirm" class="board-btn btn-green" style="font-size:1rem; padding:10px 20px;">確定</button>
+                <button id="modal-btn-confirm" class="board-btn btn-green" style="font-size:1rem; padding:10px 20px;">確定執行</button>
                 <button id="modal-btn-cancel" class="board-btn btn-grey hidden" style="font-size:1rem; padding:10px 20px;">取消</button>
             </div>
+        </div>
+    </div>
+
+    <div id="fate-overlay">
+        <div class="fate-card" id="fate-card-body">
+            <div class="fate-icon" id="fate-icon">❓</div>
+            <div class="fate-title" id="fate-title">機會</div>
+            <div class="fate-desc" id="fate-desc">前進 2 格</div>
         </div>
     </div>
 
@@ -37,6 +45,15 @@
                 <div id="connection-status" style="font-size:0.9rem; color:#aaa;">🟢 連線正常</div>
                 <div id="live-msg" style="font-size:1.4rem; color:#fff;">等待開始...</div>
                 <div style="font-size:0.8rem; color:#ccc; margin-top:5px;">線上人數: <span id="player-count">0</span>/8</div>
+            </div>
+
+            <div class="game-options">
+                <label class="toggle-label">
+                    <input type="checkbox" id="chk-trap"> 🕳️ 陷阱
+                </label>
+                <label class="toggle-label">
+                    <input type="checkbox" id="chk-fate"> ❓ 命運
+                </label>
             </div>
 
             <div class="board-controls">
