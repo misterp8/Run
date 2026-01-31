@@ -9,7 +9,6 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 資料結構
 let gameState = {
     status: 'LOBBY',
     turnIndex: 0,    
@@ -17,20 +16,26 @@ let gameState = {
     rankings: [] 
 };
 
-// 角色池 (確保不重複)
+// 角色池
 const CHAR_POOL = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
 const COLORS = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF5', '#F5FF33', '#FF8C33', '#8C33FF'];
 
-// 分配角色的輔助函式
+// 🛠️ 修正：隨機分配不重複角色
 function assignAvatar(existingPlayers) {
     const usedChars = existingPlayers.map(p => p.avatarChar);
-    return CHAR_POOL.find(c => !usedChars.includes(c)) || 'a';
+    // 找出所有還沒被使用的角色
+    const available = CHAR_POOL.filter(c => !usedChars.includes(c));
+    
+    if (available.length === 0) return 'a'; // 理論上不會發生(最多8人)
+    
+    // 隨機選一個
+    const randomIndex = Math.floor(Math.random() * available.length);
+    return available[randomIndex];
 }
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    // --- 老師端 ---
     socket.on('admin_login', () => {
         socket.join('admin');
         socket.emit('update_game_state', gameState);
@@ -40,15 +45,15 @@ io.on('connection', (socket) => {
     socket.on('admin_start_game', () => {
         if (gameState.players.length < 1) return;
 
-        // 初始化遊戲狀態
         gameState.status = 'PLAYING';
         gameState.turnIndex = 0;
         gameState.rankings = []; 
         gameState.players.forEach(p => p.position = 0);
 
-        // 廣播抽籤結果 (這裡僅供顯示，實際順序依照加入順序)
-        const displayOrder = [...gameState.players].sort((a, b) => b.initRoll - a.initRoll);
-        io.emit('show_initiative', displayOrder);
+        // 雖然是隨機順序，但這邊只負責傳送名單給前端顯示，不影響實際跑道順序
+        // 我們這裡隨機打亂一個陣列給前端做「抽籤演出」
+        const shuffledPlayers = [...gameState.players].sort(() => 0.5 - Math.random());
+        io.emit('show_initiative', shuffledPlayers);
 
         setTimeout(() => {
             io.emit('game_start');
@@ -62,8 +67,8 @@ io.on('connection', (socket) => {
         gameState.status = 'LOBBY';
         gameState.turnIndex = 0;
         gameState.rankings = [];
-        gameState.players.forEach(p => { p.position = 0; p.initRoll = 0; });
-
+        gameState.players.forEach(p => { p.position = 0; });
+        
         io.emit('game_reset_positions');
         io.emit('update_game_state', gameState);
         io.emit('update_player_list', gameState.players);
@@ -79,7 +84,6 @@ io.on('connection', (socket) => {
         io.emit('force_reload');
     });
 
-    // --- 學生端 ---
     socket.on('player_join', (playerName) => {
         if (gameState.status !== 'LOBBY') {
             socket.emit('error_msg', '遊戲進行中，無法加入');
@@ -99,6 +103,7 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // 使用新的隨機分配
         const assignedChar = assignAvatar(gameState.players);
 
         const newPlayer = {
@@ -106,14 +111,13 @@ io.on('connection', (socket) => {
             name: playerName,
             color: COLORS[gameState.players.length % COLORS.length],
             avatarChar: assignedChar,
-            joinTime: Date.now(), 
+            joinTime: Date.now(),
             position: 0,
-            isReady: true,
-            initRoll: Math.floor(Math.random() * 100) + 1 // 預先骰好
+            isReady: true
         };
 
         gameState.players.push(newPlayer);
-        // 確保依照加入時間排序 (避免順序跳動)
+        // 確保跑道順序依照加入時間固定
         gameState.players.sort((a, b) => a.joinTime - b.joinTime);
 
         io.emit('update_player_list', gameState.players);
@@ -121,13 +125,7 @@ io.on('connection', (socket) => {
 
     socket.on('action_roll', () => {
         const currentPlayer = gameState.players[gameState.turnIndex];
-        
-        // 安全檢查：如果玩家不存在 (可能剛斷線)，重新計算回合
-        if (!currentPlayer) {
-            notifyNextTurn();
-            return;
-        }
-        if (currentPlayer.id !== socket.id) return;
+        if (!currentPlayer || currentPlayer.id !== socket.id) return;
         if (gameState.status !== 'PLAYING') return;
 
         const roll = Math.floor(Math.random() * 6) + 1;
@@ -141,6 +139,7 @@ io.on('connection', (socket) => {
             newPos: newPos
         });
 
+        // 判斷到達終點
         if (newPos === 21) {
             const alreadyFinished = gameState.rankings.find(r => r.id === currentPlayer.id);
             if (!alreadyFinished) {
@@ -173,57 +172,28 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- 🛠️ 關鍵修正：斷線處理邏輯 ---
     socket.on('disconnect', () => {
         const playerIndex = gameState.players.findIndex(p => p.id === socket.id);
-        
         if (playerIndex !== -1) {
-            const player = gameState.players[playerIndex];
-            console.log(`Player disconnected: ${player.name}`);
+            const isCurrentTurn = (playerIndex === gameState.turnIndex);
+            
+            // 移除玩家
+            gameState.players.splice(playerIndex, 1);
 
-            if (gameState.status === 'LOBBY') {
-                // 大廳狀態：直接移除
-                gameState.players.splice(playerIndex, 1);
-                io.emit('update_player_list', gameState.players);
-            } 
-            else if (gameState.status === 'PLAYING') {
-                // 遊戲中狀態：
-                const isCurrentTurn = (playerIndex === gameState.turnIndex);
-                
-                // 1. 移除玩家
-                gameState.players.splice(playerIndex, 1);
+            // 修正 turnIndex
+            if (playerIndex < gameState.turnIndex) gameState.turnIndex--;
+            if (gameState.turnIndex >= gameState.players.length) gameState.turnIndex = 0;
 
-                // 2. 修正 turnIndex
-                // 如果斷線的人在當前操作者之前，當前操作者的 index 會往前移，所以 turnIndex 要 -1
-                if (playerIndex < gameState.turnIndex) {
-                    gameState.turnIndex--;
-                }
-                
-                // 防止 index 破表
-                if (gameState.turnIndex >= gameState.players.length) {
-                    gameState.turnIndex = 0;
-                }
+            io.emit('update_player_list', gameState.players);
 
-                // 3. 更新前端畫面 (移除該角色)
-                io.emit('update_player_list', gameState.players);
+            if (gameState.players.length === 0) {
+                gameState.status = 'LOBBY';
+                io.emit('admin_reset_game');
+                return;
+            }
 
-                // 4. 如果人數歸零，重置
-                if (gameState.players.length === 0) {
-                    gameState.status = 'LOBBY';
-                    gameState.turnIndex = 0;
-                    gameState.rankings = [];
-                    io.emit('admin_reset_game'); // 或回到初始狀態
-                    io.emit('update_game_state', gameState);
-                    return;
-                }
-
-                // 5. 如果斷線的人正好是「當前操作者」，必須強制切換到下一位
-                if (isCurrentTurn) {
-                    // 稍微延遲一下，避免前端渲染衝突
-                    setTimeout(() => {
-                        notifyNextTurn();
-                    }, 500);
-                }
+            if (gameState.status === 'PLAYING' && isCurrentTurn) {
+                setTimeout(() => notifyNextTurn(), 500);
             }
         }
     });
@@ -232,32 +202,19 @@ io.on('connection', (socket) => {
 function notifyNextTurn() {
     if (gameState.status === 'ENDED') return;
     if (gameState.players.length === 0) return;
-
-    // 確保 Index 在範圍內
-    if (gameState.turnIndex >= gameState.players.length) {
-        gameState.turnIndex = 0;
-    }
+    if (gameState.turnIndex >= gameState.players.length) gameState.turnIndex = 0;
 
     let attempts = 0;
     const maxAttempts = gameState.players.length + 1;
 
-    // 尋找下一位還沒跑完的玩家
     while (attempts < maxAttempts) {
         const currentPlayer = gameState.players[gameState.turnIndex];
-        
-        // 防呆：如果取不到玩家
-        if (!currentPlayer) {
-            gameState.turnIndex = 0;
-            attempts++;
-            continue;
-        }
+        if (!currentPlayer) { gameState.turnIndex = 0; attempts++; continue; }
 
         if (currentPlayer.position >= 21) {
-            // 這位跑完了，換下一位
             gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
             attempts++;
         } else {
-            // 找到可以行動的玩家了
             io.emit('update_turn', { 
                 turnIndex: gameState.turnIndex, 
                 nextPlayerId: currentPlayer.id 
@@ -265,9 +222,7 @@ function notifyNextTurn() {
             return;
         }
     }
-
-    // 如果所有人都跑完了 (attempts 超過人數)
-    // 雖然理論上 action_roll 會處理結束，但這裡做個保險
+    // 所有人跑完
     if (gameState.rankings.length > 0) {
         gameState.status = 'ENDED';
         io.emit('game_over', { rankings: gameState.rankings });
