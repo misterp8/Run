@@ -16,9 +16,9 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 const modalContent = document.querySelector('.modal-content');
-// 🎲 骰子結果特效文字 (老師端也要顯示)
+
+// 🎲 骰子結果特效文字 (防呆機制：如果 HTML 沒寫，自動建立)
 let diceResultText = document.getElementById('dice-result-text'); 
-// 如果 HTML 還沒加這個 ID，動態建立一個避免報錯
 if (!diceResultText) {
     const container = document.getElementById('dice-3d-container');
     if (container) {
@@ -125,8 +125,7 @@ const ThreeDice = {
             this.cube.rotation.y += 0.4;
             this.cube.rotation.z += 0.1;
         } else if (!this.container.classList.contains('active')) {
-            // 待機時微轉
-            this.cube.rotation.y += 0.005;
+            this.cube.rotation.y += 0.005; // 閒置時微轉
         }
         if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
     },
@@ -151,9 +150,10 @@ const ThreeDice = {
 
                 const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
                 const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4, z: targetRot.z + Math.PI * 2 };
+                
                 const startTime = Date.now();
                 const duration = 1200;
-                const startY = 10;
+                const startY = 12; 
                 const floorY = 0;
 
                 const settle = () => {
@@ -165,15 +165,18 @@ const ThreeDice = {
                     this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
 
                     let y = floorY;
-                    if (p < 0.3) { y = startY * (1 - (p/0.3)*(p/0.3)); } 
-                    else if (p < 0.6) { const t = (p - 0.3) / 0.3; y = 2.5 * (1 - (2*t - 1)*(2*t - 1)); } 
-                    else if (p < 0.85) { const t = (p - 0.6) / 0.25; y = 0.8 * (1 - (2*t - 1)*(2*t - 1)); }
+                    if (p < 0.35) { y = startY * (1 - (p/0.35)*(p/0.35)); } 
+                    else if (p < 0.7) { const t = (p - 0.35) / 0.35; y = 3.0 * (1 - (2*t - 1)*(2*t - 1)); } 
+                    else if (p < 0.9) { const t = (p - 0.7) / 0.2; y = 1.0 * (1 - (2*t - 1)*(2*t - 1)); }
                     this.cube.position.y = y;
 
                     if (p < 1) {
                         requestAnimationFrame(settle);
                     } else {
-                        // 顯示特效文字
+                        // 6點特效
+                        if (targetNumber === 6) SynthEngine.playSix();
+
+                        // 顯示文字
                         if(diceResultText) {
                             diceResultText.innerText = `${targetNumber} 點!`;
                             diceResultText.classList.add('show');
@@ -183,7 +186,7 @@ const ThreeDice = {
                             this.container.classList.remove('active');
                             if(diceResultText) diceResultText.classList.remove('show');
                             resolve();
-                        }, 1000);
+                        }, 1200); // 停留讓玩家看
                     }
                 };
                 settle();
@@ -210,7 +213,6 @@ const ConfettiManager = {
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
-    
     getCharType(p) { return p.avatarChar || 'a'; },
 
     setState(playerId, state, charType) {
@@ -289,6 +291,20 @@ const SynthEngine = {
     playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
     playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
     playWin(){ if(this.isMuted||!this.ctx)return; this.stopBGM(); const t=this.ctx.currentTime; const notes=[523,659,784,1046]; notes.forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.linearRampToValueAtTime(0,t+i*0.1+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.1);}); },
+    
+    // 🛠️ 6點特效：雙音階
+    playSix(){
+        if(this.isMuted||!this.ctx)return;
+        const t=this.ctx.currentTime;
+        [600, 900].forEach((f,i) => {
+            const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
+            o.type='sine'; o.frequency.value=f;
+            g.gain.setValueAtTime(0.2, t+i*0.15); g.gain.exponentialRampToValueAtTime(0.01, t+i*0.15+0.3);
+            o.connect(g); g.connect(this.ctx.destination);
+            o.start(t+i*0.15); o.stop(t+i*0.15+0.3);
+        });
+    },
+
     playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
     stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
 };
@@ -385,6 +401,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     liveMsg.style.color = "#f1c40f";
 });
 
+// --- 核心：移動 -> 3D骰子 -> 判斷 ---
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
     // 1. 播放 3D 骰子
     await ThreeDice.roll(roll);
@@ -408,7 +425,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
             avatarContainer.style.left = `${percent}%`;
         }
         
-        // 移動動畫結束後
         setTimeout(() => {
             AvatarManager.movingStatus[playerId] = false;
             if (newPos < 21) {
@@ -421,24 +437,23 @@ socket.on('player_moved', async ({ playerId, roll, newPos }) => {
 });
 
 socket.on('player_finished_rank', ({ player, rank }) => {
-    // 等移動結束(1.0) + 骰子時間(2.5) = 3.5s
+    // 延遲到移動結束後 (4.0s)
     setTimeout(() => {
         SynthEngine.playWin(); 
         AvatarManager.setState(player.id, 'win', player.avatarChar);
-        // 單人噴花：不噴，避免混淆，只在 Game Over 噴
-        // ConfettiManager.shoot(); 
+        // 單人暫不噴花
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
-    }, 3500); 
+    }, 4000); 
 });
 
 socket.on('game_over', ({ rankings }) => {
-    // 1. 等跑完 (3.5s) -> 噴花
+    // 1. 延遲 (4.0s) 後開始慶祝
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playWin();
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
 
-        // 2. 等 3 秒 -> 顯示白金榜單
+        // 2. 延遲 (3.0s) 後顯示榜單
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {
@@ -454,7 +469,7 @@ socket.on('game_over', ({ rankings }) => {
             modalContent.classList.add('premium-modal');
             showModal("🏆 榮譽榜 🏆", rankHtml);
         }, 3000);
-    }, 3500);
+    }, 4000);
 });
 
 startBtn.addEventListener('click', () => {
