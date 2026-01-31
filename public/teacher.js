@@ -8,7 +8,7 @@ const resetBtn = document.getElementById('reset-btn');
 const playerCountSpan = document.getElementById('player-count');
 const liveMsg = document.getElementById('live-msg');
 const connectionStatus = document.getElementById('connection-status');
-const orderList = document.getElementById('order-list'); // 老師端專屬看板
+const orderList = document.getElementById('order-list'); // 老師端專屬
 
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
@@ -32,35 +32,50 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎲 3D 骰子管理器 (Three.js) ---
+// --- 🎲 3A級 3D 骰子管理器 (Three.js) ---
 const ThreeDice = {
     container: document.getElementById('dice-3d-container'),
     scene: null, camera: null, renderer: null, cube: null,
     isRolling: false,
     
     init() {
-        if (!this.container) return; // 防呆
+        if (!this.container) return;
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
         this.camera.position.z = 5;
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.shadowMap.enabled = true; 
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
         dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
         this.scene.add(dirLight);
+        const pointLight = new THREE.PointLight(0xffaa00, 0.5);
+        pointLight.position.set(-5, -5, 5);
+        this.scene.add(pointLight);
+
+        const planeGeometry = new THREE.PlaneGeometry(50, 50);
+        const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
+        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.rotation.x = -Math.PI / 2; plane.position.y = -2; plane.receiveShadow = true;
+        this.scene.add(plane);
 
         const materials = [];
         for (let i = 1; i <= 6; i++) {
-            materials.push(new THREE.MeshStandardMaterial({ 
-                map: this.createDiceTexture(i), roughness: 0.2, metalness: 0.1
+            materials.push(new THREE.MeshPhysicalMaterial({ 
+                map: this.createDiceTexture(i), color: 0xffffff, roughness: 0.1, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.1
             }));
         }
-        this.cube = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), materials);
+        this.cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), materials);
+        this.cube.castShadow = true; this.cube.receiveShadow = true;
         this.scene.add(this.cube);
 
         window.addEventListener('resize', () => {
@@ -73,12 +88,13 @@ const ThreeDice = {
 
     createDiceTexture(number) {
         const canvas = document.createElement('canvas');
-        canvas.width = 256; canvas.height = 256;
+        canvas.width = 512; canvas.height = 512;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 256, 256);
-        ctx.strokeStyle = '#cccccc'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, 256, 256);
-        ctx.fillStyle = (number === 1) ? '#e74c3c' : '#333333';
-        const r = 25, c = 128, o = 60;
+        ctx.fillStyle = '#f0f0f0'; ctx.fillRect(0, 0, 512, 512);
+        ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 20; ctx.strokeRect(0, 0, 512, 512);
+        ctx.fillStyle = (number === 1) ? '#e74c3c' : '#2c3e50';
+        ctx.shadowColor = "rgba(0,0,0,0.2)"; ctx.shadowBlur = 5; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+        const r = 50, c = 256, o = 120;
         const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); };
         if (number === 1) drawDot(c, c);
         if (number === 2) { drawDot(c-o, c-o); drawDot(c+o, c+o); }
@@ -91,7 +107,7 @@ const ThreeDice = {
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        if (this.isRolling) { this.cube.rotation.x += 0.2; this.cube.rotation.y += 0.2; }
+        if (this.isRolling) { this.cube.rotation.x += 0.3; this.cube.rotation.y += 0.4; this.cube.rotation.z += 0.2; }
         if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
     },
 
@@ -112,17 +128,18 @@ const ThreeDice = {
                     case 5: targetRot = {x: 0, y: 0, z: 0}; break;
                     case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;
                 }
-                const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2) };
-                const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4 };
+                const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
+                const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4, z: targetRot.z + Math.PI * 2 };
                 const startTime = Date.now();
-                const duration = 800;
+                const duration = 1000;
 
                 const settle = () => {
                     const now = Date.now();
                     const p = Math.min((now - startTime) / duration, 1);
-                    const ease = 1 - Math.pow(1 - p, 3);
+                    const ease = 1 - Math.pow(1 - p, 4); 
                     this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * ease;
                     this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * ease;
+                    this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * ease;
                     if (p < 1) requestAnimationFrame(settle);
                     else setTimeout(() => { this.container.classList.remove('active'); resolve(); }, 500);
                 };
@@ -146,7 +163,7 @@ const ConfettiManager = {
     }
 };
 
-// --- 🎭 角色與動畫管理器 (Smart Render 修正版) ---
+// --- 🎭 角色與動畫管理器 (Smart Render) ---
 const AvatarManager = {
     loopIntervals: {},
     movingStatus: {}, 
@@ -234,8 +251,9 @@ const SynthEngine = {
 };
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
+// --- Modal Helper ---
 function showModal(title, text, isConfirm = false, onConfirm = null) {
-    modalContent.className = "modal-content"; // 重置
+    modalContent.className = "modal-content"; 
     modalTitle.innerText = title;
     modalBody.innerHTML = text; 
     modalOverlay.classList.remove('hidden');
@@ -289,7 +307,6 @@ socket.on('show_initiative', (sortedPlayers) => {
         html += `<div style="margin-bottom:5px; border-bottom:1px solid #444; padding:2px;">
             <span style="color:#aaa;">#${i+1}</span> 
             <span style="font-weight:bold; color:#fff;">${p.name}</span>
-            <span style="font-size:0.8rem; color:#f1c40f;">(${p.initRoll})</span>
         </div>`;
     });
     orderList.innerHTML = html;
@@ -306,13 +323,9 @@ socket.on('game_start', () => {
 });
 
 socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
-    // 高亮顯示當前玩家
+    // 老師端看板高亮顯示
     const rows = orderList.querySelectorAll('div');
     rows.forEach(r => r.classList.remove('order-active'));
-    // 注意：turnIndex 對應的是 sortedPlayers，這裡需要一個 mapping 機制
-    // 但因為排序是固定的，理論上順序一致。
-    // 如果要精準，應該用 ID 查找
-    // 這裡簡單處理：反白對應行 (假設順序不變)
     if(rows[turnIndex]) rows[turnIndex].classList.add('order-active');
 
     const allAvatars = document.querySelectorAll('.avatar-img');
@@ -329,7 +342,8 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId }) => {
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos }) => {
-    await ThreeDice.roll(roll); // 播放3D骰子
+    // 1. 老師端也要播放 3D 骰子
+    await ThreeDice.roll(roll);
 
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
@@ -419,18 +433,13 @@ function updateView(players) {
     renderTracks(players); 
 }
 
-// 🛠️ Smart Rendering Logic 🛠️
+// 🛠️ Smart Rendering (Teacher) 🛠️
 function renderTracks(players) {
-    // 取得現有的 track-row 元素
     const existingRows = Array.from(trackContainer.children);
-    
-    // 如果數量不一致 (有新玩家或有人斷線)，則重繪
-    // 為了簡單穩定，這裡選擇：只要長度不同就重繪，相同就更新
     if (existingRows.length !== players.length) {
         trackContainer.innerHTML = '';
         players.forEach(p => createRow(p));
     } else {
-        // 長度一樣，進行 Diffing 更新
         players.forEach((p, index) => {
             const row = existingRows[index];
             updateRow(row, p);
@@ -469,21 +478,21 @@ function createRow(p) {
 }
 
 function updateRow(row, p) {
-    // 確保 ID 對應正確
-    if (row.dataset.id !== p.id) {
-        // 如果順序亂了，這裡簡單處理：直接替換內容 (雖然比較暴力，但比全刷好)
-        row.innerHTML = '';
-        // 重新建立內容... 這裡呼叫 createRow 會導致多一層，所以為了保險，
-        // 若 ID 不對，我們直接 return，讓上面的 length check 下次處理
-        return; 
-    }
-
+    if (row.dataset.id !== p.id) return;
     PLAYER_POSITIONS[p.id] = p.position;
     const avatarContainer = row.querySelector('.avatar-container');
     const percent = (p.position / 22) * 100;
     
-    // 只更新位置，不碰圖片 (除非初始化)
     if (avatarContainer.style.left !== `${percent}%`) {
         avatarContainer.style.left = `${percent}%`;
+    }
+
+    // 檢查圖片狀態 (防止重繪時把跑步圖刷掉)
+    const img = row.querySelector('.avatar-img');
+    const charType = p.avatarChar || 'a';
+    if (AvatarManager.movingStatus[p.id]) {
+        if (!img.src.includes('_3.png') && !img.src.includes('_4.png')) {
+            img.src = `images/avatar_${charType}_3.png`;
+        }
     }
 }
