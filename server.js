@@ -7,6 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// 🔥 修正：路徑改為 public
 app.use(express.static(path.join(__dirname, 'public')));
 
 let gameState = {
@@ -21,7 +22,6 @@ let gameState = {
 };
 
 let globalLastRoll = 0;
-
 const CHAR_POOL = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
 
 function assignAvatar(existingPlayers) {
@@ -72,40 +72,35 @@ io.on('connection', (socket) => {
         gameState.rankings = [];
         gameState.turnIndex = 0;
         
-        // 1. 儲存設定
         gameState.config.enableTraps = config.enableTraps;
         gameState.config.fateCount = config.fateCount;
 
-        // 2. 亂數洗牌
+        // 亂數洗牌
         for (let i = gameState.players.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [gameState.players[i], gameState.players[j]] = [gameState.players[j], gameState.players[i]];
         }
 
-        // 3. 生成陷阱與命運
+        // 生成陷阱與命運
         gameState.players.forEach(p => {
             p.position = 0;
             p.trapIndex = -1;
             p.fateIndices = [];
 
-            // 生成陷阱 (2~10格)
             if (gameState.config.enableTraps) {
                 p.trapIndex = Math.floor(Math.random() * 9) + 2; 
             }
 
-            // 生成命運 (排除起點、終點、陷阱格)
             if (gameState.config.fateCount > 0) {
                 const availableSlots = [];
                 for (let i = 1; i < 21; i++) {
                     if (i !== p.trapIndex) availableSlots.push(i);
                 }
-                
-                // 隨機抽取指定數量的命運格
                 for (let k = 0; k < gameState.config.fateCount; k++) {
                     if (availableSlots.length === 0) break;
                     const rIdx = Math.floor(Math.random() * availableSlots.length);
                     p.fateIndices.push(availableSlots[rIdx]);
-                    availableSlots.splice(rIdx, 1); // 避免重複
+                    availableSlots.splice(rIdx, 1);
                 }
             }
         });
@@ -130,7 +125,6 @@ io.on('connection', (socket) => {
         const currentPlayer = gameState.players[gameState.turnIndex];
         if (!currentPlayer || currentPlayer.id !== socket.id) return;
 
-        // 擲骰 1~6
         const roll = Math.floor(Math.random() * 6) + 1;
         globalLastRoll = roll;
 
@@ -139,56 +133,44 @@ io.on('connection', (socket) => {
 
         let finalPos = tempPos;
         let triggerType = 'NORMAL'; 
-        let fateResults = []; // 🔥 改成陣列，支援連續觸發
+        let fateResults = [];
         let triggeredTrapPos = -1;
 
-        // 1. 優先判斷是否踩到陷阱
         if (gameState.config.enableTraps && tempPos === currentPlayer.trapIndex) {
             triggerType = 'TRAP';
-            finalPos = 1; // 掉回第 2 格 (Index 1)
-            currentPlayer.trapIndex = -1; // 消耗掉
+            finalPos = 1; 
+            currentPlayer.trapIndex = -1; 
         } 
         else {
-            // 2. 命運連鎖判定 (While 迴圈)
-            // 限制最多連鎖 5 次，避免極端狀況
             let chainCount = 0;
             const MAX_CHAIN = 5; 
 
-            // 只要當前位置還有命運問號，就繼續抽
             while (currentPlayer.fateIndices.includes(finalPos) && chainCount < MAX_CHAIN) {
-                triggerType = 'FATE'; // 標記為命運觸發
-                
-                // 命運卡牌效果：-3 ~ +3
+                triggerType = 'FATE'; 
                 const fateOptions = [-3, -2, -1, 1, 2, 3]; 
                 const result = fateOptions[Math.floor(Math.random() * fateOptions.length)];
+                fateResults.push(result); 
                 
-                fateResults.push(result); // 紀錄這次結果
-                
-                // 消耗掉這個問號 (從陣列移除)
                 currentPlayer.fateIndices = currentPlayer.fateIndices.filter(idx => idx !== finalPos);
 
-                // 計算移動後的新位置
                 let nextPos = finalPos + result;
                 if (nextPos < 0) nextPos = 0;
                 if (nextPos > 21) nextPos = 21;
-                
-                finalPos = nextPos; // 更新位置，準備下一次迴圈檢查
+                finalPos = nextPos; 
                 chainCount++;
 
-                // 如果連鎖過程中踩到陷阱，強制中斷並觸發陷阱
                 if (gameState.config.enableTraps && finalPos === currentPlayer.trapIndex) {
                     triggerType = 'FATE_TRAP';
-                    triggeredTrapPos = finalPos; // 記住在哪裡掉下去的
+                    triggeredTrapPos = finalPos; 
                     finalPos = 1; 
                     currentPlayer.trapIndex = -1; 
-                    break; // 跳出迴圈，不再繼續連鎖
+                    break; 
                 }
             }
         }
 
         currentPlayer.position = finalPos;
 
-        // 傳送結果給前端 (注意 fateResults 是陣列)
         io.emit('player_moved', {
             playerId: currentPlayer.id,
             roll: roll,
@@ -199,7 +181,6 @@ io.on('connection', (socket) => {
             trapPos: (triggerType === 'FATE_TRAP') ? triggeredTrapPos : -1 
         });
 
-        // 判斷是否到達終點 (第21格)
         if (finalPos >= 21) {
             const rank = gameState.rankings.length + 1;
             gameState.rankings.push({ ...currentPlayer, rank });
@@ -213,7 +194,6 @@ io.on('connection', (socket) => {
         gameState.status = 'LOBBY';
         gameState.rankings = [];
         gameState.turnIndex = 0;
-        // 保留 players 但重置位置
         gameState.players.forEach(p => { 
             p.position = 0; 
             p.trapIndex = -1;
@@ -277,9 +257,13 @@ function notifyNextTurn() {
             return;
         }
     }
+    
+    // 🔥 修正重點：當找不到下一個玩家（代表所有人都到了終點）
     if (gameState.rankings.length > 0) {
         gameState.status = 'ENDED';
+        // 這裡必須通知前端狀態改變，按鈕才會解鎖
         io.emit('game_over', { rankings: gameState.rankings });
+        io.emit('update_game_state', gameState); // 新增這行
     }
 }
 
