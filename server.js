@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// 🔥 修正：路徑改為 public
+// 🔥 確保路徑為 public
 app.use(express.static(path.join(__dirname, 'public')));
 
 let gameState = {
@@ -93,7 +93,8 @@ io.on('connection', (socket) => {
 
             if (gameState.config.fateCount > 0) {
                 const availableSlots = [];
-                for (let i = 1; i < 21; i++) {
+                // 🔥 修改：從 2 開始，確保 index 1 (第2格) 也就是重生點不會有問號
+                for (let i = 2; i < 21; i++) {
                     if (i !== p.trapIndex) availableSlots.push(i);
                 }
                 for (let k = 0; k < gameState.config.fateCount; k++) {
@@ -258,12 +259,10 @@ function notifyNextTurn() {
         }
     }
     
-    // 🔥 修正重點：當找不到下一個玩家（代表所有人都到了終點）
     if (gameState.rankings.length > 0) {
         gameState.status = 'ENDED';
-        // 這裡必須通知前端狀態改變，按鈕才會解鎖
         io.emit('game_over', { rankings: gameState.rankings });
-        io.emit('update_game_state', gameState); // 新增這行
+        io.emit('update_game_state', gameState); 
     }
 }
 
