@@ -11,7 +11,7 @@ const connectionStatus = document.getElementById('connection-status');
 const orderList = document.getElementById('order-list'); 
 
 const chkTrap = document.getElementById('chk-trap');
-const chkFate = document.getElementById('chk-fate'); // 🔥 新增：命運開關
+const chkFate = document.getElementById('chk-fate'); 
 const selFateCount = document.getElementById('sel-fate-count'); 
 const fateOverlay = document.getElementById('fate-overlay');
 const fateCardBody = document.getElementById('fate-card-body');
@@ -25,6 +25,9 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 const modalContent = document.querySelector('.modal-content');
+
+// 🔥 新增：追蹤目前遊戲狀態，用於判斷按鈕邏輯
+let currentStatus = 'LOBBY'; 
 
 // --- 命運選單連動邏輯 ---
 if (chkFate && selFateCount) {
@@ -178,6 +181,7 @@ socket.on('connect', () => { if(connectionStatus) { connectionStatus.innerText =
 socket.on('disconnect', () => { if(connectionStatus) { connectionStatus.innerText = "🔴 與伺服器斷線"; connectionStatus.style.color = "#e74c3c"; } });
 socket.on('update_player_list', (players) => { updateView(players); });
 socket.on('update_game_state', (gameState) => {
+    currentStatus = gameState.status; // 🔥 同步狀態
     updateView(gameState.players);
     if (gameState.status === 'PLAYING') {
         if(startBtn) { startBtn.disabled = true; startBtn.innerText = "遊戲進行中"; startBtn.className = "board-btn btn-grey"; }
@@ -190,15 +194,16 @@ socket.on('update_game_state', (gameState) => {
         if(restartBtn) { restartBtn.disabled = false; restartBtn.className = "board-btn btn-orange"; }
         SynthEngine.stopBGM();
     } else {
-        if(startBtn) { startBtn.disabled = false; startBtn.innerText = "開始遊戲"; startBtn.className = "board-btn btn-green"; }
+        // 🔥 LOBBY 狀態時，按鈕邏輯交給 updateView 判斷人數
         if(restartBtn) { restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey"; }
         if(chkTrap) chkTrap.disabled = false; 
         if(chkFate) chkFate.disabled = false; 
-        if(selFateCount) selFateCount.disabled = !chkFate.checked; // 恢復連動狀態
+        if(selFateCount) selFateCount.disabled = !chkFate.checked; 
         SynthEngine.stopBGM();
     }
 });
 socket.on('game_reset_positions', () => {
+    currentStatus = 'LOBBY'; // 🔥 重置狀態
     closeModal();
     if(modalContent) modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {}; 
@@ -209,7 +214,7 @@ socket.on('game_reset_positions', () => {
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     if(modalOverlay) modalOverlay.classList.add('hidden');
     
-    if(startBtn) { startBtn.innerText = "開始遊戲"; startBtn.disabled = false; startBtn.className = "board-btn btn-green"; }
+    // 按鈕邏輯會由隨後的 update_player_list 或 update_game_state 觸發 updateView 來處理
     SynthEngine.stopBGM();
 });
 socket.on('show_initiative', (sortedPlayers) => {
@@ -360,7 +365,6 @@ socket.on('player_finished_rank', ({ player, rank }) => {
     }, 100); 
 });
 
-// 🔥 修復：正確使用 liveMsg 與移除 rollBtn 引用
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
@@ -401,9 +405,7 @@ if(startBtn) startBtn.addEventListener('click', () => {
     SynthEngine.init(); 
     startBtn.disabled = true; startBtn.innerText = "啟動中...";
     
-    // 🔥 修改：命運必須被勾選才算數
     const fateValue = (chkFate && chkFate.checked && selFateCount) ? parseInt(selFateCount.value) : 0;
-    
     const options = { 
         enableTraps: chkTrap ? chkTrap.checked : false, 
         fateCount: fateValue
@@ -412,7 +414,27 @@ if(startBtn) startBtn.addEventListener('click', () => {
 });
 if(restartBtn) restartBtn.addEventListener('click', () => { showModal("準備下一局", "確定要讓所有學生回到起跑線嗎？\n(排名將會重置，但保留玩家)", true, () => { socket.emit('admin_restart_game'); }); });
 if(resetBtn) resetBtn.addEventListener('click', () => { showModal("危險操作", "確定要踢除所有玩家並回到首頁嗎？\n(若只是要重玩，請按「下一局」)", true, () => { socket.emit('admin_reset_game'); if(trackContainer) trackContainer.innerHTML = ''; if(playerCountSpan) playerCountSpan.innerText = 0; if(liveMsg) liveMsg.innerText = "等待學生加入..."; SynthEngine.stopBGM(); }); });
-function updateView(players) { if (!players) players = []; if(playerCountSpan) playerCountSpan.innerText = players.length; renderTracks(players); }
+
+// 🔥 新增：按鈕狀態判斷邏輯
+function updateView(players) { 
+    if (!players) players = []; 
+    if(playerCountSpan) playerCountSpan.innerText = players.length; 
+    
+    // 如果目前在等待大廳 (LOBBY)，則根據人數決定按鈕狀態
+    if (currentStatus === 'LOBBY' && startBtn) {
+        if (players.length > 0) {
+            startBtn.disabled = false;
+            startBtn.className = "board-btn btn-green";
+            startBtn.innerText = "開始遊戲";
+        } else {
+            startBtn.disabled = true;
+            startBtn.className = "board-btn btn-grey";
+            startBtn.innerText = "等待玩家...";
+        }
+    }
+    
+    renderTracks(players); 
+}
 
 function renderTracks(players) {
     if(!trackContainer) return;

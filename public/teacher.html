@@ -48,12 +48,14 @@
             </div>
 
             <div class="game-options" style="display:flex; flex-direction:column; align-items:flex-start; gap:10px;">
-                <label class="toggle-label">
-                    🕳️ 陷阱 <input type="checkbox" id="chk-trap" style="margin-left: 8px;">
+                <label class="toggle-label" style="display:flex; align-items:center;">
+                    <span style="display:inline-block; width:90px;">🕳️ 陷阱</span> 
+                    <input type="checkbox" id="chk-trap" checked style="margin-left: 5px;">
                 </label>
                 
                 <label class="toggle-label" style="display:flex; align-items:center;">
-                    ❓ 命運 <input type="checkbox" id="chk-fate" checked style="margin-left: 8px; margin-right: 5px;">
+                    <span style="display:inline-block; width:90px;">❓ 命運</span> 
+                    <input type="checkbox" id="chk-fate" checked style="margin-left: 5px; margin-right: 5px;">
                     <select id="sel-fate-count" style="padding:2px; font-size:1rem; border-radius:4px; cursor:pointer;">
                         <option value="1">1個</option>
                         <option value="2">2個</option>
@@ -63,7 +65,7 @@
             </div>
 
             <div class="board-controls">
-                <button id="start-btn" class="board-btn btn-green">開始遊戲</button>
+                <button id="start-btn" class="board-btn btn-grey" disabled>等待玩家...</button>
                 <button id="restart-btn" class="board-btn btn-orange" disabled>下一局</button>
                 <button id="reset-btn" class="board-btn btn-red">⚠️ 重置</button>
             </div>
