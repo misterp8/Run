@@ -37,7 +37,7 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎹 SynthEngine Pro ---
+// --- SynthEngine Pro (略，保持一致) ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
     init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
@@ -47,106 +47,17 @@ const SynthEngine = {
         if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
         else{ if (startBtn && !startBtn.disabled) this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff"; }
     },
-    
-    playImpact() {
-        if(this.isMuted||!this.ctx)return;
-        const t=this.ctx.currentTime;
-        const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
-        o.type='triangle'; 
-        o.frequency.setValueAtTime(150, t);
-        o.frequency.exponentialRampToValueAtTime(50, t+0.08);
-        g.gain.setValueAtTime(0.5, t);
-        g.gain.exponentialRampToValueAtTime(0.01, t+0.08);
-        o.connect(g); g.connect(this.ctx.destination);
-        o.start(t); o.stop(t+0.08);
-    },
-    playRoll(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(100,t+0.2); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.2); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2); },
-    playStep(){ if(this.isMuted||!this.ctx)return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(50,t+0.05); g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0,t+0.05); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.05); },
-    playSix(){
-        if(this.isMuted||!this.ctx)return;
-        const t=this.ctx.currentTime;
-        [523.25, 659.25, 783.99, 1046.50].forEach((f,i) => { 
-            const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
-            o.type='triangle'; o.frequency.value = f;
-            const startTime = t + (i * 0.05);
-            g.gain.setValueAtTime(0, startTime);
-            g.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
-            g.gain.exponentialRampToValueAtTime(0.001, startTime + 1.2); 
-            o.connect(g); g.connect(this.ctx.destination);
-            o.start(startTime); o.stop(startTime + 1.2);
-        });
-    },
-    playSad() {
-        if(this.isMuted||!this.ctx)return;
-        const t = this.ctx.currentTime;
-        const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-        o.type = 'sawtooth';
-        o.frequency.setValueAtTime(400, t);
-        o.frequency.linearRampToValueAtTime(100, t + 0.8); 
-        g.gain.setValueAtTime(0.3, t);
-        g.gain.linearRampToValueAtTime(0, t + 0.8);
-        o.connect(g); g.connect(this.ctx.destination);
-        o.start(t); o.stop(t + 0.8);
-    },
-    playHappy() {
-        if(this.isMuted||!this.ctx)return;
-        const t = this.ctx.currentTime;
-        [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => { 
-            const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-            o.type = 'sine'; o.frequency.value = f;
-            g.gain.setValueAtTime(0.1, t + i*0.1);
-            g.gain.exponentialRampToValueAtTime(0.001, t + i*0.1 + 0.3);
-            o.connect(g); g.connect(this.ctx.destination);
-            o.start(t + i*0.1); o.stop(t + i*0.1 + 0.3);
-        });
-    },
-    playVictoryGrand() {
-        if(this.isMuted||!this.ctx)return;
-        this.stopBGM();
-        const t = this.ctx.currentTime;
-        const chord = [261.63, 329.63, 392.00, 523.25];
-        const rhythm = [0, 0.15, 0.3, 0.45]; 
-        const lengths = [0.1, 0.1, 0.1, 2.0];
-        rhythm.forEach((startTime, idx) => {
-            chord.forEach((freq) => {
-                const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-                o.type = 'sawtooth'; o.frequency.value = freq + (Math.random()*2-1); 
-                const st = t + startTime; const dur = lengths[idx];
-                g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(0.2, st + 0.05); g.gain.exponentialRampToValueAtTime(0.001, st + dur);
-                o.connect(g); g.connect(this.ctx.destination); o.start(st); o.stop(st + dur);
-            });
-        });
-        const kick = this.ctx.createOscillator(); const kGain = this.ctx.createGain();
-        kick.frequency.setValueAtTime(150, t); kick.frequency.exponentialRampToValueAtTime(0.01, t+0.5);
-        kGain.gain.setValueAtTime(0.8, t); kGain.gain.exponentialRampToValueAtTime(0.01, t+0.5);
-        kick.connect(kGain); kGain.connect(this.ctx.destination); kick.start(t); kick.stop(t+0.5);
-    },
-    playConfettiPop() {
-        if(this.isMuted||!this.ctx)return;
-        const t = this.ctx.currentTime;
-        for(let i=0; i<5; i++) {
-            const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-            o.type = 'square';
-            const startFreq = 800 + Math.random() * 500;
-            o.frequency.setValueAtTime(startFreq, t + i*0.05); o.frequency.exponentialRampToValueAtTime(100, t + i*0.05 + 0.2);
-            g.gain.setValueAtTime(0.1, t + i*0.05); g.gain.exponentialRampToValueAtTime(0.01, t + i*0.05 + 0.1);
-            o.connect(g); g.connect(this.ctx.destination); o.start(t + i*0.05); o.stop(t + i*0.05 + 0.2);
-        }
-    },
-    playPopup() {
-        if(this.isMuted||!this.ctx)return;
-        const t = this.ctx.currentTime;
-        const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-        o.type = 'triangle';
-        o.frequency.setValueAtTime(600, t);
-        o.frequency.linearRampToValueAtTime(1200, t + 0.1); 
-        g.gain.setValueAtTime(0.2, t);
-        g.gain.linearRampToValueAtTime(0, t + 0.1);
-        o.connect(g); g.connect(this.ctx.destination);
-        o.start(t); o.stop(t + 0.1);
-    },
-    playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
-    stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
+    playImpact(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(50,t+0.08);g.gain.setValueAtTime(0.5,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.08);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.08);},
+    playRoll(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(400,t);o.frequency.exponentialRampToValueAtTime(100,t+0.2);g.gain.setValueAtTime(0.1,t);g.gain.linearRampToValueAtTime(0,t+0.2);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.2);},
+    playStep(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.frequency.setValueAtTime(200,t);o.frequency.linearRampToValueAtTime(50,t+0.05);g.gain.setValueAtTime(0.1,t);g.gain.linearRampToValueAtTime(0,t+0.05);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.05);},
+    playSix(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;[523.25,659.25,783.99,1046.50].forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.value=f;const s=t+(i*0.05);g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.2,s+0.05);g.gain.exponentialRampToValueAtTime(0.001,s+1.2);o.connect(g);g.connect(this.ctx.destination);o.start(s);o.stop(s+1.2);});},
+    playSad(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sawtooth';o.frequency.setValueAtTime(400,t);o.frequency.linearRampToValueAtTime(100,t+0.8);g.gain.setValueAtTime(0.3,t);g.gain.linearRampToValueAtTime(0,t+0.8);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.8);},
+    playHappy(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;[523.25,659.25,783.99,1046.50].forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.exponentialRampToValueAtTime(0.001,t+i*0.1+0.3);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.3);});},
+    playVictoryGrand(){if(this.isMuted||!this.ctx)return;this.stopBGM();const t=this.ctx.currentTime;const c=[261.63,329.63,392.00,523.25];const r=[0,0.15,0.3,0.45];const l=[0.1,0.1,0.1,2.0];r.forEach((st,idx)=>{c.forEach((f)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sawtooth';o.frequency.value=f+(Math.random()*2-1);const s=t+st;const d=l[idx];g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.2,s+0.05);g.gain.exponentialRampToValueAtTime(0.001,s+d);o.connect(g);g.connect(this.ctx.destination);o.start(s);o.stop(s+d);});});const k=this.ctx.createOscillator();const kg=this.ctx.createGain();k.frequency.setValueAtTime(150,t);k.frequency.exponentialRampToValueAtTime(0.01,t+0.5);kg.gain.setValueAtTime(0.8,t);kg.gain.exponentialRampToValueAtTime(0.01,t+0.5);k.connect(kg);kg.connect(this.ctx.destination);k.start(t);k.stop(t+0.5);},
+    playConfettiPop(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;for(let i=0;i<5;i++){const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.setValueAtTime(800+Math.random()*500,t+i*0.05);o.frequency.exponentialRampToValueAtTime(100,t+i*0.05+0.2);g.gain.setValueAtTime(0.1,t+i*0.05);g.gain.exponentialRampToValueAtTime(0.01,t+i*0.05+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.05);o.stop(t+i*0.05+0.2);}},
+    playPopup(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(600,t);o.frequency.linearRampToValueAtTime(1200,t+0.1);g.gain.setValueAtTime(0.2,t);g.gain.linearRampToValueAtTime(0,t+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.1);},
+    playBGM(){if(this.isMuted||this.bgmInterval||!this.ctx)return;const seq=[261.63,329.63,392.00,523.25,392.00,329.63,261.63,0,293.66,349.23,440.00,587.33,440.00,349.23,293.66,0];let s=0;this.bgmInterval=setInterval(()=>{if(this.ctx.state==='suspended')this.ctx.resume();const f=seq[s%seq.length];if(f>0){const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sine';o.frequency.value=f/2;g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.3);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.3);}s++;},250);},
+    stopBGM(){if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;}}
 };
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
@@ -238,14 +149,6 @@ function showModal(title, text, isConfirm = false, onConfirm = null) {
     }
 }
 function closeModal() { modalOverlay.classList.add('hidden'); }
-function clearAllSpecialTiles() { const cells = document.querySelectorAll('.grid-cell'); cells.forEach(cell => { if (cell.style.backgroundImage) cell.style.backgroundImage = ''; }); }
-function restoreTile(playerId, tileIndex) {
-    if (tileIndex < 0) return;
-    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
-    if (!row) return;
-    const cells = row.querySelectorAll('.grid-cell');
-    if (cells[tileIndex]) { cells[tileIndex].style.backgroundImage = "url('images/map_runway.png')"; }
-}
 
 socket.on('connect', () => { myId = socket.id; });
 joinBtn.addEventListener('click', () => { SynthEngine.init(); const name = usernameInput.value.trim(); if (!name) { alert("⚠️ 請輸入名字！"); return; } socket.emit('player_join', name); });
@@ -272,20 +175,28 @@ socket.on('show_initiative', (sortedPlayers) => {
 socket.on('game_start', () => {
     gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
-    clearAllSpecialTiles();
+    // 移除 clearAllSpecialTiles，交由 renderTracks 控制
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
 });
 socket.on('game_reset_positions', () => {
     if(modalContent) modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
-    clearAllSpecialTiles();
+    
+    // 這裡我們還是可以重建跑道，確保乾淨
+    
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     modalOverlay.classList.add('hidden');
+    // 強制重置格子
     const cells = document.querySelectorAll('.grid-cell');
     cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
-    startBtn.innerText = "開始遊戲"; startBtn.disabled = false; startBtn.className = "board-btn btn-green";
+    
+    gameMsg.innerText = "準備開始新的一局...";
+    rollBtn.classList.remove('hidden');
+    rollBtn.disabled = true;
+    rollBtn.innerText = "等待開始...";
+    rollBtn.className = "board-btn btn-grey";
     SynthEngine.stopBGM();
 });
 socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
@@ -339,40 +250,44 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     if (triggerType === 'TRAP') {
         if(isMe) gameMsg.innerText = "😱 糟了！踩到陷阱！";
         else gameMsg.innerText = "😱 哎呀！他踩到陷阱了！";
-        
         await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); 
     
     } else if (triggerType === 'FATE') {
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
         else gameMsg.innerText = "❓ 觸發了命運機會...";
         
-        restoreTile(playerId, initialLandPos);
+        // 手動更新這一格為跑道 (視覺上立即反應)
+        const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+        if (row) {
+            const cell = row.querySelectorAll('.grid-cell')[initialLandPos];
+            if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
+        }
+
         showFateCard(fateResult);
         await wait(2500); 
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        
-        const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
-        gameMsg.innerText = `🃏 結果：${moveText}`;
+        if (liveMsg) liveMsg.innerText = `移動 ${fateResult} 格！`;
         await moveAvatar(playerId, newPos, charType);
 
     } else if (triggerType === 'FATE_TRAP') {
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
         
-        restoreTile(playerId, initialLandPos);
+        const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+        if (row) {
+            const cell = row.querySelectorAll('.grid-cell')[initialLandPos];
+            if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
+        }
+
         showFateCard(fateResult);
         await wait(2500);
-
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
         gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
-        
         await moveAvatar(playerId, trapPos, charType);
         await wait(500);
-        gameMsg.innerText = "😱 天啊！剛好掉進洞裡！";
-        
+        if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
         await playTrapAnimation(img, playerId, newPos, charType, trapPos);
     }
-
     AvatarManager.movingStatus[playerId] = false;
     if (newPos >= 21) { 
         SynthEngine.playVictoryGrand();
@@ -404,7 +319,7 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
-// 🔥 修正：陷阱動畫，加入 restoreTile 參數
+// 🔥 陷阱動畫
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -415,12 +330,16 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.classList.add('avatar-trap-fall');
     }
     await wait(800);
-
-    // 🔥 核心修正：這時候才把地板變回跑道
+    
+    // 等待 0.5 秒後才還原地板
     await wait(500);
-    restoreTile(playerId, trapTileIndex);
+    
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (row) {
+        const cell = row.querySelectorAll('.grid-cell')[trapTileIndex];
+        if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
+    }
 
-    // 重置回起點
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -432,7 +351,6 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 function showFateCard(amount) {
-    // 🔥 新增：音效
     SynthEngine.playPopup();
     if(!fateOverlay) return;
     if (amount > 0) { fateCardBody.className = "fate-card fate-positive"; fateIcon.innerText = "🚀"; fateTitle.innerText = "好運降臨"; fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`; } 
@@ -442,7 +360,6 @@ function showFateCard(amount) {
 
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
-        // ❌ 移除音效
         AvatarManager.setState(player.id, 'win', player.avatarChar);
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 100); 
@@ -450,7 +367,6 @@ socket.on('player_finished_rank', ({ player, rank }) => {
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
-        // 🔥 使用新版震撼音效
         SynthEngine.playVictoryGrand();
         rollBtn.classList.add('hidden');
         gameMsg.innerText = `🏆 遊戲結束！`;
@@ -467,7 +383,6 @@ socket.on('game_over', ({ rankings }) => {
                 rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
-            // 🔥 新增：音效
             SynthEngine.playPopup();
             showModal("🏆 榮譽榜 🏆", rankHtml);
             if(modalContent) modalContent.classList.add('premium-modal'); 
@@ -485,17 +400,15 @@ socket.on('game_over', ({ rankings }) => {
 });
 socket.on('force_reload', () => { location.reload(); });
 
-// 🔥 核心修正：加入 ID 比對，若順序不同強制重建
+// 🔥 核心修正：加入 ID 比對重建 + 強制狀態更新
 function renderTracks(players) {
     if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
-    
-    // 檢查是否需要重建：數量不同 OR 順序不同
     let needRebuild = false;
+    
     if (existingRows.length !== players.length) {
         needRebuild = true;
     } else {
-        // 逐一檢查 ID 是否對應
         for (let i = 0; i < players.length; i++) {
             if (existingRows[i].dataset.id !== players[i].id) {
                 needRebuild = true;
@@ -546,22 +459,30 @@ function createRow(p) {
     row.appendChild(avatarContainer);
     trackContainer.appendChild(row);
 }
+
+// 🔥 強制更新邏輯：確保洞和問號顯示，除非已經觸發過
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     
-    // 清除可能殘留的
-    cells.forEach(cell => {
-       if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
-           // 這裡不做清除，由 createRow/server 控制，或者只在必要時清除
-           // 簡化邏輯：updateRow 主要負責移動，特殊格圖案的「生成」交給 rebuild
-           // 但因為我們要即時顯示，所以這裡還是要檢查
-       }
-    });
+    for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+        // 如果是陷阱，且還沒顯示，就顯示
+        if (p.trapIndex !== -1 && i === p.trapIndex) {
+            if (!cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')";
+        } 
+        // 如果是問號，且還沒顯示，就顯示
+        else if (p.fateIndices && p.fateIndices.includes(i)) {
+            if (!cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
+        } 
+        // 如果都不是，但顯示了圖案，則還原 (處理消耗後的狀態)
+        else {
+            if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
+                cell.style.backgroundImage = "url('images/map_runway.png')";
+            }
+        }
+    }
 
-    if (p.trapIndex !== -1) { const cell = cells[p.trapIndex]; if (cell && !cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')"; }
-    if (p.fateIndices) { p.fateIndices.forEach(idx => { const cell = cells[idx]; if (cell && !cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')"; }); }
-    
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
