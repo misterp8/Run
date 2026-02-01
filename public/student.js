@@ -325,6 +325,12 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
                 
+                // 🔥 新增：踩下去的瞬間特效
+                highlightFateTile(playerId, currentStepPos);
+
+                // 稍微等待特效展示
+                await wait(600);
+                
                 setTileAsRunway(playerId, currentStepPos);
                 
                 showFateCard(result);
@@ -358,6 +364,22 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     } 
     else { AvatarManager.setState(playerId, 'idle', charType); }
 });
+
+// 🔥 新增：命運踩踏特效輔助函式
+function highlightFateTile(playerId, tileIndex) {
+    if(!trackContainer) return;
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (row) {
+        const cell = row.querySelectorAll('.grid-cell')[tileIndex];
+        if (cell) {
+            cell.classList.add('fate-trigger-effect');
+            // 動畫播完後移除 class，雖然格子馬上就會變 runway，但如果是連續來回踩可能有幫助
+            setTimeout(() => {
+                cell.classList.remove('fate-trigger-effect');
+            }, 600);
+        }
+    }
+}
 
 function setTileAsRunway(playerId, tileIndex) {
     if(!trackContainer) return;
