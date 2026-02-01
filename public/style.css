@@ -1,9 +1,24 @@
-:root { --track-cols: 22; --cell-size: 50px; }
+:root {
+    --cell-size: 50px; /* 格子大小 */
+}
+
 * { box-sizing: border-box; user-select: none; }
-body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: bold; margin: 0; padding: 0; background-color: #2c3e50; color: #333; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+body { 
+    font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; 
+    font-weight: bold; 
+    margin: 0; padding: 0; 
+    background-color: #2c3e50; 
+    color: #333; 
+    overflow: hidden; 
+    height: 100vh; 
+    display: flex; 
+    flex-direction: column; 
+}
+
 .hidden { display: none !important; }
 
-/* 🎲 3D 骰子容器 */
+/* 🎲 3D 骰子容器 (置頂層) */
 #dice-3d-container {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 800; pointer-events: none; opacity: 0; transition: opacity 0.2s;
@@ -13,6 +28,8 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 }
 #dice-3d-container.active { opacity: 1; pointer-events: auto; }
 #dice-3d-container canvas { filter: drop-shadow(0 50px 80px rgba(0,0,0,0.7)); }
+
+/* 骰子結果文字 */
 #dice-result-text {
     position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0);
     font-size: 5rem; color: #fff; text-shadow: 0 0 20px #f1c40f; font-weight: 900;
@@ -36,18 +53,19 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     display: flex; justify-content: center; align-items: center;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 100; position: relative;
     padding: 0 10px;
+    flex-shrink: 0; /* 防止被壓縮 */
 }
 .board-content {
     width: 100%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center;
 }
 
-/* 🔥 修改：我的名字顯示為黃色 */
+/* 🔥 您的需求：我的名字顯示為黃色 */
 .my-info-box { display: flex; flex-direction: column; align-items: flex-start; }
 .my-label { font-size: 0.8rem; color: #bdc3c7; }
 .my-name { 
     font-size: 1.8rem; 
     color: #f1c40f; /* 亮黃色 */
-    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); /* 增加一點發光感 */
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); 
     font-weight: 900; 
 }
 
@@ -61,44 +79,53 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .board-btn:active { transform: translateY(4px); box-shadow: none; }
 .board-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-green { background-color: #27ae60; }
-.btn-green:hover { background-color: #2ecc71; }
 .btn-orange { background-color: #d35400; }
-.btn-orange:hover { background-color: #e67e22; }
 .btn-red { background-color: #c0392b; }
-.btn-red:hover { background-color: #e74c3c; }
 .btn-grey { background-color: #7f8c8d; }
 
 /* --- 遊戲主區域 --- */
 #stadium-wrapper {
-    flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column;
-    background: url('images/map_grass.png') repeat; /* 草地背景 */
+    flex: 1; /* 佔據剩餘空間 */
+    position: relative; overflow: hidden; display: flex; flex-direction: column;
+    background: url('images/map_grass.png') repeat;
 }
 #game-scroll-area {
     flex: 1; overflow-y: auto; padding: 20px;
-    display: flex; justify-content: center;
+    /* 讓內容置中，但靠左對齊開始 */
+    display: flex; justify-content: center; align-items: flex-start;
 }
+
+/* 🔥 修復重點：跑道容器 */
 #track-container {
-    display: grid; grid-template-columns: repeat(var(--track-cols), var(--cell-size));
-    gap: 15px; /* 跑道間距 */
+    display: flex;
+    flex-direction: column; /* 垂直排列每一位玩家 */
+    gap: 15px; /* 玩家之間的間距 */
     padding-bottom: 50px;
 }
 
-/* --- 觀眾席 --- */
-.audience-section { height: 60px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; }
-#audience-top { background-image: url('images/audience_up_1.png'); border-bottom: 5px solid rgba(0,0,0,0.2); }
-#audience-bottom { background-image: url('images/audience_down_1.png'); border-top: 5px solid rgba(0,0,0,0.2); }
+/* 🔥 修復重點：單一跑道列 */
+.track-row { 
+    display: flex; /* 讓格子水平排列 */
+    position: relative; /* 關鍵！讓 Avatar 可以依據這一列定位 */
+    align-items: center;
+    background: rgba(0,0,0,0.1); /* 稍微加深底色讓跑道更明顯 */
+    padding: 5px;
+    border-radius: 10px;
+    width: max-content; /* 確保寬度足夠容納所有格子 */
+}
 
-/* --- 跑道與格子 --- */
-.track-row { display: contents; position: relative; }
+/* 格子 */
 .grid-cell {
     width: var(--cell-size); height: var(--cell-size);
     background-image: url('images/map_runway.png');
     background-size: cover; border-radius: 4px;
     box-shadow: 0 5px 10px rgba(0,0,0,0.2);
-    position: relative; transition: all 0.3s;
+    margin-right: 2px; /* 格子之間的微小間距 */
+    position: relative;
+    flex-shrink: 0; /* 防止格子被壓縮 */
 }
 
-/* 🔥 新增：命運觸發時的特效 (類似按鈕發光) */
+/* 🔥 您的需求：命運踩踏特效 */
 @keyframes pulseGlow {
     0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); transform: scale(1); filter: brightness(1); }
     50% { box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); transform: scale(1.1); filter: brightness(1.5); border: 2px solid #fff; }
@@ -106,14 +133,20 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 }
 .fate-trigger-effect {
     animation: pulseGlow 0.6s ease-out;
-    z-index: 10; /* 讓它浮上來一點 */
+    z-index: 10;
 }
 
+/* 角色容器 (絕對定位於 .track-row) */
 .avatar-container {
-    position: absolute; width: var(--cell-size); height: var(--cell-size);
-    transition: left 0.5s linear; z-index: 20;
+    position: absolute; 
+    bottom: 15px; /* 調整角色站立高度 */
+    width: var(--cell-size); 
+    height: var(--cell-size);
+    transition: left 0.5s linear; 
+    z-index: 20;
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
     pointer-events: none;
+    /* 預設 left 由 JS 控制 */
 }
 .avatar-img { width: 140%; height: auto; transform-origin: bottom center; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5)); margin-bottom: 5px; }
 .name-tag {
@@ -132,8 +165,13 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 }
 @keyframes trapFall {
     0% { transform: scale(1) translateY(0); opacity: 1; }
-    100% { transform: scale(0) translateY(20px); opacity: 0; }
+    100% { transform: scale(0) translateY(50px); opacity: 0; }
 }
+
+/* --- 觀眾席 --- */
+.audience-section { height: 60px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; flex-shrink: 0; }
+#audience-top { background-image: url('images/audience_up_1.png'); border-bottom: 5px solid rgba(0,0,0,0.2); }
+#audience-bottom { background-image: url('images/audience_down_1.png'); border-top: 5px solid rgba(0,0,0,0.2); }
 
 /* --- 卡片與 Modal --- */
 #fate-overlay {
@@ -150,6 +188,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     text-align: center; padding: 20px; overflow: hidden;
 }
 #fate-overlay.show .fate-card { transform: scale(1); }
+
 .fate-icon { font-size: 6rem; margin-bottom: 20px; }
 .fate-title { font-size: 2rem; font-weight: 900; margin-bottom: 10px; color: #333; }
 .fate-desc { font-size: 1.5rem; color: #555; font-weight: bold; }
