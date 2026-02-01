@@ -1,6 +1,6 @@
 const socket = io(); 
 
-// DOM
+// --- DOM 元素 ---
 const loginOverlay = document.getElementById('login-overlay');
 const scoreboardHeader = document.getElementById('scoreboard-header');
 const stadiumWrapper = document.getElementById('stadium-wrapper');
@@ -9,11 +9,14 @@ const joinBtn = document.getElementById('join-btn');
 const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
+
+// Modal 相關 (學生端專用 ID)
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
-const modalBtn = document.getElementById('modal-btn');
+const modalBtn = document.getElementById('modal-btn'); // 學生端只有這一個按鈕
 const modalContent = document.querySelector('.modal-content');
+
 const diceResultText = document.getElementById('dice-result-text'); 
 const myNameDisplay = document.getElementById('my-name-display'); 
 const fateOverlay = document.getElementById('fate-overlay');
@@ -37,15 +40,15 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- SynthEngine Pro (略，保持一致) ---
+// --- SynthEngine Pro ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
     init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
     toggleMute() {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
-        if(this.isMuted){this.stopBGM(); btn.innerText="🔇"; btn.style.background="#ffcccc";}
-        else{ if (startBtn && !startBtn.disabled) this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff"; }
+        if(this.isMuted){this.stopBGM(); if(btn){btn.innerText="🔇"; btn.style.background="#ffcccc";}}
+        else{ if (rollBtn && !rollBtn.disabled) this.playBGM(); if(btn){btn.innerText="🔊"; btn.style.background="#fff";} }
     },
     playImpact(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(50,t+0.08);g.gain.setValueAtTime(0.5,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.08);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.08);},
     playRoll(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(400,t);o.frequency.exponentialRampToValueAtTime(100,t+0.2);g.gain.setValueAtTime(0.1,t);g.gain.linearRampToValueAtTime(0,t+0.2);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.2);},
@@ -59,7 +62,7 @@ const SynthEngine = {
     playBGM(){if(this.isMuted||this.bgmInterval||!this.ctx)return;const seq=[261.63,329.63,392.00,523.25,392.00,329.63,261.63,0,293.66,349.23,440.00,587.33,440.00,349.23,293.66,0];let s=0;this.bgmInterval=setInterval(()=>{if(this.ctx.state==='suspended')this.ctx.resume();const f=seq[s%seq.length];if(f>0){const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sine';o.frequency.value=f/2;g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.3);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.3);}s++;},250);},
     stopBGM(){if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;}}
 };
-document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
+if(document.getElementById('mute-btn')) document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
 // --- 3D Dice ---
 const ThreeDice={container:document.getElementById('dice-3d-container'),scene:null,camera:null,renderer:null,cube:null,isRolling:false,init(){if(!this.container)return;this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100);this.camera.position.set(0,4,10);this.camera.lookAt(0,0,0);this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});this.renderer.setSize(window.innerWidth,window.innerHeight);this.renderer.setPixelRatio(window.devicePixelRatio);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.container.appendChild(this.renderer.domElement);const al=new THREE.AmbientLight(0xffffff,0.6);this.scene.add(al);const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(5,15,10);dl.castShadow=true;this.scene.add(dl);const pg=new THREE.PlaneGeometry(100,100);const pm=new THREE.ShadowMaterial({opacity:0.3});const p=new THREE.Mesh(pg,pm);p.rotation.x=-Math.PI/2;p.position.y=-2;p.receiveShadow=true;this.scene.add(p);const mats=[];for(let i=1;i<=6;i++){mats.push(new THREE.MeshPhysicalMaterial({map:this.createDiceTexture(i),color:0xffffff,roughness:0.1,metalness:0.0,clearcoat:1.0,clearcoatRoughness:0.1}));}this.cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),mats);this.cube.castShadow=true;this.cube.receiveShadow=true;this.scene.add(this.cube);window.addEventListener('resize',()=>{this.camera.aspect=window.innerWidth/window.innerHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(window.innerWidth,window.innerHeight);});this.animate();},createDiceTexture(n){const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#f8f9fa';x.fillRect(0,0,512,512);x.strokeStyle='#dee2e6';x.lineWidth=20;x.strokeRect(0,0,512,512);x.fillStyle=(n===1)?'#e74c3c':'#2c3e50';x.shadowColor="rgba(0,0,0,0.2)";x.shadowBlur=10;x.shadowOffsetX=4;x.shadowOffsetY=4;const r=50,cen=256,o=120;const d=(u,v)=>{x.beginPath();x.arc(u,v,r,0,Math.PI*2);x.fill();};if(n===1)d(cen,cen);if(n===2){d(cen-o,cen-o);d(cen+o,cen+o);}if(n===3){d(cen-o,cen-o);d(cen,cen);d(cen+o,cen+o);}if(n===4){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===5){d(cen-o,cen-o);d(cen+o,cen-o);d(cen,cen);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===6){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen);d(cen+o,cen);d(cen-o,cen+o);d(cen+o,cen+o);}return new THREE.CanvasTexture(c);},animate(){requestAnimationFrame(()=>this.animate());if(!this.isRolling&&!this.container.classList.contains('active')){this.cube.rotation.y+=0.005;}if(this.renderer&&this.scene&&this.camera)this.renderer.render(this.scene,this.camera);},async roll(n){return new Promise((res)=>{this.container.classList.add('active');SynthEngine.playRoll();let tr={x:0,y:0,z:0};switch(n){case 1:tr={x:0,y:-Math.PI/2,z:0};break;case 2:tr={x:0,y:Math.PI/2,z:0};break;case 3:tr={x:Math.PI/2,y:0,z:0};break;case 4:tr={x:-Math.PI/2,y:0,z:0};break;case 5:tr={x:0,y:0,z:0};break;case 6:tr={x:Math.PI,y:0,z:0};break;}const sr={x:this.cube.rotation.x%(Math.PI*2),y:this.cube.rotation.y%(Math.PI*2),z:this.cube.rotation.z%(Math.PI*2)};const er={x:tr.x+Math.PI*4,y:tr.y+Math.PI*4,z:tr.z+Math.PI*2};const st=Date.now();const dur=1200;let hb1=false;let hb2=false;const set=()=>{const now=Date.now();const p=Math.min((now-st)/dur,1);const e=1-Math.pow(1-p,4);this.cube.rotation.x=sr.x+(er.x-sr.x)*e;this.cube.rotation.y=sr.y+(er.y-sr.y)*e;this.cube.rotation.z=sr.z+(er.z-sr.z)*e;let y=0;if(p<0.35){y=12*(1-(p/0.35)*(p/0.35));}else if(p<0.7){if(!hb1){SynthEngine.playImpact();hb1=true;}const t=(p-0.35)/0.35;y=3.0*(1-(2*t-1)*(2*t-1));}else if(p<0.9){if(!hb2){SynthEngine.playImpact();hb2=true;}const t=(p-0.7)/0.2;y=1.0*(1-(2*t-1)*(2*t-1));}this.cube.position.y=y;if(p<1){requestAnimationFrame(set);}else{if(n===6)SynthEngine.playSix();if(diceResultText){diceResultText.innerText=`${n} 點!`;diceResultText.classList.add('show');}setTimeout(()=>{this.container.classList.remove('active');if(diceResultText)diceResultText.classList.remove('show');res();},1200);}};set();});}};
@@ -130,25 +133,38 @@ const AudienceManager = {
 };
 AudienceManager.start();
 
+// 🔥 修復 Modal：使用正確的 student.html ID
 function showModal(title, text, isConfirm = false, onConfirm = null) {
-    if (!modalContent) return; 
+    if (!modalContent) return;
     modalContent.className = "modal-content"; 
-    modalTitle.innerText = title;
-    modalBody.innerHTML = text; 
-    modalOverlay.classList.remove('hidden');
-    if (isConfirm) {
-        if(btnConfirm) {
-            btnConfirm.innerText = "確定執行"; 
-            btnConfirm.className = "board-btn btn-green"; 
-            btnConfirm.onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
-        }
-        if(btnCancel) { btnCancel.classList.remove('hidden'); btnCancel.onclick = closeModal; }
-    } else {
-        if(btnConfirm) { btnConfirm.innerText = "知道了"; btnConfirm.className = "board-btn btn-green"; btnConfirm.onclick = closeModal; }
-        if(btnCancel) btnCancel.classList.add('hidden');
+    if(modalTitle) modalTitle.innerText = title;
+    if(modalBody) modalBody.innerHTML = text; 
+    
+    if (modalBtn) {
+        modalBtn.innerText = isConfirm ? "確定執行" : "知道了";
+        modalBtn.className = isConfirm ? "board-btn btn-green" : "board-btn btn-green";
+        modalBtn.onclick = () => {
+            if (isConfirm && onConfirm) onConfirm();
+            closeModal();
+        };
     }
+    
+    if(modalOverlay) modalOverlay.classList.remove('hidden');
 }
-function closeModal() { modalOverlay.classList.add('hidden'); }
+function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
+
+// 輔助函式
+function clearAllSpecialTiles() {
+    const cells = document.querySelectorAll('.grid-cell');
+    cells.forEach(cell => { if (cell.style.backgroundImage) cell.style.backgroundImage = ''; });
+}
+function restoreTile(playerId, tileIndex) {
+    if (tileIndex < 0) return;
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (!row) return;
+    const cells = row.querySelectorAll('.grid-cell');
+    if (cells[tileIndex]) { cells[tileIndex].style.backgroundImage = "url('images/map_runway.png')"; }
+}
 
 socket.on('connect', () => { myId = socket.id; });
 joinBtn.addEventListener('click', () => { SynthEngine.init(); const name = usernameInput.value.trim(); if (!name) { alert("⚠️ 請輸入名字！"); return; } socket.emit('player_join', name); });
@@ -172,23 +188,25 @@ socket.on('show_initiative', (sortedPlayers) => {
     gameMsg.innerText = msg;
     SynthEngine.init(); SynthEngine.playRoll();
 });
+
+// 🔥 修復：移除 clearAllSpecialTiles，避免把剛生成的洞擦掉
 socket.on('game_start', () => {
     gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
-    // 移除 clearAllSpecialTiles，交由 renderTracks 控制
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
 });
+
 socket.on('game_reset_positions', () => {
     if(modalContent) modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
-    // 這裡我們還是可以重建跑道，確保乾淨
+    // 重置時才清除
+    clearAllSpecialTiles();
     
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     modalOverlay.classList.add('hidden');
-    // 強制重置格子
     const cells = document.querySelectorAll('.grid-cell');
     cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
     
@@ -240,10 +258,14 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     await ThreeDice.roll(roll);
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
-    const playerName = nameTag ? nameTag.innerText : '未知玩家';
+    const name = nameTag ? nameTag.innerText : '對手';
+    const isMe = (playerId === myId);
+    
+    if (isMe) { gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`; } 
+    else { gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`; }
+    
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
-    if (liveMsg && playerName) liveMsg.innerText = `${playerName} 擲出了 ${roll} 點!`;
 
     await moveAvatar(playerId, initialLandPos, charType);
 
@@ -256,13 +278,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
         else gameMsg.innerText = "❓ 觸發了命運機會...";
         
-        // 手動更新這一格為跑道 (視覺上立即反應)
-        const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
-        if (row) {
-            const cell = row.querySelectorAll('.grid-cell')[initialLandPos];
-            if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
-        }
-
+        restoreTile(playerId, initialLandPos);
         showFateCard(fateResult);
         await wait(2500); 
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
@@ -271,13 +287,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
 
     } else if (triggerType === 'FATE_TRAP') {
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
-        
-        const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
-        if (row) {
-            const cell = row.querySelectorAll('.grid-cell')[initialLandPos];
-            if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
-        }
-
+        restoreTile(playerId, initialLandPos);
         showFateCard(fateResult);
         await wait(2500);
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
@@ -288,6 +298,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
         await playTrapAnimation(img, playerId, newPos, charType, trapPos);
     }
+    
     AvatarManager.movingStatus[playerId] = false;
     if (newPos >= 21) { 
         SynthEngine.playVictoryGrand();
@@ -300,26 +311,24 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         PLAYER_POSITIONS[playerId] = targetPos;
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
+        // 防呆：如果找不到 DOM (可能因為洗牌剛重建)，直接 resolve 避免卡死
+        if (!avatarContainer) { resolve(); return; }
+
         if (instant) {
-            if (avatarContainer) {
-                avatarContainer.style.transition = 'none'; 
-                const percent = (targetPos / 22) * 100; 
-                avatarContainer.style.left = `${percent}%`;
-                setTimeout(() => { avatarContainer.style.transition = 'left 1s linear'; resolve(); }, 50);
-            } else resolve();
+            avatarContainer.style.transition = 'none'; 
+            const percent = (targetPos / 22) * 100; 
+            avatarContainer.style.left = `${percent}%`;
+            setTimeout(() => { avatarContainer.style.transition = 'left 1s linear'; resolve(); }, 50);
         } else {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
-            if (avatarContainer) {
-                const percent = (targetPos / 22) * 100; 
-                avatarContainer.style.left = `${percent}%`;
-            }
+            const percent = (targetPos / 22) * 100; 
+            avatarContainer.style.left = `${percent}%`;
             setTimeout(() => { resolve(); }, 1000); 
         }
     });
 }
 
-// 🔥 陷阱動畫
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -330,16 +339,8 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.classList.add('avatar-trap-fall');
     }
     await wait(800);
-    
-    // 等待 0.5 秒後才還原地板
     await wait(500);
-    
-    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
-    if (row) {
-        const cell = row.querySelectorAll('.grid-cell')[trapTileIndex];
-        if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
-    }
-
+    restoreTile(playerId, trapTileIndex);
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -400,7 +401,6 @@ socket.on('game_over', ({ rankings }) => {
 });
 socket.on('force_reload', () => { location.reload(); });
 
-// 🔥 核心修正：加入 ID 比對重建 + 強制狀態更新
 function renderTracks(players) {
     if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
@@ -460,23 +460,21 @@ function createRow(p) {
     trackContainer.appendChild(row);
 }
 
-// 🔥 強制更新邏輯：確保洞和問號顯示，除非已經觸發過
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     
+    // 強制更新狀態：確保洞與問號的顯示狀態正確
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
-        // 如果是陷阱，且還沒顯示，就顯示
         if (p.trapIndex !== -1 && i === p.trapIndex) {
             if (!cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')";
         } 
-        // 如果是問號，且還沒顯示，就顯示
         else if (p.fateIndices && p.fateIndices.includes(i)) {
             if (!cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
         } 
-        // 如果都不是，但顯示了圖案，則還原 (處理消耗後的狀態)
         else {
+            // 如果應該是跑道，但顯示了特殊圖案，則還原 (處理消耗後的狀態)
             if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
                 cell.style.backgroundImage = "url('images/map_runway.png')";
             }
