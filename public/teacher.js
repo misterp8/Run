@@ -1,5 +1,6 @@
 const socket = io(); 
 
+// --- DOM 元素 ---
 const trackContainer = document.getElementById('track-container');
 const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
@@ -48,7 +49,7 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- SynthEngine (略) ---
+// --- SynthEngine Pro ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
     init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
@@ -56,7 +57,7 @@ const SynthEngine = {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
         if(this.isMuted){this.stopBGM(); if(btn){btn.innerText="🔇"; btn.style.background="#ffcccc";}}
-        else{ if (startBtn && !startBtn.disabled) this.playBGM(); if(btn){btn.innerText="🔊"; btn.style.background="#fff";} }
+        else{ if (startBtn && !startBtn.disabled === false) this.playBGM(); if(btn){btn.innerText="🔊"; btn.style.background="#fff";} }
     },
     playImpact(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(50,t+0.08);g.gain.setValueAtTime(0.5,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.08);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.08);},
     playRoll(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(400,t);o.frequency.exponentialRampToValueAtTime(100,t+0.2);g.gain.setValueAtTime(0.1,t);g.gain.linearRampToValueAtTime(0,t+0.2);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.2);},
@@ -160,7 +161,14 @@ function showModal(title, text, isConfirm = false, onConfirm = null) {
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
-// ❌ 移除 clearAllSpecialTiles，改用 updateRow 的強制覆寫
+function clearAllSpecialTiles() { const cells = document.querySelectorAll('.grid-cell'); cells.forEach(cell => { if (cell.style.backgroundImage) cell.style.backgroundImage = ''; }); }
+function restoreTile(playerId, tileIndex) {
+    if (tileIndex < 0) return;
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (!row) return;
+    const cells = row.querySelectorAll('.grid-cell');
+    if (cells[tileIndex]) { cells[tileIndex].style.backgroundImage = "url('images/map_runway.png')"; }
+}
 
 socket.on('connect', () => { if(connectionStatus) { connectionStatus.innerText = "🟢 伺服器已連線"; connectionStatus.style.color = "#2ecc71"; } socket.emit('admin_login'); });
 socket.on('disconnect', () => { if(connectionStatus) { connectionStatus.innerText = "🔴 與伺服器斷線"; connectionStatus.style.color = "#e74c3c"; } });
@@ -190,12 +198,14 @@ socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
-    // 透過 renderTracks 重新繪製空白跑道
+    // 重置時才清除
+    clearAllSpecialTiles();
     
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
-    if(orderList) orderList.innerHTML = "等待抽籤...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
-    if(modalOverlay) modalOverlay.classList.add('hidden');
+    modalOverlay.classList.add('hidden');
+    const cells = document.querySelectorAll('.grid-cell');
+    cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
     
     if(startBtn) { startBtn.innerText = "開始遊戲"; startBtn.disabled = false; startBtn.className = "board-btn btn-green"; }
     SynthEngine.stopBGM();
@@ -206,12 +216,14 @@ socket.on('show_initiative', (sortedPlayers) => {
     if(orderList) orderList.innerHTML = html;
     SynthEngine.playRoll();
 });
+
+// 🔥 修復：移除 clearAllSpecialTiles，避免把剛生成的洞擦掉
 socket.on('game_start', () => {
     if(liveMsg) liveMsg.innerText = "🚀 比賽開始！";
     SynthEngine.playBGM();
-    // 移除 clearAllSpecialTiles
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
 });
+
 socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     if(orderList) { const rows = orderList.querySelectorAll('div'); rows.forEach(r => r.classList.remove('order-active')); if(rows[turnIndex]) rows[turnIndex].classList.add('order-active'); }
     const allAvatars = document.querySelectorAll('.avatar-img');
@@ -245,7 +257,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     
     } else if (triggerType === 'FATE') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會！</span>`;
-        // 這裡可以呼叫 updateRow 更新地圖，但動畫結束後也會更新
+        restoreTile(playerId, initialLandPos);
         showFateCard(fateResult);
         await wait(2500); 
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
@@ -254,6 +266,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
 
     } else if (triggerType === 'FATE_TRAP') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會...</span>`;
+        restoreTile(playerId, initialLandPos);
         showFateCard(fateResult);
         await wait(2500);
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
@@ -268,9 +281,8 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     if (newPos >= 21) { 
         SynthEngine.playVictoryGrand();
         AvatarManager.setState(playerId, 'win', charType); 
-    } else { 
-        AvatarManager.setState(playerId, 'idle', charType); 
-    }
+    } 
+    else { AvatarManager.setState(playerId, 'idle', charType); }
 });
 
 function moveAvatar(playerId, targetPos, charType, instant = false) {
@@ -307,16 +319,7 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     }
     await wait(800);
     await wait(500);
-    
-    // 不再使用 restoreTile，而是依靠 player_moved 之後的 state update
-    // 但為了視覺流暢，我們可以手動把該格變回跑道 (如果不等到下次 update)
-    // 這裡我們直接修改 DOM，與 updateRow 邏輯一致
-    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
-    if (row) {
-        const cell = row.querySelectorAll('.grid-cell')[trapTileIndex];
-        if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
-    }
-
+    restoreTile(playerId, trapTileIndex);
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -388,14 +391,11 @@ if(startBtn) startBtn.addEventListener('click', () => {
 if(restartBtn) restartBtn.addEventListener('click', () => { showModal("準備下一局", "確定要讓所有學生回到起跑線嗎？\n(排名將會重置，但保留玩家)", true, () => { socket.emit('admin_restart_game'); }); });
 if(resetBtn) resetBtn.addEventListener('click', () => { showModal("危險操作", "確定要踢除所有玩家並回到首頁嗎？\n(若只是要重玩，請按「下一局」)", true, () => { socket.emit('admin_reset_game'); if(trackContainer) trackContainer.innerHTML = ''; if(playerCountSpan) playerCountSpan.innerText = 0; if(liveMsg) liveMsg.innerText = "等待學生加入..."; SynthEngine.stopBGM(); }); });
 function updateView(players) { if (!players) players = []; if(playerCountSpan) playerCountSpan.innerText = players.length; renderTracks(players); }
-
-// 🔥 核心修正：加入 ID 比對重建機制 + 洞穴/問號強制更新
 function renderTracks(players) {
     if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
     let needRebuild = false;
     
-    // ID 比對，確保順序正確
     if (existingRows.length !== players.length) {
         needRebuild = true;
     } else {
@@ -417,7 +417,6 @@ function renderTracks(players) {
         });
     }
 }
-
 function createRow(p) {
     PLAYER_POSITIONS[p.id] = p.position;
     const row = document.createElement('div');
@@ -449,13 +448,11 @@ function createRow(p) {
     row.appendChild(avatarContainer);
     trackContainer.appendChild(row);
 }
-
-// 🔥 強制狀態更新：每一格都要檢查，是洞畫洞，不是洞畫跑道
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     
-    // 遍歷所有格子，確保狀態正確 (解決閃現消失問題)
+    // 強制更新狀態
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         if (p.trapIndex !== -1 && i === p.trapIndex) {
@@ -465,7 +462,6 @@ function updateRow(row, p) {
             if (!cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
         } 
         else {
-            // 如果這格曾經是洞或問號，但現在不是了，要變回跑道
             if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
                 cell.style.backgroundImage = "url('images/map_runway.png')";
             }
