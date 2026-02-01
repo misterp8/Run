@@ -483,8 +483,8 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 500); // 🔥 修改：縮短等待時間 (4000 -> 500)
-    }, 500); // 🔥 修改：縮短 Confetti 觸發延遲 (4000 -> 500)
+        }, 2000); // 🔥 修改：縮短等待時間 (4000 -> 500)
+    }, 2000); // 🔥 修改：縮短 Confetti 觸發延遲 (4000 -> 500)
 });
 socket.on('force_reload', () => { location.reload(); });
 
