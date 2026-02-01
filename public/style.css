@@ -166,8 +166,8 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
         opacity: 1; 
     } 
     100% { 
-        /* 🔥 核心修正：translateY 改為 25px (往下)，配合縮小，視覺上會位於洞穴中心 */
-        transform: scale(0.1, 0.1) translateY(35px) rotate(180deg); 
+        /* 🔥 核心修正：translateY 改為 50px (往下)，配合縮小，視覺上會位於洞穴中心 */
+        transform: scale(0.1, 0.1) translateY(50px) rotate(180deg); 
         opacity: 0; 
     } 
 }
