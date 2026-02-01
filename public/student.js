@@ -86,7 +86,6 @@ const ThreeDice={container:document.getElementById('dice-3d-container'),scene:nu
     animate(){if(typeof THREE === 'undefined' || !this.renderer) return; requestAnimationFrame(()=>this.animate());if(!this.isRolling&&!this.container.classList.contains('active')){this.cube.rotation.y+=0.005;}this.renderer.render(this.scene,this.camera);},
     async roll(n){
         if(typeof THREE === 'undefined' || !this.renderer) { 
-            // 如果 3D 沒載入，直接等待一下就回傳，保證流程繼續
             return new Promise(r => setTimeout(r, 1000)); 
         }
         return new Promise((res)=>{
@@ -98,7 +97,6 @@ const ThreeDice={container:document.getElementById('dice-3d-container'),scene:nu
         });
     }
 };
-// 🔥 安全執行 Init
 try { ThreeDice.init(); } catch(e) { console.log("Init skipped"); }
 
 const ConfettiManager = {
@@ -190,7 +188,6 @@ function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
 socket.on('connect', () => { myId = socket.id; console.log("Socket connected:", myId); });
 
-// 🔥 加入按鈕偵聽與偵錯
 if (joinBtn) {
     joinBtn.addEventListener('click', () => {
         console.log("Join Button Clicked");
@@ -200,8 +197,6 @@ if (joinBtn) {
         socket.emit('player_join', name);
         console.log("Emitted player_join:", name);
     });
-} else {
-    console.error("Join Button NOT Found!");
 }
 
 socket.on('error_msg', (msg) => { alert(msg); });
@@ -296,9 +291,8 @@ if(rollBtn) {
     });
 }
 
-// 🔥🔥🔥 核心移動邏輯 🔥🔥🔥
-socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
-    // 鎖住狀態
+// 🔥 核心修正：接收 fateResults 陣列並進行連續動畫
+socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
     AvatarManager.movingStatus[playerId] = true;
 
     await ThreeDice.roll(roll);
@@ -321,32 +315,40 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if(gameMsg) { if(isMe) gameMsg.innerText = "😱 糟了！踩到陷阱！"; else gameMsg.innerText = "😱 哎呀！他踩到陷阱了！"; }
         await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); 
     
-    } else if (triggerType === 'FATE') {
-        if(gameMsg) { if(isMe) gameMsg.innerText = "❓ 命運時刻..."; else gameMsg.innerText = "❓ 觸發了命運機會..."; }
+    } else if (triggerType === 'FATE' || triggerType === 'FATE_TRAP') {
+        if(gameMsg) { if(isMe) gameMsg.innerText = "❓ 連鎖命運時刻..."; else gameMsg.innerText = "❓ 觸發了連續命運..."; }
         
-        setTileAsRunway(playerId, initialLandPos);
-        showFateCard(fateResult);
-        await wait(2500); 
-        if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        
-        // 這是真正移動到新位置
-        await moveAvatar(playerId, newPos, charType);
+        let currentStepPos = initialLandPos; 
 
-    } else if (triggerType === 'FATE_TRAP') {
-        if(gameMsg) { if(isMe) gameMsg.innerText = "❓ 命運時刻..."; }
-        
-        setTileAsRunway(playerId, initialLandPos);
-        showFateCard(fateResult);
-        await wait(2500);
-        if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        
-        const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
-        if(gameMsg) gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
-        
-        await moveAvatar(playerId, trapPos, charType);
-        await wait(500);
-        if(gameMsg) gameMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
-        await playTrapAnimation(img, playerId, newPos, charType, trapPos);
+        // 迴圈播放每一個命運結果
+        if (fateResults && fateResults.length > 0) {
+            for (let i = 0; i < fateResults.length; i++) {
+                const result = fateResults[i];
+                
+                setTileAsRunway(playerId, currentStepPos);
+                
+                showFateCard(result);
+                await wait(2000);
+                
+                if (result > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
+                
+                const moveText = (result > 0) ? `前進 ${result} 格` : `後退 ${Math.abs(result)} 格`;
+                if(gameMsg) gameMsg.innerText = `第 ${i+1} 次命運：${moveText}`;
+                
+                let nextStepPos = currentStepPos + result;
+                if (nextStepPos < 0) nextStepPos = 0;
+                if (nextStepPos > 21) nextStepPos = 21;
+
+                await moveAvatar(playerId, nextStepPos, charType);
+                currentStepPos = nextStepPos;
+                await wait(500);
+            }
+        }
+
+        if (triggerType === 'FATE_TRAP') {
+            if(gameMsg) gameMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
+            await playTrapAnimation(img, playerId, newPos, charType, trapPos);
+        }
     }
     
     AvatarManager.movingStatus[playerId] = false;

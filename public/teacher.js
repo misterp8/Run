@@ -26,7 +26,7 @@ const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 const modalContent = document.querySelector('.modal-content');
 
-// 🔥 新增：追蹤目前遊戲狀態，用於判斷按鈕邏輯
+// 🔥 追蹤目前遊戲狀態
 let currentStatus = 'LOBBY'; 
 
 // --- 命運選單連動邏輯 ---
@@ -181,7 +181,7 @@ socket.on('connect', () => { if(connectionStatus) { connectionStatus.innerText =
 socket.on('disconnect', () => { if(connectionStatus) { connectionStatus.innerText = "🔴 與伺服器斷線"; connectionStatus.style.color = "#e74c3c"; } });
 socket.on('update_player_list', (players) => { updateView(players); });
 socket.on('update_game_state', (gameState) => {
-    currentStatus = gameState.status; // 🔥 同步狀態
+    currentStatus = gameState.status;
     updateView(gameState.players);
     if (gameState.status === 'PLAYING') {
         if(startBtn) { startBtn.disabled = true; startBtn.innerText = "遊戲進行中"; startBtn.className = "board-btn btn-grey"; }
@@ -194,7 +194,6 @@ socket.on('update_game_state', (gameState) => {
         if(restartBtn) { restartBtn.disabled = false; restartBtn.className = "board-btn btn-orange"; }
         SynthEngine.stopBGM();
     } else {
-        // 🔥 LOBBY 狀態時，按鈕邏輯交給 updateView 判斷人數
         if(restartBtn) { restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey"; }
         if(chkTrap) chkTrap.disabled = false; 
         if(chkFate) chkFate.disabled = false; 
@@ -203,7 +202,7 @@ socket.on('update_game_state', (gameState) => {
     }
 });
 socket.on('game_reset_positions', () => {
-    currentStatus = 'LOBBY'; // 🔥 重置狀態
+    currentStatus = 'LOBBY';
     closeModal();
     if(modalContent) modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {}; 
@@ -214,7 +213,6 @@ socket.on('game_reset_positions', () => {
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     if(modalOverlay) modalOverlay.classList.add('hidden');
     
-    // 按鈕邏輯會由隨後的 update_player_list 或 update_game_state 觸發 updateView 來處理
     SynthEngine.stopBGM();
 });
 socket.on('show_initiative', (sortedPlayers) => {
@@ -244,7 +242,8 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     if(liveMsg) { liveMsg.innerText = `👉 輪到 ${playerName}`; liveMsg.style.color = "#f1c40f"; }
 });
 
-socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
+// 🔥 核心修正：接收 fateResults 陣列並進行連續動畫
+socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
     AvatarManager.movingStatus[playerId] = true;
 
     await ThreeDice.roll(roll);
@@ -262,30 +261,40 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 ${playerName} 踩到了陷阱！</span>`;
         await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); 
     
-    } else if (triggerType === 'FATE') {
-        if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會！</span>`;
-        setTileAsRunway(playerId, initialLandPos);
+    } else if (triggerType === 'FATE' || triggerType === 'FATE_TRAP') {
+        if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了連續命運！</span>`;
 
-        showFateCard(fateResult);
-        await wait(2500); 
-        if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        if (liveMsg) liveMsg.innerText = `移動 ${fateResult} 格！`;
-        await moveAvatar(playerId, newPos, charType);
+        let currentStepPos = initialLandPos; 
 
-    } else if (triggerType === 'FATE_TRAP') {
-        if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會...</span>`;
-        
-        setTileAsRunway(playerId, initialLandPos);
+        // 迴圈播放每一個命運結果
+        if (fateResults && fateResults.length > 0) {
+            for (let i = 0; i < fateResults.length; i++) {
+                const result = fateResults[i];
+                
+                setTileAsRunway(playerId, currentStepPos);
+                
+                showFateCard(result);
+                await wait(2000);
+                
+                if (result > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
+                
+                const moveText = (result > 0) ? `前進 ${result} 格` : `後退 ${Math.abs(result)} 格`;
+                if(liveMsg) liveMsg.innerText = `第 ${i+1} 次命運：${moveText}`;
+                
+                let nextStepPos = currentStepPos + result;
+                if (nextStepPos < 0) nextStepPos = 0;
+                if (nextStepPos > 21) nextStepPos = 21;
 
-        showFateCard(fateResult);
-        await wait(2500);
-        if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
-        liveMsg.innerText = `🃏 結果：${moveText}...但是...`;
-        await moveAvatar(playerId, trapPos, charType);
-        await wait(500);
-        if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
-        await playTrapAnimation(img, playerId, newPos, charType, trapPos);
+                await moveAvatar(playerId, nextStepPos, charType);
+                currentStepPos = nextStepPos;
+                await wait(500);
+            }
+        }
+
+        if (triggerType === 'FATE_TRAP') {
+            if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
+            await playTrapAnimation(img, playerId, newPos, charType, trapPos);
+        }
     }
 
     AvatarManager.movingStatus[playerId] = false;
@@ -415,12 +424,10 @@ if(startBtn) startBtn.addEventListener('click', () => {
 if(restartBtn) restartBtn.addEventListener('click', () => { showModal("準備下一局", "確定要讓所有學生回到起跑線嗎？\n(排名將會重置，但保留玩家)", true, () => { socket.emit('admin_restart_game'); }); });
 if(resetBtn) resetBtn.addEventListener('click', () => { showModal("危險操作", "確定要踢除所有玩家並回到首頁嗎？\n(若只是要重玩，請按「下一局」)", true, () => { socket.emit('admin_reset_game'); if(trackContainer) trackContainer.innerHTML = ''; if(playerCountSpan) playerCountSpan.innerText = 0; if(liveMsg) liveMsg.innerText = "等待學生加入..."; SynthEngine.stopBGM(); }); });
 
-// 🔥 新增：按鈕狀態判斷邏輯
 function updateView(players) { 
     if (!players) players = []; 
     if(playerCountSpan) playerCountSpan.innerText = players.length; 
     
-    // 如果目前在等待大廳 (LOBBY)，則根據人數決定按鈕狀態
     if (currentStatus === 'LOBBY' && startBtn) {
         if (players.length > 0) {
             startBtn.disabled = false;
@@ -432,7 +439,6 @@ function updateView(players) {
             startBtn.innerText = "等待玩家...";
         }
     }
-    
     renderTracks(players); 
 }
 
