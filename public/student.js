@@ -133,7 +133,6 @@ const SynthEngine = {
             o.connect(g); g.connect(this.ctx.destination); o.start(t + i*0.05); o.stop(t + i*0.05 + 0.2);
         }
     },
-    // 🔥 新增：彈出音效
     playPopup() {
         if(this.isMuted||!this.ctx)return;
         const t = this.ctx.currentTime;
@@ -152,131 +151,13 @@ const SynthEngine = {
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
 // --- 3D Dice ---
-const ThreeDice = {
-    container: document.getElementById('dice-3d-container'),
-    scene: null, camera: null, renderer: null, cube: null,
-    isRolling: false, 
-    init() {
-        if (!this.container) return;
-        this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        this.camera.position.set(0, 4, 10);
-        this.camera.lookAt(0, 0, 0);
-        this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.container.appendChild(this.renderer.domElement);
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        this.scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(5, 15, 10);
-        dirLight.castShadow = true;
-        this.scene.add(dirLight);
-        const planeGeometry = new THREE.PlaneGeometry(100, 100);
-        const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
-        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.rotation.x = -Math.PI / 2;
-        plane.position.y = -2;
-        plane.receiveShadow = true;
-        this.scene.add(plane);
-        const materials = [];
-        for (let i = 1; i <= 6; i++) {
-            materials.push(new THREE.MeshPhysicalMaterial({ map: this.createDiceTexture(i), color: 0xffffff, roughness: 0.1, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.1 }));
-        }
-        this.cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), materials);
-        this.cube.castShadow = true;
-        this.cube.receiveShadow = true;
-        this.scene.add(this.cube);
-        window.addEventListener('resize', () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-        this.animate();
-    },
-    createDiceTexture(number) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512; canvas.height = 512;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#f8f9fa'; ctx.fillRect(0, 0, 512, 512);
-        ctx.strokeStyle = '#dee2e6'; ctx.lineWidth = 20; ctx.strokeRect(0, 0, 512, 512);
-        ctx.fillStyle = (number === 1) ? '#e74c3c' : '#2c3e50';
-        ctx.shadowColor = "rgba(0,0,0,0.2)"; ctx.shadowBlur = 10; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4;
-        const r = 50, c = 256, o = 120;
-        const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); };
-        if (number === 1) drawDot(c, c);
-        if (number === 2) { drawDot(c-o, c-o); drawDot(c+o, c+o); }
-        if (number === 3) { drawDot(c-o, c-o); drawDot(c, c); drawDot(c+o, c+o); }
-        if (number === 4) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c+o); drawDot(c+o, c+o); }
-        if (number === 5) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
-        if (number === 6) { drawDot(c-o, c-o); drawDot(c+o, c-o); drawDot(c-o, c); drawDot(c+o, c); drawDot(c-o, c+o); drawDot(c+o, c+o); }
-        return new THREE.CanvasTexture(canvas);
-    },
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        if (!this.isRolling && !this.container.classList.contains('active')) { this.cube.rotation.y += 0.005; }
-        if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
-    },
-    async roll(targetNumber) {
-        return new Promise((resolve) => {
-            this.container.classList.add('active');
-            SynthEngine.playRoll();
-            let targetRot = { x: 0, y: 0, z: 0 };
-            switch(targetNumber) {
-                case 1: targetRot = {x: 0, y: -Math.PI/2, z: 0}; break; 
-                case 2: targetRot = {x: 0, y: Math.PI/2, z: 0}; break;  
-                case 3: targetRot = {x: Math.PI/2, y: 0, z: 0}; break;  
-                case 4: targetRot = {x: -Math.PI/2, y: 0, z: 0}; break; 
-                case 5: targetRot = {x: 0, y: 0, z: 0}; break;          
-                case 6: targetRot = {x: Math.PI, y: 0, z: 0}; break;    
-            }
-            const startRot = { x: this.cube.rotation.x % (Math.PI*2), y: this.cube.rotation.y % (Math.PI*2), z: this.cube.rotation.z % (Math.PI*2) };
-            const endRot = { x: targetRot.x + Math.PI * 4, y: targetRot.y + Math.PI * 4, z: targetRot.z + Math.PI * 2 };
-            const startTime = Date.now();
-            const duration = 1200;
-            const startY = 12; const floorY = 0;
-            let hasBounced1 = false; let hasBounced2 = false;
-            const settle = () => {
-                const now = Date.now();
-                const p = Math.min((now - startTime) / duration, 1);
-                const easeRot = 1 - Math.pow(1 - p, 4); 
-                this.cube.rotation.x = startRot.x + (endRot.x - startRot.x) * easeRot;
-                this.cube.rotation.y = startRot.y + (endRot.y - startRot.y) * easeRot;
-                this.cube.rotation.z = startRot.z + (endRot.z - startRot.z) * easeRot;
-                let y = floorY;
-                if (p < 0.35) { y = startY * (1 - (p/0.35)*(p/0.35)); } 
-                else if (p < 0.7) { 
-                    if(!hasBounced1) { SynthEngine.playImpact(); hasBounced1 = true; }
-                    const t = (p - 0.35) / 0.35; y = 3.0 * (1 - (2*t - 1)*(2*t - 1)); 
-                } 
-                else if (p < 0.9) { 
-                    if(!hasBounced2) { SynthEngine.playImpact(); hasBounced2 = true; }
-                    const t = (p - 0.7) / 0.2; y = 1.0 * (1 - (2*t - 1)*(2*t - 1)); 
-                } else { y = floorY; }
-                this.cube.position.y = y;
-                if (p < 1) { requestAnimationFrame(settle); } else {
-                    if (targetNumber === 6) SynthEngine.playSix();
-                    if(diceResultText) { diceResultText.innerText = `${targetNumber} 點!`; diceResultText.classList.add('show'); }
-                    setTimeout(() => {
-                        this.container.classList.remove('active');
-                        if(diceResultText) diceResultText.classList.remove('show');
-                        resolve();
-                    }, 1200); 
-                }
-            };
-            settle();
-        });
-    }
-};
+const ThreeDice={container:document.getElementById('dice-3d-container'),scene:null,camera:null,renderer:null,cube:null,isRolling:false,init(){if(!this.container)return;this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100);this.camera.position.set(0,4,10);this.camera.lookAt(0,0,0);this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});this.renderer.setSize(window.innerWidth,window.innerHeight);this.renderer.setPixelRatio(window.devicePixelRatio);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.container.appendChild(this.renderer.domElement);const al=new THREE.AmbientLight(0xffffff,0.6);this.scene.add(al);const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(5,15,10);dl.castShadow=true;this.scene.add(dl);const pg=new THREE.PlaneGeometry(100,100);const pm=new THREE.ShadowMaterial({opacity:0.3});const p=new THREE.Mesh(pg,pm);p.rotation.x=-Math.PI/2;p.position.y=-2;p.receiveShadow=true;this.scene.add(p);const mats=[];for(let i=1;i<=6;i++){mats.push(new THREE.MeshPhysicalMaterial({map:this.createDiceTexture(i),color:0xffffff,roughness:0.1,metalness:0.0,clearcoat:1.0,clearcoatRoughness:0.1}));}this.cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),mats);this.cube.castShadow=true;this.cube.receiveShadow=true;this.scene.add(this.cube);window.addEventListener('resize',()=>{this.camera.aspect=window.innerWidth/window.innerHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(window.innerWidth,window.innerHeight);});this.animate();},createDiceTexture(n){const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#f8f9fa';x.fillRect(0,0,512,512);x.strokeStyle='#dee2e6';x.lineWidth=20;x.strokeRect(0,0,512,512);x.fillStyle=(n===1)?'#e74c3c':'#2c3e50';x.shadowColor="rgba(0,0,0,0.2)";x.shadowBlur=10;x.shadowOffsetX=4;x.shadowOffsetY=4;const r=50,cen=256,o=120;const d=(u,v)=>{x.beginPath();x.arc(u,v,r,0,Math.PI*2);x.fill();};if(n===1)d(cen,cen);if(n===2){d(cen-o,cen-o);d(cen+o,cen+o);}if(n===3){d(cen-o,cen-o);d(cen,cen);d(cen+o,cen+o);}if(n===4){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===5){d(cen-o,cen-o);d(cen+o,cen-o);d(cen,cen);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===6){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen);d(cen+o,cen);d(cen-o,cen+o);d(cen+o,cen+o);}return new THREE.CanvasTexture(c);},animate(){requestAnimationFrame(()=>this.animate());if(!this.isRolling&&!this.container.classList.contains('active')){this.cube.rotation.y+=0.005;}if(this.renderer&&this.scene&&this.camera)this.renderer.render(this.scene,this.camera);},async roll(n){return new Promise((res)=>{this.container.classList.add('active');SynthEngine.playRoll();let tr={x:0,y:0,z:0};switch(n){case 1:tr={x:0,y:-Math.PI/2,z:0};break;case 2:tr={x:0,y:Math.PI/2,z:0};break;case 3:tr={x:Math.PI/2,y:0,z:0};break;case 4:tr={x:-Math.PI/2,y:0,z:0};break;case 5:tr={x:0,y:0,z:0};break;case 6:tr={x:Math.PI,y:0,z:0};break;}const sr={x:this.cube.rotation.x%(Math.PI*2),y:this.cube.rotation.y%(Math.PI*2),z:this.cube.rotation.z%(Math.PI*2)};const er={x:tr.x+Math.PI*4,y:tr.y+Math.PI*4,z:tr.z+Math.PI*2};const st=Date.now();const dur=1200;let hb1=false;let hb2=false;const set=()=>{const now=Date.now();const p=Math.min((now-st)/dur,1);const e=1-Math.pow(1-p,4);this.cube.rotation.x=sr.x+(er.x-sr.x)*e;this.cube.rotation.y=sr.y+(er.y-sr.y)*e;this.cube.rotation.z=sr.z+(er.z-sr.z)*e;let y=0;if(p<0.35){y=12*(1-(p/0.35)*(p/0.35));}else if(p<0.7){if(!hb1){SynthEngine.playImpact();hb1=true;}const t=(p-0.35)/0.35;y=3.0*(1-(2*t-1)*(2*t-1));}else if(p<0.9){if(!hb2){SynthEngine.playImpact();hb2=true;}const t=(p-0.7)/0.2;y=1.0*(1-(2*t-1)*(2*t-1));}this.cube.position.y=y;if(p<1){requestAnimationFrame(set);}else{if(n===6)SynthEngine.playSix();if(diceResultText){diceResultText.innerText=`${n} 點!`;diceResultText.classList.add('show');}setTimeout(()=>{this.container.classList.remove('active');if(diceResultText)diceResultText.classList.remove('show');res();},1200);}};set();});}};
 ThreeDice.init();
 
 const ConfettiManager = {
     shoot() {
         SynthEngine.playConfettiPop();
-        const duration = 3000;
-        const end = Date.now() + duration;
+        const duration = 3000; const end = Date.now() + duration;
         (function frame() {
             confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
             confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
@@ -459,17 +340,15 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if(isMe) gameMsg.innerText = "😱 糟了！踩到陷阱！";
         else gameMsg.innerText = "😱 哎呀！他踩到陷阱了！";
         
-        // ❌ 這裡不先還原，改到動畫裡
-        await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); // 傳入 initialLandPos 讓函式內還原
+        await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); 
     
     } else if (triggerType === 'FATE') {
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
         else gameMsg.innerText = "❓ 觸發了命運機會...";
         
-        restoreTile(playerId, initialLandPos); // 問號還是直接還原比較好，因為要彈卡牌了
+        restoreTile(playerId, initialLandPos);
         showFateCard(fateResult);
         await wait(2500); 
-
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
         
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
@@ -491,13 +370,11 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         await wait(500);
         gameMsg.innerText = "😱 天啊！剛好掉進洞裡！";
         
-        // 連鎖陷阱的還原也放進動畫函式
         await playTrapAnimation(img, playerId, newPos, charType, trapPos);
     }
 
     AvatarManager.movingStatus[playerId] = false;
     if (newPos >= 21) { 
-        // 🔥 這裡才播放勝利音效
         SynthEngine.playVictoryGrand();
         AvatarManager.setState(playerId, 'win', charType); 
     } 
@@ -527,16 +404,6 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
-function showFateCard(amount) {
-    // 🔥 新增：音效
-    SynthEngine.playPopup();
-    if(!fateOverlay) return;
-    if (amount > 0) { fateCardBody.className = "fate-card fate-positive"; fateIcon.innerText = "🚀"; fateTitle.innerText = "好運降臨"; fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`; } 
-    else { fateCardBody.className = "fate-card fate-negative"; fateIcon.innerText = "🌪️"; fateTitle.innerText = "厄運纏身"; fateDesc.innerText = `後退 ${Math.abs(amount)} 格...`; }
-    fateOverlay.classList.add('show'); setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
-}
-
 // 🔥 修正：陷阱動畫，加入 restoreTile 參數
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
@@ -561,6 +428,16 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.style.opacity = '1';
         img.style.transform = 'none';
     }
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function showFateCard(amount) {
+    // 🔥 新增：音效
+    SynthEngine.playPopup();
+    if(!fateOverlay) return;
+    if (amount > 0) { fateCardBody.className = "fate-card fate-positive"; fateIcon.innerText = "🚀"; fateTitle.innerText = "好運降臨"; fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`; } 
+    else { fateCardBody.className = "fate-card fate-negative"; fateIcon.innerText = "🌪️"; fateTitle.innerText = "厄運纏身"; fateDesc.innerText = `後退 ${Math.abs(amount)} 格...`; }
+    fateOverlay.classList.add('show'); setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
 }
 
 socket.on('player_finished_rank', ({ player, rank }) => {
@@ -607,11 +484,37 @@ socket.on('game_over', ({ rankings }) => {
     }, 4000);
 });
 socket.on('force_reload', () => { location.reload(); });
+
+// 🔥 核心修正：加入 ID 比對，若順序不同強制重建
 function renderTracks(players) {
+    if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
-    if (existingRows.length !== players.length) { trackContainer.innerHTML = ''; players.forEach(p => createRow(p)); } 
-    else { players.forEach((p, index) => { const row = existingRows[index]; updateRow(row, p); }); }
+    
+    // 檢查是否需要重建：數量不同 OR 順序不同
+    let needRebuild = false;
+    if (existingRows.length !== players.length) {
+        needRebuild = true;
+    } else {
+        // 逐一檢查 ID 是否對應
+        for (let i = 0; i < players.length; i++) {
+            if (existingRows[i].dataset.id !== players[i].id) {
+                needRebuild = true;
+                break;
+            }
+        }
+    }
+
+    if (needRebuild) {
+        trackContainer.innerHTML = '';
+        players.forEach(p => createRow(p));
+    } else {
+        players.forEach((p, index) => {
+            const row = existingRows[index];
+            updateRow(row, p);
+        });
+    }
 }
+
 function createRow(p) {
     PLAYER_POSITIONS[p.id] = p.position;
     const row = document.createElement('div');
@@ -646,8 +549,19 @@ function createRow(p) {
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
+    
+    // 清除可能殘留的
+    cells.forEach(cell => {
+       if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
+           // 這裡不做清除，由 createRow/server 控制，或者只在必要時清除
+           // 簡化邏輯：updateRow 主要負責移動，特殊格圖案的「生成」交給 rebuild
+           // 但因為我們要即時顯示，所以這裡還是要檢查
+       }
+    });
+
     if (p.trapIndex !== -1) { const cell = cells[p.trapIndex]; if (cell && !cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')"; }
     if (p.fateIndices) { p.fateIndices.forEach(idx => { const cell = cells[idx]; if (cell && !cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')"; }); }
+    
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
