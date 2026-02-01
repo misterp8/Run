@@ -47,12 +47,20 @@
                 <div style="font-size:0.8rem; color:#ccc; margin-top:5px;">線上人數: <span id="player-count">0</span>/8</div>
             </div>
 
-            <div class="game-options">
+            <div class="game-options" style="display:flex; flex-direction:column; align-items:flex-start; gap:5px;">
                 <label class="toggle-label">
-                    <input type="checkbox" id="chk-trap"> 🕳️ 陷阱
+                    <input type="checkbox" id="chk-trap"> 🕳️ 陷阱 (前半段)
                 </label>
                 <label class="toggle-label">
-                    <input type="checkbox" id="chk-fate"> ❓ 命運
+                    ❓ 命運: 
+                    <select id="sel-fate-count" style="margin-left:5px; padding:2px; font-size:1rem;">
+                        <option value="0">關閉</option>
+                        <option value="1">1個</option>
+                        <option value="2">2個</option>
+                        <option value="3">3個</option>
+                        <option value="4">4個</option>
+                        <option value="5">5個</option>
+                    </select>
                 </label>
             </div>
 

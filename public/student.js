@@ -48,7 +48,6 @@ const SynthEngine = {
         else{ if (startBtn && !startBtn.disabled) this.playBGM(); btn.innerText="🔊"; btn.style.background="#fff"; }
     },
     
-    // 基礎音效
     playImpact() {
         if(this.isMuted||!this.ctx)return;
         const t=this.ctx.currentTime;
@@ -101,7 +100,6 @@ const SynthEngine = {
             o.start(t + i*0.1); o.stop(t + i*0.1 + 0.3);
         });
     },
-    // 🔥 震撼銅管
     playVictoryGrand() {
         if(this.isMuted||!this.ctx)return;
         this.stopBGM();
@@ -123,7 +121,6 @@ const SynthEngine = {
         kGain.gain.setValueAtTime(0.8, t); kGain.gain.exponentialRampToValueAtTime(0.01, t+0.5);
         kick.connect(kGain); kGain.connect(this.ctx.destination); kick.start(t); kick.stop(t+0.5);
     },
-    // 🔥 彩帶音效
     playConfettiPop() {
         if(this.isMuted||!this.ctx)return;
         const t = this.ctx.currentTime;
@@ -135,6 +132,19 @@ const SynthEngine = {
             g.gain.setValueAtTime(0.1, t + i*0.05); g.gain.exponentialRampToValueAtTime(0.01, t + i*0.05 + 0.1);
             o.connect(g); g.connect(this.ctx.destination); o.start(t + i*0.05); o.stop(t + i*0.05 + 0.2);
         }
+    },
+    // 🔥 新增：彈出音效
+    playPopup() {
+        if(this.isMuted||!this.ctx)return;
+        const t = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(600, t);
+        o.frequency.linearRampToValueAtTime(1200, t + 0.1); 
+        g.gain.setValueAtTime(0.2, t);
+        g.gain.linearRampToValueAtTime(0, t + 0.1);
+        o.connect(g); g.connect(this.ctx.destination);
+        o.start(t); o.stop(t + 0.1);
     },
     playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
     stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
@@ -264,9 +274,7 @@ ThreeDice.init();
 
 const ConfettiManager = {
     shoot() {
-        // 🔥 播放彩帶音效
         SynthEngine.playConfettiPop();
-        
         const duration = 3000;
         const end = Date.now() + duration;
         (function frame() {
@@ -392,6 +400,7 @@ socket.on('game_reset_positions', () => {
     SynthEngine.stopBGM();
 });
 socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
+    if(orderList) { const rows = orderList.querySelectorAll('div'); rows.forEach(r => r.classList.remove('order-active')); if(rows[turnIndex]) rows[turnIndex].classList.add('order-active'); }
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
@@ -403,88 +412,48 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
             if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle', img.dataset.char);
         }
     });
-    gameMsg.style.color = "#f1c40f";
-    if (nextPlayerId === myId) {
-        rollBtn.removeAttribute('disabled');
-        rollBtn.disabled = false;
-        rollBtn.innerText = "🎲 輪到你了！按此擲骰";
-        rollBtn.className = "board-btn btn-green"; 
-        rollBtn.style.cursor = "pointer";
-        gameMsg.innerText = `👉 輪到你了！`;
-    } else {
-        rollBtn.setAttribute('disabled', 'true');
-        rollBtn.disabled = true;
-        rollBtn.innerText = "等待其他玩家...";
-        rollBtn.className = "board-btn btn-grey"; 
-        rollBtn.style.cursor = "not-allowed";
-        gameMsg.innerText = `⏳ 等待 ${playerName} 擲骰...`;
-    }
-});
-rollBtn.addEventListener('click', () => {
-    if (rollBtn.disabled) return;
-    socket.emit('action_roll');
-    rollBtn.disabled = true;
-    rollBtn.innerText = "📡 傳送中...";
-    rollBtn.className = "board-btn btn-grey";
+    if(liveMsg) { liveMsg.innerText = `👉 輪到 ${playerName}`; liveMsg.style.color = "#f1c40f"; }
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
     await ThreeDice.roll(roll);
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
-    const isMe = (playerId === myId);
-    if (isMe) { gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`; } else {
-        const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
-        const name = nameTag ? nameTag.innerText : '對手';
-        gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`;
-    }
+    const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
+    const playerName = nameTag ? nameTag.innerText : '未知玩家';
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
+    if (liveMsg && playerName) liveMsg.innerText = `${playerName} 擲出了 ${roll} 點!`;
 
     await moveAvatar(playerId, initialLandPos, charType);
 
     if (triggerType === 'TRAP') {
-        if(isMe) gameMsg.innerText = "😱 糟了！踩到陷阱！";
-        else gameMsg.innerText = "😱 哎呀！他踩到陷阱了！";
-        
-        // ❌ 這裡不先還原，改到動畫裡
-        await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); // 傳入 initialLandPos 讓函式內還原
+        if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 ${playerName} 踩到了陷阱！</span>`;
+        await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); 
     
     } else if (triggerType === 'FATE') {
-        if(isMe) gameMsg.innerText = "❓ 命運時刻...";
-        else gameMsg.innerText = "❓ 觸發了命運機會...";
-        
-        restoreTile(playerId, initialLandPos); // 問號還是直接還原比較好，因為要彈卡牌了
+        if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會！</span>`;
+        restoreTile(playerId, initialLandPos);
         showFateCard(fateResult);
         await wait(2500); 
-
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        
-        const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
-        gameMsg.innerText = `🃏 結果：${moveText}`;
+        if (liveMsg) liveMsg.innerText = `移動 ${fateResult} 格！`;
         await moveAvatar(playerId, newPos, charType);
 
     } else if (triggerType === 'FATE_TRAP') {
-        if(isMe) gameMsg.innerText = "❓ 命運時刻...";
-        
+        if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會...</span>`;
         restoreTile(playerId, initialLandPos);
         showFateCard(fateResult);
         await wait(2500);
-
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
         gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
-        
         await moveAvatar(playerId, trapPos, charType);
         await wait(500);
-        gameMsg.innerText = "😱 天啊！剛好掉進洞裡！";
-        
-        // 連鎖陷阱的還原也放進動畫函式
+        if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
         await playTrapAnimation(img, playerId, newPos, charType, trapPos);
     }
-
     AvatarManager.movingStatus[playerId] = false;
     if (newPos >= 21) { 
-        // 🔥 這裡才播放勝利音效
         SynthEngine.playVictoryGrand();
         AvatarManager.setState(playerId, 'win', charType); 
     } 
@@ -516,6 +485,8 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 function showFateCard(amount) {
+    // 🔥 新增：音效
+    SynthEngine.playPopup();
     if(!fateOverlay) return;
     if (amount > 0) { fateCardBody.className = "fate-card fate-positive"; fateIcon.innerText = "🚀"; fateTitle.innerText = "好運降臨"; fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`; } 
     else { fateCardBody.className = "fate-card fate-negative"; fateIcon.innerText = "🌪️"; fateTitle.innerText = "厄運纏身"; fateDesc.innerText = `後退 ${Math.abs(amount)} 格...`; }
@@ -558,7 +529,6 @@ socket.on('player_finished_rank', ({ player, rank }) => {
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
-        // 🔥 使用新版震撼音效
         SynthEngine.playVictoryGrand();
         rollBtn.classList.add('hidden');
         gameMsg.innerText = `🏆 遊戲結束！`;
@@ -575,6 +545,8 @@ socket.on('game_over', ({ rankings }) => {
                 rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
+            // 🔥 新增：音效
+            SynthEngine.playPopup();
             showModal("🏆 榮譽榜 🏆", rankHtml);
             if(modalContent) modalContent.classList.add('premium-modal'); 
             let toggle = false;
@@ -604,7 +576,8 @@ function createRow(p) {
         const cell = document.createElement('div');
         cell.className = 'grid-cell';
         if (p.trapIndex !== -1 && i === p.trapIndex) cell.style.backgroundImage = "url('images/map_hole.png')";
-        else if (p.fateIndex !== -1 && i === p.fateIndex) cell.style.backgroundImage = "url('images/map_question.png')";
+        // 🔥 修改：支援多問號
+        else if (p.fateIndices && p.fateIndices.includes(i)) cell.style.backgroundImage = "url('images/map_question.png')";
         row.appendChild(cell);
     }
     const avatarContainer = document.createElement('div');
@@ -630,7 +603,15 @@ function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     if (p.trapIndex !== -1) { const cell = cells[p.trapIndex]; if (cell && !cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')"; }
-    if (p.fateIndex !== -1) { const cell = cells[p.fateIndex]; if (cell && !cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')"; }
+    
+    // 🔥 修改：支援多問號更新
+    if (p.fateIndices) {
+        p.fateIndices.forEach(idx => {
+            const cell = cells[idx]; 
+            if (cell && !cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
+        });
+    }
+
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
