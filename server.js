@@ -174,21 +174,19 @@ io.on('connection', (socket) => {
         let triggerType = 'NORMAL'; 
         let fateResult = 0; 
         
-        // 暫存陷阱位置，因為下面清空後，回傳給前端會找不到
         const triggeredTrapPos = currentPlayer.trapIndex; 
 
-        // 2. 判斷事件 (🔥 修正：觸發後立即設為 -1，變成普通跑道)
+        // 2. 判斷事件 
         if (gameState.config.enableTraps && tempPos === currentPlayer.trapIndex) {
             triggerType = 'TRAP';
-            finalPos = 0; 
-            currentPlayer.trapIndex = -1; // 消耗掉陷阱
+            finalPos = 1; // 🔥 修改：陷阱掉下去後，回到第 2 格 (Index 1)
+            currentPlayer.trapIndex = -1; 
         } 
         else if (gameState.config.enableFate && tempPos === currentPlayer.fateIndex) {
             triggerType = 'FATE';
             const fateOptions = [-3, -2, -1, 1, 2, 3];
             fateResult = fateOptions[Math.floor(Math.random() * fateOptions.length)];
             
-            // 消耗掉這個問號
             currentPlayer.fateIndex = -1;
 
             let afterFatePos = tempPos + fateResult;
@@ -198,8 +196,8 @@ io.on('connection', (socket) => {
             // 連鎖反應：命運後踩到陷阱
             if (gameState.config.enableTraps && afterFatePos === currentPlayer.trapIndex) {
                 triggerType = 'FATE_TRAP';
-                finalPos = 0;
-                currentPlayer.trapIndex = -1; // 連鎖的陷阱也被消耗掉
+                finalPos = 1; // 🔥 修改：連鎖陷阱也回到第 2 格
+                currentPlayer.trapIndex = -1; 
             } else {
                 finalPos = afterFatePos;
             }
@@ -214,7 +212,6 @@ io.on('connection', (socket) => {
             initialLandPos: tempPos,
             triggerType: triggerType,
             fateResult: fateResult,
-            // 確保回傳正確的陷阱位置給前端做動畫
             trapPos: (triggerType === 'FATE_TRAP') ? triggeredTrapPos : -1 
         });
 
