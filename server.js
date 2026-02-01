@@ -45,32 +45,36 @@ io.on('connection', (socket) => {
     socket.on('admin_start_game', (options) => {
         if (gameState.players.length < 1) return;
         
+        // 1. 設定參數
         gameState.config.enableTraps = options?.enableTraps || false;
         gameState.config.fateCount = parseInt(options?.fateCount || 0);
 
         gameState.status = 'PLAYING';
         gameState.turnIndex = 0;
         gameState.rankings = []; 
+        gameState.players.forEach(p => p.position = 0);
         globalLastRoll = 0; 
 
-        // 🔥 核心修正：直接對 gameState.players 進行亂數排序 (洗牌)
+        // 2. 🔥 關鍵修正：伺服器端洗牌
         gameState.players.sort(() => 0.5 - Math.random());
 
-        // 初始化玩家狀態
+        // 3. 初始化地圖與特殊格
         gameState.players.forEach(p => { 
             p.position = 0;
             p.trapIndex = -1;
             p.fateIndices = []; 
 
+            // 陷阱：前半段 (2 ~ 10 格)
             if (gameState.config.enableTraps) {
                 p.trapIndex = Math.floor(Math.random() * 9) + 2; 
             }
 
+            // 命運：生成 1~5 個
             if (gameState.config.fateCount > 0) {
                 let attempts = 0;
                 while (p.fateIndices.length < gameState.config.fateCount && attempts < 50) {
                     attempts++;
-                    let fIdx = Math.floor(Math.random() * 16) + 2;
+                    let fIdx = Math.floor(Math.random() * 16) + 2; // 2 ~ 17
                     if (fIdx !== p.trapIndex && !p.fateIndices.includes(fIdx)) {
                         p.fateIndices.push(fIdx);
                     }
@@ -78,15 +82,16 @@ io.on('connection', (socket) => {
             }
         });
 
-        // 🔥 重要：洗牌後，要告訴前端「最新的玩家順序」(更新跑道順序)
-        io.emit('update_player_list', gameState.players);
-
-        // 顯示抽籤動畫 (這時候順序已經同步了)
+        // 4. 🔥 廣播新的順序與狀態給前端 (確保畫面與邏輯一致)
+        io.emit('update_player_list', gameState.players); 
         io.emit('show_initiative', gameState.players);
 
+        // 5. 倒數後開始
         setTimeout(() => {
-            io.emit('game_start');
+            console.log("Game Starting... First player:", gameState.players[0]?.name);
+            // 🔥 再同步一次，確保萬無一失
             io.emit('update_game_state', gameState);
+            io.emit('game_start');
             notifyNextTurn();
         }, 3000);
     });
@@ -148,20 +153,21 @@ io.on('connection', (socket) => {
             joinTime: Date.now(),
             position: 0,
             trapIndex: -1,
-            fateIndices: [], 
+            fateIndices: [],
             isReady: true
         };
 
         gameState.players.push(newPlayer);
-        // 大廳期間保持加入順序，開始遊戲時才會洗牌
-        // gameState.players.sort((a, b) => a.joinTime - b.joinTime); 
-
+        // 注意：這裡不排序，保持加入順序，直到 Start 才會洗牌
         io.emit('update_player_list', gameState.players);
     });
 
     socket.on('action_roll', () => {
         const currentPlayer = gameState.players[gameState.turnIndex];
-        if (!currentPlayer || currentPlayer.id !== socket.id) return;
+        
+        // Debug Log
+        if (!currentPlayer) { console.log("Error: No current player found"); return; }
+        if (currentPlayer.id !== socket.id) { console.log(`Roll rejected: Expected ${currentPlayer.name}, got ${socket.id}`); return; }
         if (gameState.status !== 'PLAYING') return;
 
         let roll = Math.floor(Math.random() * 6) + 1;
@@ -181,9 +187,10 @@ io.on('connection', (socket) => {
         
         const triggeredTrapPos = currentPlayer.trapIndex; 
 
+        // 判斷事件
         if (gameState.config.enableTraps && tempPos === currentPlayer.trapIndex) {
             triggerType = 'TRAP';
-            finalPos = 1; 
+            finalPos = 1; // 🔥 修正：掉落後回到第 2 格 (Index 1)
             currentPlayer.trapIndex = -1; 
         } 
         else if (currentPlayer.fateIndices.includes(tempPos)) {
@@ -191,6 +198,7 @@ io.on('connection', (socket) => {
             const fateOptions = [-3, -2, -1, 1, 2, 3];
             fateResult = fateOptions[Math.floor(Math.random() * fateOptions.length)];
             
+            // 移除觸發的問號
             currentPlayer.fateIndices = currentPlayer.fateIndices.filter(idx => idx !== tempPos);
 
             let afterFatePos = tempPos + fateResult;
@@ -199,7 +207,7 @@ io.on('connection', (socket) => {
 
             if (gameState.config.enableTraps && afterFatePos === currentPlayer.trapIndex) {
                 triggerType = 'FATE_TRAP';
-                finalPos = 1; 
+                finalPos = 1; // 連鎖陷阱也回到第 2 格
                 currentPlayer.trapIndex = -1; 
             } else {
                 finalPos = afterFatePos;
@@ -290,6 +298,7 @@ function notifyNextTurn() {
             gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
             attempts++;
         } else {
+            console.log(`Turn Update: ${currentPlayer.name} (ID: ${currentPlayer.id})`); // Debug
             io.emit('update_turn', { 
                 turnIndex: gameState.turnIndex, 
                 nextPlayerId: currentPlayer.id, 
