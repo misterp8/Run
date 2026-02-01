@@ -10,11 +10,11 @@ const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
 
-// Modal 相關
+// Modal 相關 (學生端專用 ID)
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
-const modalBtn = document.getElementById('modal-btn'); 
+const modalBtn = document.getElementById('modal-btn'); // 學生端只有這一個按鈕
 const modalContent = document.querySelector('.modal-content');
 
 const diceResultText = document.getElementById('dice-result-text'); 
@@ -364,6 +364,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     else { AvatarManager.setState(playerId, 'idle', charType); }
 });
 
+// 🔥 新增：命運踩踏特效輔助函式
 function highlightFateTile(playerId, tileIndex) {
     if(!trackContainer) return;
     const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
