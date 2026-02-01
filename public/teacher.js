@@ -115,7 +115,6 @@ const SynthEngine = {
             o.start(t + i*0.1); o.stop(t + i*0.1 + 0.3);
         });
     },
-    // 🔥 震撼銅管
     playVictoryGrand() {
         if(this.isMuted||!this.ctx)return;
         this.stopBGM();
@@ -137,7 +136,6 @@ const SynthEngine = {
         kGain.gain.setValueAtTime(0.8, t); kGain.gain.exponentialRampToValueAtTime(0.01, t+0.5);
         kick.connect(kGain); kGain.connect(this.ctx.destination); kick.start(t); kick.stop(t+0.5);
     },
-    // 🔥 彩帶音效
     playConfettiPop() {
         if(this.isMuted||!this.ctx)return;
         const t = this.ctx.currentTime;
@@ -278,9 +276,7 @@ ThreeDice.init();
 
 const ConfettiManager = {
     shoot() {
-        // 🔥 播放彩帶音效
         SynthEngine.playConfettiPop();
-        
         const duration = 3000;
         const end = Date.now() + duration;
         (function frame() {
@@ -448,8 +444,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
 
     if (triggerType === 'TRAP') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 ${playerName} 踩到了陷阱！</span>`;
-        // ❌ 移除這行的 restoreTile (移動到動畫函式內)
-        await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); // 傳入 initialLandPos
+        await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); 
     
     } else if (triggerType === 'FATE') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會！</span>`;
@@ -466,15 +461,21 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         showFateCard(fateResult);
         await wait(2500);
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        if (liveMsg) liveMsg.innerText = `移動 ${fateResult} 格...`;
+        const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
+        gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
         await moveAvatar(playerId, trapPos, charType);
         await wait(500);
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
         await playTrapAnimation(img, playerId, newPos, charType, trapPos);
     }
     AvatarManager.movingStatus[playerId] = false;
-    if (newPos >= 21) { AvatarManager.setState(playerId, 'win', charType); } 
-    else { AvatarManager.setState(playerId, 'idle', charType); }
+    if (newPos >= 21) { 
+        // 🔥 這裡才播放勝利音效
+        SynthEngine.playVictoryGrand();
+        AvatarManager.setState(playerId, 'win', charType); 
+    } else { 
+        AvatarManager.setState(playerId, 'idle', charType); 
+    }
 });
 
 function moveAvatar(playerId, targetPos, charType, instant = false) {
@@ -500,7 +501,15 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
-// 🔥 修正：陷阱動畫，加入 restoreTile 參數
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function showFateCard(amount) {
+    if(!fateOverlay) return;
+    if (amount > 0) { fateCardBody.className = "fate-card fate-positive"; fateIcon.innerText = "🚀"; fateTitle.innerText = "好運降臨"; fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`; } 
+    else { fateCardBody.className = "fate-card fate-negative"; fateIcon.innerText = "🌪️"; fateTitle.innerText = "厄運纏身"; fateDesc.innerText = `後退 ${Math.abs(amount)} 格...`; }
+    fateOverlay.classList.add('show'); setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
+}
+
+// 🔥 修正：陷阱動畫，加入等待與還原邏輯
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -512,7 +521,8 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     }
     await wait(800);
 
-    // 🔥 核心修正：這時候才把地板變回跑道
+    // 🔥 核心修正：多等 0.5 秒再還原地板
+    await wait(500);
     restoreTile(playerId, trapTileIndex);
 
     // 重置回起點
@@ -525,17 +535,9 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     }
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
-function showFateCard(amount) {
-    if(!fateOverlay) return;
-    if (amount > 0) { fateCardBody.className = "fate-card fate-positive"; fateIcon.innerText = "🚀"; fateTitle.innerText = "好運降臨"; fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`; } 
-    else { fateCardBody.className = "fate-card fate-negative"; fateIcon.innerText = "🌪️"; fateTitle.innerText = "厄運纏身"; fateDesc.innerText = `後退 ${Math.abs(amount)} 格...`; }
-    fateOverlay.classList.add('show'); setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
-}
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
-        // 🔥 使用新版震撼音效
-        SynthEngine.playVictoryGrand(); 
+        // ❌ 移除音效
         AvatarManager.setState(player.id, 'win', player.avatarChar);
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 100); 
@@ -543,7 +545,6 @@ socket.on('player_finished_rank', ({ player, rank }) => {
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
-        // 🔥 使用新版震撼音效
         SynthEngine.playVictoryGrand();
         rollBtn.classList.add('hidden');
         gameMsg.innerText = `🏆 遊戲結束！`;
@@ -572,7 +573,7 @@ socket.on('game_over', ({ rankings }) => {
                 });
             }, 400);
         }, 3000);
-    }, 100); 
+    }, 4000);
 });
 socket.on('force_reload', () => { location.reload(); });
 startBtn.addEventListener('click', () => {

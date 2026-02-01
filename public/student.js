@@ -37,7 +37,7 @@ function preloadImages() {
 }
 preloadImages();
 
-// --- 🎹 SynthEngine Pro (音效升級版) ---
+// --- 🎹 SynthEngine Pro ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
     init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
@@ -101,85 +101,47 @@ const SynthEngine = {
             o.start(t + i*0.1); o.stop(t + i*0.1 + 0.3);
         });
     },
-
-    // 🔥 新增：震撼的勝利銅管 (Grand Victory)
+    // 🔥 震撼銅管
     playVictoryGrand() {
         if(this.isMuted||!this.ctx)return;
         this.stopBGM();
         const t = this.ctx.currentTime;
-        
-        // C Major Chord Stabs (C, E, G, C) - 模擬銅管樂 (Sawtooth)
         const chord = [261.63, 329.63, 392.00, 523.25];
-        
-        // 節奏：咚-咚-咚-長音
         const rhythm = [0, 0.15, 0.3, 0.45]; 
         const lengths = [0.1, 0.1, 0.1, 2.0];
-
         rhythm.forEach((startTime, idx) => {
-            chord.forEach((freq, i) => {
-                const o = this.ctx.createOscillator();
-                const g = this.ctx.createGain();
-                
-                // 使用鋸齒波增加厚度與霸氣
-                o.type = 'sawtooth';
-                
-                // 輕微走音 (Detune) 讓聲音更像真實樂團
-                o.frequency.value = freq + (Math.random() * 2 - 1); 
-                
-                const st = t + startTime;
-                const dur = lengths[idx];
-
-                // 音量包絡 (ADSR)
-                g.gain.setValueAtTime(0, st);
-                g.gain.linearRampToValueAtTime(0.2, st + 0.05); // Attack
-                g.gain.exponentialRampToValueAtTime(0.001, st + dur); // Decay/Release
-
-                o.connect(g);
-                g.connect(this.ctx.destination);
-                o.start(st);
-                o.stop(st + dur);
+            chord.forEach((freq) => {
+                const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+                o.type = 'sawtooth'; o.frequency.value = freq + (Math.random()*2-1); 
+                const st = t + startTime; const dur = lengths[idx];
+                g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(0.2, st + 0.05); g.gain.exponentialRampToValueAtTime(0.001, st + dur);
+                o.connect(g); g.connect(this.ctx.destination); o.start(st); o.stop(st + dur);
             });
         });
-
-        // 加一個低音大鼓效果
-        const kick = this.ctx.createOscillator();
-        const kGain = this.ctx.createGain();
-        kick.frequency.setValueAtTime(150, t);
-        kick.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
-        kGain.gain.setValueAtTime(0.8, t);
-        kGain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
-        kick.connect(kGain); kGain.connect(this.ctx.destination);
-        kick.start(t); kick.stop(t + 0.5);
+        const kick = this.ctx.createOscillator(); const kGain = this.ctx.createGain();
+        kick.frequency.setValueAtTime(150, t); kick.frequency.exponentialRampToValueAtTime(0.01, t+0.5);
+        kGain.gain.setValueAtTime(0.8, t); kGain.gain.exponentialRampToValueAtTime(0.01, t+0.5);
+        kick.connect(kGain); kGain.connect(this.ctx.destination); kick.start(t); kick.stop(t+0.5);
     },
-
-    // 🔥 新增：噴彩帶音效 (Pop / Fizz)
+    // 🔥 彩帶音效
     playConfettiPop() {
         if(this.isMuted||!this.ctx)return;
         const t = this.ctx.currentTime;
-        
-        // 產生 5 個隨機的高頻滑音，模擬發射聲
         for(let i=0; i<5; i++) {
-            const o = this.ctx.createOscillator();
-            const g = this.ctx.createGain();
+            const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
             o.type = 'square';
             const startFreq = 800 + Math.random() * 500;
-            o.frequency.setValueAtTime(startFreq, t + i*0.05);
-            o.frequency.exponentialRampToValueAtTime(100, t + i*0.05 + 0.2);
-            
-            g.gain.setValueAtTime(0.1, t + i*0.05);
-            g.gain.exponentialRampToValueAtTime(0.01, t + i*0.05 + 0.1);
-            
-            o.connect(g); g.connect(this.ctx.destination);
-            o.start(t + i*0.05); o.stop(t + i*0.05 + 0.2);
+            o.frequency.setValueAtTime(startFreq, t + i*0.05); o.frequency.exponentialRampToValueAtTime(100, t + i*0.05 + 0.2);
+            g.gain.setValueAtTime(0.1, t + i*0.05); g.gain.exponentialRampToValueAtTime(0.01, t + i*0.05 + 0.1);
+            o.connect(g); g.connect(this.ctx.destination); o.start(t + i*0.05); o.stop(t + i*0.05 + 0.2);
         }
     },
-
     playBGM(){ if (this.isMuted || this.bgmInterval || !this.ctx) return; const sequence = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 293.66, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66, 0]; let step = 0; this.bgmInterval = setInterval(() => { if (this.ctx.state === 'suspended') this.ctx.resume(); const freq = sequence[step % sequence.length]; if (freq > 0) { const t = this.ctx.currentTime; const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine'; osc.frequency.value = freq / 2; gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3); osc.connect(gain); gain.connect(this.ctx.destination); osc.start(t); osc.stop(t + 0.3); } step++; }, 250); },
     stopBGM(){ if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;} }
 };
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
-// --- 3D Dice (不變) ---
+// --- 3D Dice ---
 const ThreeDice = {
     container: document.getElementById('dice-3d-container'),
     scene: null, camera: null, renderer: null, cube: null,
@@ -303,7 +265,7 @@ ThreeDice.init();
 const ConfettiManager = {
     shoot() {
         // 🔥 播放彩帶音效
-        SynthEngine.playConfettiPop(); 
+        SynthEngine.playConfettiPop();
         
         const duration = 3000;
         const end = Date.now() + duration;
@@ -424,11 +386,9 @@ socket.on('game_reset_positions', () => {
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     modalOverlay.classList.add('hidden');
-    gameMsg.innerText = "準備開始新的一局...";
-    rollBtn.classList.remove('hidden');
-    rollBtn.disabled = true;
-    rollBtn.innerText = "等待開始...";
-    rollBtn.className = "board-btn btn-grey";
+    const cells = document.querySelectorAll('.grid-cell');
+    cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
+    startBtn.innerText = "開始遊戲"; startBtn.disabled = false; startBtn.className = "board-btn btn-green";
     SynthEngine.stopBGM();
 });
 socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
@@ -497,8 +457,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         showFateCard(fateResult);
         await wait(2500); 
 
-        if (fateResult > 0) SynthEngine.playHappy();
-        else SynthEngine.playSad();
+        if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
         
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
         gameMsg.innerText = `🃏 結果：${moveText}`;
@@ -511,8 +470,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         showFateCard(fateResult);
         await wait(2500);
 
-        if (fateResult > 0) SynthEngine.playHappy();
-        else SynthEngine.playSad();
+        if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
         gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
         
@@ -525,7 +483,11 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     }
 
     AvatarManager.movingStatus[playerId] = false;
-    if (newPos >= 21) { AvatarManager.setState(playerId, 'win', charType); } 
+    if (newPos >= 21) { 
+        // 🔥 這裡才播放勝利音效
+        SynthEngine.playVictoryGrand();
+        AvatarManager.setState(playerId, 'win', charType); 
+    } 
     else { AvatarManager.setState(playerId, 'idle', charType); }
 });
 
@@ -553,22 +515,11 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
 }
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 function showFateCard(amount) {
     if(!fateOverlay) return;
-    if (amount > 0) {
-        fateCardBody.className = "fate-card fate-positive";
-        fateIcon.innerText = "🚀";
-        fateTitle.innerText = "好運降臨";
-        fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`;
-    } else {
-        fateCardBody.className = "fate-card fate-negative";
-        fateIcon.innerText = "🌪️";
-        fateTitle.innerText = "厄運纏身";
-        fateDesc.innerText = `後退 ${Math.abs(amount)} 格...`;
-    }
-    fateOverlay.classList.add('show');
-    setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
+    if (amount > 0) { fateCardBody.className = "fate-card fate-positive"; fateIcon.innerText = "🚀"; fateTitle.innerText = "好運降臨"; fateDesc.innerText = `前進 ${Math.abs(amount)} 格！`; } 
+    else { fateCardBody.className = "fate-card fate-negative"; fateIcon.innerText = "🌪️"; fateTitle.innerText = "厄運纏身"; fateDesc.innerText = `後退 ${Math.abs(amount)} 格...`; }
+    fateOverlay.classList.add('show'); setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
 }
 
 // 🔥 修正：陷阱動畫，加入 restoreTile 參數
@@ -581,10 +532,10 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.classList.remove('avatar-trap-shake');
         img.classList.add('avatar-trap-fall');
     }
-    // 等待掉落動畫完成
     await wait(800);
 
     // 🔥 核心修正：這時候才把地板變回跑道
+    await wait(500);
     restoreTile(playerId, trapTileIndex);
 
     // 重置回起點
@@ -599,23 +550,19 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
 
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
-        // 🔥 使用新版震撼音效
-        SynthEngine.playVictoryGrand(); 
+        // ❌ 移除音效
         AvatarManager.setState(player.id, 'win', player.avatarChar);
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 100); 
 });
-
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
         // 🔥 使用新版震撼音效
         SynthEngine.playVictoryGrand();
-        
         rollBtn.classList.add('hidden');
         gameMsg.innerText = `🏆 遊戲結束！`;
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
-
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {
@@ -628,10 +575,8 @@ socket.on('game_over', ({ rankings }) => {
                 rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
-            
             showModal("🏆 榮譽榜 🏆", rankHtml);
             if(modalContent) modalContent.classList.add('premium-modal'); 
-
             let toggle = false;
             setInterval(() => {
                 toggle = !toggle;
@@ -641,24 +586,14 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-
         }, 3000);
     }, 4000);
 });
-
 socket.on('force_reload', () => { location.reload(); });
-
 function renderTracks(players) {
     const existingRows = Array.from(trackContainer.children);
-    if (existingRows.length !== players.length) {
-        trackContainer.innerHTML = '';
-        players.forEach(p => createRow(p));
-    } else {
-        players.forEach((p, index) => {
-            const row = existingRows[index];
-            updateRow(row, p);
-        });
-    }
+    if (existingRows.length !== players.length) { trackContainer.innerHTML = ''; players.forEach(p => createRow(p)); } 
+    else { players.forEach((p, index) => { const row = existingRows[index]; updateRow(row, p); }); }
 }
 function createRow(p) {
     PLAYER_POSITIONS[p.id] = p.position;
@@ -694,18 +629,10 @@ function createRow(p) {
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
-    if (p.trapIndex !== -1) {
-        const cell = cells[p.trapIndex];
-        if (cell && !cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')";
-    }
-    if (p.fateIndex !== -1) {
-        const cell = cells[p.fateIndex];
-        if (cell && !cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
-    }
+    if (p.trapIndex !== -1) { const cell = cells[p.trapIndex]; if (cell && !cell.style.backgroundImage.includes('hole')) cell.style.backgroundImage = "url('images/map_hole.png')"; }
+    if (p.fateIndex !== -1) { const cell = cells[p.fateIndex]; if (cell && !cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')"; }
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
-    if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) {
-        avatarContainer.style.left = `${targetLeft}%`;
-    }
+    if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) { avatarContainer.style.left = `${targetLeft}%`; }
 }
