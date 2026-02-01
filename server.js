@@ -16,7 +16,7 @@ let gameState = {
     rankings: [], 
     config: {
         enableTraps: false,
-        enableFate: false
+        fateCount: 0 // 改為數字
     }
 };
 
@@ -42,11 +42,12 @@ io.on('connection', (socket) => {
         socket.emit('update_player_list', gameState.players);
     });
 
+    // --- 修改：接收 fateCount ---
     socket.on('admin_start_game', (options) => {
         if (gameState.players.length < 1) return;
         
         gameState.config.enableTraps = options?.enableTraps || false;
-        gameState.config.enableFate = options?.enableFate || false;
+        gameState.config.fateCount = parseInt(options?.fateCount || 0); // 0-5
 
         gameState.status = 'PLAYING';
         gameState.turnIndex = 0;
@@ -57,22 +58,28 @@ io.on('connection', (socket) => {
         gameState.players.forEach(p => { 
             p.position = 0;
             p.trapIndex = -1;
-            p.fateIndex = -1;
+            p.fateIndices = []; // 🔥 改為陣列，支援多個問號
 
+            // 🔥 邏輯修正：陷阱限定在前半段 (2 ~ 10 格)
+            // 避免學生快贏了還掉下去太挫折
             if (gameState.config.enableTraps) {
-                p.trapIndex = Math.floor(Math.random() * 18) + 3; 
+                p.trapIndex = Math.floor(Math.random() * 9) + 2; 
             }
 
-            if (gameState.config.enableFate) {
-                let fIdx;
+            // 🔥 邏輯修正：生成指定數量的問號 (fateCount)
+            if (gameState.config.fateCount > 0) {
                 let attempts = 0;
-                do {
-                    fIdx = Math.floor(Math.random() * 16) + 2; 
+                while (p.fateIndices.length < gameState.config.fateCount && attempts < 50) {
                     attempts++;
-                } while (fIdx === p.trapIndex && attempts < 10);
-                
-                if (fIdx !== p.trapIndex) {
-                    p.fateIndex = fIdx;
+                    // 問號範圍維持 2~17
+                    let fIdx = Math.floor(Math.random() * 16) + 2;
+                    
+                    // 防重疊檢查：
+                    // 1. 不跟陷阱重疊
+                    // 2. 不跟已有的問號重疊
+                    if (fIdx !== p.trapIndex && !p.fateIndices.includes(fIdx)) {
+                        p.fateIndices.push(fIdx);
+                    }
                 }
             }
         });
@@ -96,7 +103,7 @@ io.on('connection', (socket) => {
         gameState.players.forEach(p => { 
             p.position = 0; 
             p.trapIndex = -1;
-            p.fateIndex = -1;
+            p.fateIndices = [];
         });
         io.emit('game_reset_positions');
         io.emit('update_game_state', gameState);
@@ -108,7 +115,7 @@ io.on('connection', (socket) => {
         gameState.turnIndex = 0;
         gameState.players = [];
         gameState.rankings = [];
-        gameState.config = { enableTraps: false, enableFate: false };
+        gameState.config = { enableTraps: false, fateCount: 0 };
         globalLastRoll = 0;
         io.emit('update_player_list', []);
         io.emit('update_game_state', gameState); 
@@ -144,7 +151,7 @@ io.on('connection', (socket) => {
             joinTime: Date.now(),
             position: 0,
             trapIndex: -1,
-            fateIndex: -1,
+            fateIndices: [], // 初始化陣列
             isReady: true
         };
 
@@ -176,18 +183,20 @@ io.on('connection', (socket) => {
         
         const triggeredTrapPos = currentPlayer.trapIndex; 
 
-        // 2. 判斷事件 
+        // 2. 判斷事件
         if (gameState.config.enableTraps && tempPos === currentPlayer.trapIndex) {
             triggerType = 'TRAP';
-            finalPos = 1; // 🔥 修改：陷阱掉下去後，回到第 2 格 (Index 1)
-            currentPlayer.trapIndex = -1; 
+            finalPos = 1; // 回到第二格
+            currentPlayer.trapIndex = -1; // 消耗陷阱
         } 
-        else if (gameState.config.enableFate && tempPos === currentPlayer.fateIndex) {
+        // 🔥 判斷是否踩到「任一個」命運問號
+        else if (currentPlayer.fateIndices.includes(tempPos)) {
             triggerType = 'FATE';
             const fateOptions = [-3, -2, -1, 1, 2, 3];
             fateResult = fateOptions[Math.floor(Math.random() * fateOptions.length)];
             
-            currentPlayer.fateIndex = -1;
+            // 消耗掉這個特定的問號
+            currentPlayer.fateIndices = currentPlayer.fateIndices.filter(idx => idx !== tempPos);
 
             let afterFatePos = tempPos + fateResult;
             if (afterFatePos < 0) afterFatePos = 0;
@@ -196,7 +205,7 @@ io.on('connection', (socket) => {
             // 連鎖反應：命運後踩到陷阱
             if (gameState.config.enableTraps && afterFatePos === currentPlayer.trapIndex) {
                 triggerType = 'FATE_TRAP';
-                finalPos = 1; // 🔥 修改：連鎖陷阱也回到第 2 格
+                finalPos = 1; 
                 currentPlayer.trapIndex = -1; 
             } else {
                 finalPos = afterFatePos;
