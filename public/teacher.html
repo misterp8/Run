@@ -47,27 +47,25 @@
                 <div style="font-size:0.8rem; color:#ccc; margin-top:5px;">線上人數: <span id="player-count">0</span>/8</div>
             </div>
 
-            <div class="game-options" style="display:flex; flex-direction:column; align-items:flex-start; gap:5px;">
+            <div class="game-options" style="display:flex; flex-direction:column; align-items:flex-start; gap:10px;">
                 <label class="toggle-label">
-                    <input type="checkbox" id="chk-trap"> 🕳️ 陷阱 (前半段)
+                    🕳️ 陷阱 <input type="checkbox" id="chk-trap" style="margin-left: 8px;">
                 </label>
-                <label class="toggle-label">
-                    ❓ 命運: 
-                    <select id="sel-fate-count" style="margin-left:5px; padding:2px; font-size:1rem;">
-                        <option value="0">關閉</option>
+                
+                <label class="toggle-label" style="display:flex; align-items:center;">
+                    ❓ 命運 <input type="checkbox" id="chk-fate" checked style="margin-left: 8px; margin-right: 5px;">
+                    <select id="sel-fate-count" style="padding:2px; font-size:1rem; border-radius:4px; cursor:pointer;">
                         <option value="1">1個</option>
                         <option value="2">2個</option>
                         <option value="3">3個</option>
-                        <option value="4">4個</option>
-                        <option value="5">5個</option>
                     </select>
                 </label>
             </div>
 
             <div class="board-controls">
-                <button id="start-btn" class="board-btn btn-green">開始</button>
+                <button id="start-btn" class="board-btn btn-green">開始遊戲</button>
                 <button id="restart-btn" class="board-btn btn-orange" disabled>下一局</button>
-                <button id="reset-btn" class="board-btn btn-red" style="font-size:1rem; padding:10px;">⚠️</button>
+                <button id="reset-btn" class="board-btn btn-red">⚠️ 重置</button>
             </div>
         </div>
     </div>

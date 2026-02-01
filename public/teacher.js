@@ -11,6 +11,7 @@ const connectionStatus = document.getElementById('connection-status');
 const orderList = document.getElementById('order-list'); 
 
 const chkTrap = document.getElementById('chk-trap');
+const chkFate = document.getElementById('chk-fate'); // 🔥 新增：命運開關
 const selFateCount = document.getElementById('sel-fate-count'); 
 const fateOverlay = document.getElementById('fate-overlay');
 const fateCardBody = document.getElementById('fate-card-body');
@@ -24,6 +25,17 @@ const modalBody = document.getElementById('modal-body');
 const btnConfirm = document.getElementById('modal-btn-confirm');
 const btnCancel = document.getElementById('modal-btn-cancel');
 const modalContent = document.querySelector('.modal-content');
+
+// --- 命運選單連動邏輯 ---
+if (chkFate && selFateCount) {
+    chkFate.addEventListener('change', () => {
+        selFateCount.disabled = !chkFate.checked;
+        selFateCount.style.opacity = chkFate.checked ? "1" : "0.5";
+    });
+    // 初始化狀態
+    selFateCount.disabled = !chkFate.checked;
+    selFateCount.style.opacity = chkFate.checked ? "1" : "0.5";
+}
 
 let diceResultText = document.getElementById('dice-result-text'); 
 if (!diceResultText) {
@@ -162,8 +174,6 @@ function showModal(title, text, isConfirm = false, onConfirm = null) {
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
-// ❌ 移除 clearAllSpecialTiles，改用 updateRow 的強制覆寫
-
 socket.on('connect', () => { if(connectionStatus) { connectionStatus.innerText = "🟢 伺服器已連線"; connectionStatus.style.color = "#2ecc71"; } socket.emit('admin_login'); });
 socket.on('disconnect', () => { if(connectionStatus) { connectionStatus.innerText = "🔴 與伺服器斷線"; connectionStatus.style.color = "#e74c3c"; } });
 socket.on('update_player_list', (players) => { updateView(players); });
@@ -173,6 +183,7 @@ socket.on('update_game_state', (gameState) => {
         if(startBtn) { startBtn.disabled = true; startBtn.innerText = "遊戲進行中"; startBtn.className = "board-btn btn-grey"; }
         if(restartBtn) { restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey"; }
         if(chkTrap) chkTrap.disabled = true; 
+        if(chkFate) chkFate.disabled = true; 
         if(selFateCount) selFateCount.disabled = true; 
     } else if (gameState.status === 'ENDED') {
         if(startBtn) { startBtn.disabled = true; startBtn.innerText = "本局結束"; startBtn.className = "board-btn btn-grey"; }
@@ -182,7 +193,8 @@ socket.on('update_game_state', (gameState) => {
         if(startBtn) { startBtn.disabled = false; startBtn.innerText = "開始遊戲"; startBtn.className = "board-btn btn-green"; }
         if(restartBtn) { restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey"; }
         if(chkTrap) chkTrap.disabled = false; 
-        if(selFateCount) selFateCount.disabled = false; 
+        if(chkFate) chkFate.disabled = false; 
+        if(selFateCount) selFateCount.disabled = !chkFate.checked; // 恢復連動狀態
         SynthEngine.stopBGM();
     }
 });
@@ -191,8 +203,6 @@ socket.on('game_reset_positions', () => {
     if(modalContent) modalContent.classList.remove('premium-modal');
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
-    
-    // 這裡我們還是可以重建跑道，確保乾淨
     
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
     if(orderList) orderList.innerHTML = "等待抽籤...";
@@ -211,7 +221,6 @@ socket.on('show_initiative', (sortedPlayers) => {
 socket.on('game_start', () => {
     if(liveMsg) liveMsg.innerText = "🚀 比賽開始！";
     SynthEngine.playBGM();
-    // 移除 clearAllSpecialTiles
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
 });
 socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
@@ -231,7 +240,6 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
-    // 🔥 重要：在一切開始前，先鎖住動畫狀態，防止 updateRow 插手
     AvatarManager.movingStatus[playerId] = true;
 
     await ThreeDice.roll(roll);
@@ -251,7 +259,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     
     } else if (triggerType === 'FATE') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會！</span>`;
-        // 手動將這一格設為跑道，避免 updateRow 干擾
         setTileAsRunway(playerId, initialLandPos);
 
         showFateCard(fateResult);
@@ -269,7 +276,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         await wait(2500);
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
-        gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
+        liveMsg.innerText = `🃏 結果：${moveText}...但是...`;
         await moveAvatar(playerId, trapPos, charType);
         await wait(500);
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
@@ -285,7 +292,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     }
 });
 
-// 輔助函式：強制設定某格為跑道
 function setTileAsRunway(playerId, tileIndex) {
     const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
     if (row) {
@@ -298,8 +304,6 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         PLAYER_POSITIONS[playerId] = targetPos;
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
-        
-        // 防呆：如果找不到 DOM，直接 resolve 避免卡死
         if (!avatarContainer) { resolve(); return; }
 
         if (instant) {
@@ -317,7 +321,6 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
-// 🔥 陷阱動畫
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -356,20 +359,15 @@ socket.on('player_finished_rank', ({ player, rank }) => {
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 100); 
 });
+
+// 🔥 修復：正確使用 liveMsg 與移除 rollBtn 引用
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playVictoryGrand();
         
-        // ❌ 錯誤 (原始代碼)
-        // rollBtn.classList.add('hidden');  <-- 老師端沒有這個，會報錯
-        // gameMsg.innerText = `🏆 遊戲結束！`; <-- 老師端叫 liveMsg
-
-        // ✅ 修正 (正確代碼)
         if(liveMsg) liveMsg.innerText = `🏆 遊戲結束！`;
-
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
-        
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {
@@ -382,17 +380,11 @@ socket.on('game_over', ({ rankings }) => {
                 rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
-            
             SynthEngine.playPopup();
             showModal("🏆 榮譽榜 🏆", rankHtml);
-            
             if(modalContent) modalContent.classList.add('premium-modal'); 
-            
-            // 這裡的動畫邏輯可以保留
             let toggle = false;
-            // 清除可能存在的舊 interval 避免疊加 (選用)
-            if (window.rankInterval) clearInterval(window.rankInterval);
-            window.rankInterval = setInterval(() => {
+            setInterval(() => {
                 toggle = !toggle;
                 const avatars = document.querySelectorAll('.rank-avatar');
                 avatars.forEach(img => {
@@ -403,13 +395,18 @@ socket.on('game_over', ({ rankings }) => {
         }, 3000);
     }, 4000);
 });
+
 socket.on('force_reload', () => { location.reload(); });
 if(startBtn) startBtn.addEventListener('click', () => {
     SynthEngine.init(); 
     startBtn.disabled = true; startBtn.innerText = "啟動中...";
+    
+    // 🔥 修改：命運必須被勾選才算數
+    const fateValue = (chkFate && chkFate.checked && selFateCount) ? parseInt(selFateCount.value) : 0;
+    
     const options = { 
         enableTraps: chkTrap ? chkTrap.checked : false, 
-        fateCount: selFateCount ? selFateCount.value : 0 
+        fateCount: fateValue
     };
     socket.emit('admin_start_game', options);
 });
@@ -417,7 +414,6 @@ if(restartBtn) restartBtn.addEventListener('click', () => { showModal("準備下
 if(resetBtn) resetBtn.addEventListener('click', () => { showModal("危險操作", "確定要踢除所有玩家並回到首頁嗎？\n(若只是要重玩，請按「下一局」)", true, () => { socket.emit('admin_reset_game'); if(trackContainer) trackContainer.innerHTML = ''; if(playerCountSpan) playerCountSpan.innerText = 0; if(liveMsg) liveMsg.innerText = "等待學生加入..."; SynthEngine.stopBGM(); }); });
 function updateView(players) { if (!players) players = []; if(playerCountSpan) playerCountSpan.innerText = players.length; renderTracks(players); }
 
-// 🔥 核心修正：加入 ID 比對重建
 function renderTracks(players) {
     if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
@@ -477,13 +473,10 @@ function createRow(p) {
     trackContainer.appendChild(row);
 }
 
-// 🔥 強制更新邏輯：確保洞和問號顯示，除非已經觸發過
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     
-    // 如果該玩家正在移動中，不要執行強制位置更新，以免干擾動畫
-    // 但是背景圖片的狀態需要維護
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         if (p.trapIndex !== -1 && i === p.trapIndex) {
@@ -493,12 +486,7 @@ function updateRow(row, p) {
             if (!cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
         } 
         else {
-            // 注意：這裡只檢查是否需要變回跑道，如果它已經是跑道就不動
-            // 這能防止 updateRow 在動畫執行期間把正在消失的洞給補回來
             if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
-                // 只有當伺服器說這裡沒東西，但畫面上還有東西時，才把它變回跑道
-                // 但為了配合 setTileAsRunway 的手動控制，這裡我們可以放寬檢查
-                // 或者更簡單：完全信任伺服器數據
                 cell.style.backgroundImage = "url('images/map_runway.png')";
             }
         }
