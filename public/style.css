@@ -26,7 +26,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 #dice-result-text.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
 /* 電子計分板 */
-#scoreboard-header { width: 100%; height: 160px; background: #222; border-bottom: 4px solid #111; display: flex; justify-content: center; align-items: center; padding: 10px; z-index: 200; box-shadow: 0 5px 20px rgba(0,0,0,0.5); position: relative; color: #fff; }
+#scoreboard-header { width: 100%; height: 160px; background: #222; border-bottom: 4px solid #111; display: flex; justify-content: center; align-items: center; padding: 10px; z-index: 200; box-shadow: 0 5px 20px rgba(0,0,0,0.5); position: relative; color: #fff; flex-shrink: 0; }
 .board-content { width: 100%; max-width: 1400px; display: flex; justify-content: space-between; align-items: center; background: #333; border: 4px solid #555; border-radius: 8px; padding: 5px 20px; height: 100%; }
 
 /* 老師看板 */
@@ -38,13 +38,11 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 學生資訊 */
 .my-info-box { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border-right: 2px dashed #555; padding-right: 20px; margin-right: 20px; min-width: 150px; }
 .my-label { font-size: 0.9rem; color: #aaa; }
-
-/* 🔥 修改 1：將名字顏色改為黃色 */
 .my-name { 
     font-size: 1.8rem; 
-    color: #f1c40f; /* 改為亮黃色 */
+    color: #f1c40f; 
     font-weight: bold; 
-    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); /* 光暈也改為黃色 */
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); 
 }
 
 .board-status { flex: 1; text-align: left; display: flex; flex-direction: column; justify-content: center; height: 100%; }
@@ -59,23 +57,27 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 
 /* 體育場 */
 #stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
-.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; }
+.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; flex-shrink: 0; }
 #audience-top { border-bottom: 4px solid #333; background-color: #444; }
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
 #game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
 
-/* 跑道 - 保持原本的 grid 佈局，不亂動 */
+/* 跑道 */
 .track-row { 
-    display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); 
-    height: 70px; position: relative; width: 100%; align-items: end; 
+    display: flex; /* 確保水平排列 */
+    height: 70px; position: relative; 
+    align-items: end; 
     filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); 
     margin-bottom: 12px; 
+    width: max-content; /* 確保不被壓縮 */
 }
 
 /* 格子 */
 .grid-cell { 
-    width: 100%; height: 100%; background-size: 100% 100%; image-rendering: pixelated; 
-    position: relative; /* 為了讓特效定位 */
+    width: var(--cell-size); height: var(--cell-size); flex-shrink: 0;
+    background-size: 100% 100%; image-rendering: pixelated; 
+    position: relative; 
+    margin-right: 2px;
 }
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
@@ -83,16 +85,16 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 
 .avatar-container { 
     position: absolute; 
-    width: calc(100% / var(--track-cols) * 1.5); 
+    width: var(--cell-size); 
     height: 140%; 
     bottom: 10px; 
     left: 0%; 
-    z-index: 100; 
-    margin-left: -15px; 
+    z-index: 20; /* 角色在 20 */
     transition: left 1s linear; 
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end; 
+    pointer-events: none;
 }
-.avatar-img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3)); }
+.avatar-img { width: 140%; height: auto; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3)); transform-origin: bottom center; }
 .name-tag { position: absolute; right: 65%; top: 40%; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3); pointer-events: none; z-index: 101; }
 
 #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 300; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
@@ -159,7 +161,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .fate-negative { border-color: #c0392b; background: #fdedec; }
 .fate-negative .fate-title { color: #c0392b; }
 
-/* --- 修正後的陷阱動畫 (Trap Fall) --- */
+/* --- 陷阱與動畫 --- */
 @keyframes trapShake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-5px) rotate(-5deg); }
@@ -172,24 +174,38 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     100% { transform: scale(0.1, 0.1) translateY(25px) rotate(180deg); opacity: 0; } 
 }
 
+/* 🔥 新增：重生閃爍特效 (淡入 + 閃爍) */
+@keyframes respawnBlink {
+    0% { opacity: 0; transform: scale(0.5); }
+    20% { opacity: 1; transform: scale(1); }
+    30% { opacity: 0.2; }
+    40% { opacity: 1; }
+    50% { opacity: 0.2; }
+    60% { opacity: 1; }
+    70% { opacity: 0.2; }
+    80% { opacity: 1; }
+    90% { opacity: 0.2; }
+    100% { opacity: 1; }
+}
+
 .avatar-trap-shake { animation: trapShake 0.2s infinite; }
 .avatar-trap-fall { animation: trapFall 0.8s forwards ease-in; }
+.avatar-respawn { animation: respawnBlink 1.5s ease-out; } /* 套用重生動畫 */
 
-/* 🔥 修改 2：命運踩踏特效動畫 (Pulse Glow) */
-/* 這裡新增動畫關鍵影格 */
+/* 🔥 命運踩踏特效 (Pulse Glow) */
 @keyframes pulseGlow {
     0% { 
         box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); 
         transform: scale(1); 
         filter: brightness(1); 
-        z-index: 150;
+        z-index: 10;
     }
     50% { 
         box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); 
-        transform: scale(1.15); /* 稍微放大 */
-        filter: brightness(1.5); /* 變亮 */
+        transform: scale(1.15); 
+        filter: brightness(1.5); 
         border: 2px solid #fff; 
-        z-index: 150;
+        z-index: 10;
     }
     100% { 
         box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); 
@@ -199,8 +215,8 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     }
 }
 
-/* 這個 class 會由 JS 動態加入 */
+/* 🔥 修改：z-index 設為 10，小於角色的 20 */
 .fate-trigger-effect {
     animation: pulseGlow 0.6s ease-out;
-    z-index: 150 !important; /* 確保特效時浮在最上面 */
+    z-index: 10 !important; 
 }

@@ -11,7 +11,6 @@ const connectionStatus = document.getElementById('connection-status');
 const orderList = document.getElementById('order-list'); 
 
 const chkTrap = document.getElementById('chk-trap');
-const chkFate = document.getElementById('chk-fate'); 
 const selFateCount = document.getElementById('sel-fate-count'); 
 const fateOverlay = document.getElementById('fate-overlay');
 const fateCardBody = document.getElementById('fate-card-body');
@@ -28,13 +27,8 @@ const modalContent = document.querySelector('.modal-content');
 
 let currentStatus = 'LOBBY'; 
 
-if (chkFate && selFateCount) {
-    chkFate.addEventListener('change', () => {
-        selFateCount.disabled = !chkFate.checked;
-        selFateCount.style.opacity = chkFate.checked ? "1" : "0.5";
-    });
-    selFateCount.disabled = !chkFate.checked;
-    selFateCount.style.opacity = chkFate.checked ? "1" : "0.5";
+if (selFateCount) {
+    // 簡單初始化
 }
 
 let diceResultText = document.getElementById('dice-result-text'); 
@@ -92,8 +86,9 @@ const ConfettiManager = {
         SynthEngine.playConfettiPop();
         const duration = 3000; const end = Date.now() + duration;
         (function frame() {
-            confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
-            confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
+            // 🔥 修改：加大範圍 spread: 150
+            confetti({ particleCount: 5, angle: 60, spread: 150, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
+            confetti({ particleCount: 5, angle: 120, spread: 150, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
             if (Date.now() < end) { requestAnimationFrame(frame); }
         }());
     }
@@ -182,7 +177,6 @@ socket.on('update_game_state', (gameState) => {
         if(startBtn) { startBtn.disabled = true; startBtn.innerText = "遊戲進行中"; startBtn.className = "board-btn btn-grey"; }
         if(restartBtn) { restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey"; }
         if(chkTrap) chkTrap.disabled = true; 
-        if(chkFate) chkFate.disabled = true; 
         if(selFateCount) selFateCount.disabled = true; 
     } else if (gameState.status === 'ENDED') {
         if(startBtn) { startBtn.disabled = true; startBtn.innerText = "本局結束"; startBtn.className = "board-btn btn-grey"; }
@@ -191,7 +185,6 @@ socket.on('update_game_state', (gameState) => {
     } else {
         if(restartBtn) { restartBtn.disabled = true; restartBtn.className = "board-btn btn-grey"; }
         if(chkTrap) chkTrap.disabled = false; 
-        if(chkFate) chkFate.disabled = false; 
         if(selFateCount) selFateCount.disabled = !chkFate.checked; 
         SynthEngine.stopBGM();
     }
@@ -237,6 +230,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     if(liveMsg) { liveMsg.innerText = `👉 輪到 ${playerName}`; liveMsg.style.color = "#f1c40f"; }
 });
 
+// 🔥 核心修正：接收 fateResults 陣列並進行連續動畫
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
     AvatarManager.movingStatus[playerId] = true;
 
@@ -262,6 +256,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if (fateResults && fateResults.length > 0) {
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
+                highlightFateTile(playerId, currentStepPos);
+                await wait(600);
+                
                 setTileAsRunway(playerId, currentStepPos);
                 showFateCard(result);
                 await wait(2000);
@@ -295,6 +292,20 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     }
 });
 
+function highlightFateTile(playerId, tileIndex) {
+    if(!trackContainer) return;
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (row) {
+        const cell = row.querySelectorAll('.grid-cell')[tileIndex];
+        if (cell) {
+            cell.classList.add('fate-trigger-effect');
+            setTimeout(() => {
+                cell.classList.remove('fate-trigger-effect');
+            }, 600);
+        }
+    }
+}
+
 function setTileAsRunway(playerId, tileIndex) {
     const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
     if (row) {
@@ -324,6 +335,7 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
+// 🔥 修改：陷阱動畫加入重生閃爍
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -344,6 +356,11 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.classList.remove('avatar-trap-fall');
         img.style.opacity = '1';
         img.style.transform = 'none';
+        
+        // 🔥 加入閃爍動畫類別
+        img.classList.add('avatar-respawn');
+        await wait(1500); 
+        img.classList.remove('avatar-respawn');
     }
 }
 
@@ -364,7 +381,6 @@ socket.on('player_finished_rank', ({ player, rank }) => {
 });
 
 socket.on('game_over', ({ rankings }) => {
-    // 🔥 修正：在這裡也強制啟用「下一局」按鈕，作為雙重保險
     if(restartBtn) { restartBtn.disabled = false; restartBtn.className = "board-btn btn-orange"; }
     
     setTimeout(() => {
@@ -397,8 +413,8 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 3000);
-    }, 4000);
+        }, 500); // 🔥 修改：縮短等待時間 (4000 -> 500)
+    }, 500); // 🔥 修改：縮短 Confetti 觸發延遲 (4000 -> 500)
 });
 
 socket.on('force_reload', () => { location.reload(); });
@@ -406,7 +422,7 @@ if(startBtn) startBtn.addEventListener('click', () => {
     SynthEngine.init(); 
     startBtn.disabled = true; startBtn.innerText = "啟動中...";
     
-    const fateValue = (chkFate && chkFate.checked && selFateCount) ? parseInt(selFateCount.value) : 0;
+    const fateValue = (selFateCount) ? parseInt(selFateCount.value) : 0;
     const options = { 
         enableTraps: chkTrap ? chkTrap.checked : false, 
         fateCount: fateValue

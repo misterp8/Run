@@ -105,8 +105,9 @@ const ConfettiManager = {
         const duration = 3000; const end = Date.now() + duration;
         (function frame() {
             if(typeof confetti !== 'undefined') {
-                confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
-                confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
+                // 🔥 修改：加大範圍 spread: 150
+                confetti({ particleCount: 5, angle: 60, spread: 150, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
+                confetti({ particleCount: 5, angle: 120, spread: 150, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
             }
             if (Date.now() < end) { requestAnimationFrame(frame); }
         }());
@@ -327,8 +328,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
                 
                 // 🔥 新增：踩下去的瞬間特效
                 highlightFateTile(playerId, currentStepPos);
-
-                // 稍微等待特效展示
                 await wait(600);
                 
                 setTileAsRunway(playerId, currentStepPos);
@@ -365,7 +364,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     else { AvatarManager.setState(playerId, 'idle', charType); }
 });
 
-// 🔥 新增：命運踩踏特效輔助函式
 function highlightFateTile(playerId, tileIndex) {
     if(!trackContainer) return;
     const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
@@ -373,7 +371,6 @@ function highlightFateTile(playerId, tileIndex) {
         const cell = row.querySelectorAll('.grid-cell')[tileIndex];
         if (cell) {
             cell.classList.add('fate-trigger-effect');
-            // 動畫播完後移除 class，雖然格子馬上就會變 runway，但如果是連續來回踩可能有幫助
             setTimeout(() => {
                 cell.classList.remove('fate-trigger-effect');
             }, 600);
@@ -411,6 +408,7 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
+// 🔥 修改：陷阱動畫加入重生閃爍
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -430,6 +428,11 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.classList.remove('avatar-trap-fall');
         img.style.opacity = '1';
         img.style.transform = 'none';
+        
+        // 🔥 加入閃爍動畫類別
+        img.classList.add('avatar-respawn');
+        await wait(1500); // 等待動畫結束
+        img.classList.remove('avatar-respawn');
     }
 }
 
@@ -479,8 +482,8 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 3000);
-    }, 4000);
+        }, 500); // 🔥 修改：縮短等待時間 (4000 -> 500)
+    }, 500); // 🔥 修改：縮短 Confetti 觸發延遲 (4000 -> 500)
 });
 socket.on('force_reload', () => { location.reload(); });
 
