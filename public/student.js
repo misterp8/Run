@@ -1,7 +1,3 @@
-{
-type: uploaded file
-fileName: RUN.zip/RUN/public4/student.js
-fullContent:
 const socket = io(); 
 
 // --- DOM 元素 ---
@@ -14,11 +10,11 @@ const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
 
-// Modal 相關 (學生端專用 ID)
+// Modal 相關
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
-const modalBtn = document.getElementById('modal-btn'); // 學生端只有這一個按鈕
+const modalBtn = document.getElementById('modal-btn'); 
 const modalContent = document.querySelector('.modal-content');
 
 const diceResultText = document.getElementById('dice-result-text'); 
@@ -47,7 +43,7 @@ preloadImages();
 // --- SynthEngine Pro ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
-    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
+    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)this.ctx=new AC();} if(this.ctx && this.ctx.state==='suspended')this.ctx.resume(); },
     toggleMute() {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
@@ -68,17 +64,52 @@ const SynthEngine = {
 };
 if(document.getElementById('mute-btn')) document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
-// --- 3D Dice ---
-const ThreeDice={container:document.getElementById('dice-3d-container'),scene:null,camera:null,renderer:null,cube:null,isRolling:false,init(){if(!this.container)return;this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100);this.camera.position.set(0,4,10);this.camera.lookAt(0,0,0);this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});this.renderer.setSize(window.innerWidth,window.innerHeight);this.renderer.setPixelRatio(window.devicePixelRatio);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.container.appendChild(this.renderer.domElement);const al=new THREE.AmbientLight(0xffffff,0.6);this.scene.add(al);const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(5,15,10);dl.castShadow=true;this.scene.add(dl);const pg=new THREE.PlaneGeometry(100,100);const pm=new THREE.ShadowMaterial({opacity:0.3});const p=new THREE.Mesh(pg,pm);p.rotation.x=-Math.PI/2;p.position.y=-2;p.receiveShadow=true;this.scene.add(p);const mats=[];for(let i=1;i<=6;i++){mats.push(new THREE.MeshPhysicalMaterial({map:this.createDiceTexture(i),color:0xffffff,roughness:0.1,metalness:0.0,clearcoat:1.0,clearcoatRoughness:0.1}));}this.cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),mats);this.cube.castShadow=true;this.cube.receiveShadow=true;this.scene.add(this.cube);window.addEventListener('resize',()=>{this.camera.aspect=window.innerWidth/window.innerHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(window.innerWidth,window.innerHeight);});this.animate();},createDiceTexture(n){const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#f8f9fa';x.fillRect(0,0,512,512);x.strokeStyle='#dee2e6';x.lineWidth=20;x.strokeRect(0,0,512,512);x.fillStyle=(n===1)?'#e74c3c':'#2c3e50';x.shadowColor="rgba(0,0,0,0.2)";x.shadowBlur=10;x.shadowOffsetX=4;x.shadowOffsetY=4;const r=50,cen=256,o=120;const d=(u,v)=>{x.beginPath();x.arc(u,v,r,0,Math.PI*2);x.fill();};if(n===1)d(cen,cen);if(n===2){d(cen-o,cen-o);d(cen+o,cen+o);}if(n===3){d(cen-o,cen-o);d(cen,cen);d(cen+o,cen+o);}if(n===4){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===5){d(cen-o,cen-o);d(cen+o,cen-o);d(cen,cen);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===6){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen);d(cen+o,cen);d(cen-o,cen+o);d(cen+o,cen+o);}return new THREE.CanvasTexture(c);},animate(){requestAnimationFrame(()=>this.animate());if(!this.isRolling&&!this.container.classList.contains('active')){this.cube.rotation.y+=0.005;}if(this.renderer&&this.scene&&this.camera)this.renderer.render(this.scene,this.camera);},async roll(n){return new Promise((res)=>{this.container.classList.add('active');SynthEngine.playRoll();let tr={x:0,y:0,z:0};switch(n){case 1:tr={x:0,y:-Math.PI/2,z:0};break;case 2:tr={x:0,y:Math.PI/2,z:0};break;case 3:tr={x:Math.PI/2,y:0,z:0};break;case 4:tr={x:-Math.PI/2,y:0,z:0};break;case 5:tr={x:0,y:0,z:0};break;case 6:tr={x:Math.PI,y:0,z:0};break;}const sr={x:this.cube.rotation.x%(Math.PI*2),y:this.cube.rotation.y%(Math.PI*2),z:this.cube.rotation.z%(Math.PI*2)};const er={x:tr.x+Math.PI*4,y:tr.y+Math.PI*4,z:tr.z+Math.PI*2};const st=Date.now();const dur=1200;let hb1=false;let hb2=false;const set=()=>{const now=Date.now();const p=Math.min((now-st)/dur,1);const e=1-Math.pow(1-p,4);this.cube.rotation.x=sr.x+(er.x-sr.x)*e;this.cube.rotation.y=sr.y+(er.y-sr.y)*e;this.cube.rotation.z=sr.z+(er.z-sr.z)*e;let y=0;if(p<0.35){y=12*(1-(p/0.35)*(p/0.35));}else if(p<0.7){if(!hb1){SynthEngine.playImpact();hb1=true;}const t=(p-0.35)/0.35;y=3.0*(1-(2*t-1)*(2*t-1));}else if(p<0.9){if(!hb2){SynthEngine.playImpact();hb2=true;}const t=(p-0.7)/0.2;y=1.0*(1-(2*t-1)*(2*t-1));}this.cube.position.y=y;if(p<1){requestAnimationFrame(set);}else{if(n===6)SynthEngine.playSix();if(diceResultText){diceResultText.innerText=`${n} 點!`;diceResultText.classList.add('show');}setTimeout(()=>{this.container.classList.remove('active');if(diceResultText)diceResultText.classList.remove('show');res();},1200);}};set();});}};
-ThreeDice.init();
+// --- 3D Dice (Safe Mode) ---
+const ThreeDice={container:document.getElementById('dice-3d-container'),scene:null,camera:null,renderer:null,cube:null,isRolling:false,
+    init(){
+        if(typeof THREE === 'undefined') { console.warn("THREE.js failed to load. 3D Dice disabled."); return; }
+        if(!this.container)return;
+        try {
+            this.scene=new THREE.Scene();
+            this.camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100);this.camera.position.set(0,4,10);this.camera.lookAt(0,0,0);
+            this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});this.renderer.setSize(window.innerWidth,window.innerHeight);this.renderer.setPixelRatio(window.devicePixelRatio);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+            this.container.appendChild(this.renderer.domElement);
+            const al=new THREE.AmbientLight(0xffffff,0.6);this.scene.add(al);const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(5,15,10);dl.castShadow=true;this.scene.add(dl);
+            const pg=new THREE.PlaneGeometry(100,100);const pm=new THREE.ShadowMaterial({opacity:0.3});const p=new THREE.Mesh(pg,pm);p.rotation.x=-Math.PI/2;p.position.y=-2;p.receiveShadow=true;this.scene.add(p);
+            const mats=[];for(let i=1;i<=6;i++){mats.push(new THREE.MeshPhysicalMaterial({map:this.createDiceTexture(i),color:0xffffff,roughness:0.1,metalness:0.0,clearcoat:1.0,clearcoatRoughness:0.1}));}
+            this.cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),mats);this.cube.castShadow=true;this.cube.receiveShadow=true;this.scene.add(this.cube);
+            window.addEventListener('resize',()=>{this.camera.aspect=window.innerWidth/window.innerHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(window.innerWidth,window.innerHeight);});
+            this.animate();
+        } catch(e) { console.error("ThreeDice Init Error:", e); }
+    },
+    createDiceTexture(n){if(typeof THREE === 'undefined') return null; const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#f8f9fa';x.fillRect(0,0,512,512);x.strokeStyle='#dee2e6';x.lineWidth=20;x.strokeRect(0,0,512,512);x.fillStyle=(n===1)?'#e74c3c':'#2c3e50';x.shadowColor="rgba(0,0,0,0.2)";x.shadowBlur=10;x.shadowOffsetX=4;x.shadowOffsetY=4;const r=50,cen=256,o=120;const d=(u,v)=>{x.beginPath();x.arc(u,v,r,0,Math.PI*2);x.fill();};if(n===1)d(cen,cen);if(n===2){d(cen-o,cen-o);d(cen+o,cen+o);}if(n===3){d(cen-o,cen-o);d(cen,cen);d(cen+o,cen+o);}if(n===4){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===5){d(cen-o,cen-o);d(cen+o,cen-o);d(cen,cen);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===6){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen);d(cen+o,cen);d(cen-o,cen+o);d(cen+o,cen+o);}return new THREE.CanvasTexture(c);},
+    animate(){if(typeof THREE === 'undefined' || !this.renderer) return; requestAnimationFrame(()=>this.animate());if(!this.isRolling&&!this.container.classList.contains('active')){this.cube.rotation.y+=0.005;}this.renderer.render(this.scene,this.camera);},
+    async roll(n){
+        if(typeof THREE === 'undefined' || !this.renderer) { 
+            // 如果 3D 沒載入，直接等待一下就回傳，保證流程繼續
+            return new Promise(r => setTimeout(r, 1000)); 
+        }
+        return new Promise((res)=>{
+            this.container.classList.add('active');
+            SynthEngine.playRoll();
+            let tr={x:0,y:0,z:0};switch(n){case 1:tr={x:0,y:-Math.PI/2,z:0};break;case 2:tr={x:0,y:Math.PI/2,z:0};break;case 3:tr={x:Math.PI/2,y:0,z:0};break;case 4:tr={x:-Math.PI/2,y:0,z:0};break;case 5:tr={x:0,y:0,z:0};break;case 6:tr={x:Math.PI,y:0,z:0};break;}
+            const sr={x:this.cube.rotation.x%(Math.PI*2),y:this.cube.rotation.y%(Math.PI*2),z:this.cube.rotation.z%(Math.PI*2)};const er={x:tr.x+Math.PI*4,y:tr.y+Math.PI*4,z:tr.z+Math.PI*2};const st=Date.now();const dur=1200;let hb1=false;let hb2=false;
+            const set=()=>{const now=Date.now();const p=Math.min((now-st)/dur,1);const e=1-Math.pow(1-p,4);this.cube.rotation.x=sr.x+(er.x-sr.x)*e;this.cube.rotation.y=sr.y+(er.y-sr.y)*e;this.cube.rotation.z=sr.z+(er.z-sr.z)*e;let y=0;if(p<0.35){y=12*(1-(p/0.35)*(p/0.35));}else if(p<0.7){if(!hb1){SynthEngine.playImpact();hb1=true;}const t=(p-0.35)/0.35;y=3.0*(1-(2*t-1)*(2*t-1));}else if(p<0.9){if(!hb2){SynthEngine.playImpact();hb2=true;}const t=(p-0.7)/0.2;y=1.0*(1-(2*t-1)*(2*t-1));}this.cube.position.y=y;if(p<1){requestAnimationFrame(set);}else{if(n===6)SynthEngine.playSix();if(diceResultText){diceResultText.innerText=`${n} 點!`;diceResultText.classList.add('show');}setTimeout(()=>{this.container.classList.remove('active');if(diceResultText)diceResultText.classList.remove('show');res();},1200);}};set();
+        });
+    }
+};
+// 🔥 安全執行 Init
+try { ThreeDice.init(); } catch(e) { console.log("Init skipped"); }
 
 const ConfettiManager = {
     shoot() {
         SynthEngine.playConfettiPop();
         const duration = 3000; const end = Date.now() + duration;
         (function frame() {
-            confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
-            confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
+            if(typeof confetti !== 'undefined') {
+                confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
+                confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
+            }
             if (Date.now() < end) { requestAnimationFrame(frame); }
         }());
     }
@@ -88,7 +119,6 @@ const AvatarManager = {
     loopIntervals: {}, movingStatus: {}, 
     getCharType(p) { return p.avatarChar || 'a'; },
     setState(playerId, state, charType) {
-        // 🔥 重要：如果正在移動，拒絕外部將其設為 ready 或 idle，避免動畫被打斷
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
         
         let img = document.getElementById(`img-${playerId}`);
@@ -139,7 +169,6 @@ const AudienceManager = {
 };
 AudienceManager.start();
 
-// 🔥 修復 Modal：使用正確的 student.html ID
 function showModal(title, text, isConfirm = false, onConfirm = null) {
     if (!modalContent) return;
     modalContent.className = "modal-content"; 
@@ -159,34 +188,48 @@ function showModal(title, text, isConfirm = false, onConfirm = null) {
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
-// ❌ 移除 clearAllSpecialTiles 與 restoreTile (改用 Teacher 版的 setTileAsRunway 策略)
+socket.on('connect', () => { myId = socket.id; console.log("Socket connected:", myId); });
 
-socket.on('connect', () => { myId = socket.id; });
-joinBtn.addEventListener('click', () => { SynthEngine.init(); const name = usernameInput.value.trim(); if (!name) { alert("⚠️ 請輸入名字！"); return; } socket.emit('player_join', name); });
+// 🔥 加入按鈕偵聽與偵錯
+if (joinBtn) {
+    joinBtn.addEventListener('click', () => {
+        console.log("Join Button Clicked");
+        SynthEngine.init();
+        const name = usernameInput.value.trim();
+        if (!name) { alert("⚠️ 請輸入名字！"); return; }
+        socket.emit('player_join', name);
+        console.log("Emitted player_join:", name);
+    });
+} else {
+    console.error("Join Button NOT Found!");
+}
+
 socket.on('error_msg', (msg) => { alert(msg); });
+
 socket.on('update_player_list', (players) => {
+    console.log("Received player list:", players);
     const me = players.find(p => p.id === socket.id);
     if (me) {
         myId = socket.id;
-        loginOverlay.classList.add('hidden');
-        scoreboardHeader.classList.remove('hidden');
-        stadiumWrapper.classList.remove('hidden');
-        gameMsg.innerText = "✅ 已加入！等待老師開始...";
+        if(loginOverlay) loginOverlay.classList.add('hidden');
+        if(scoreboardHeader) scoreboardHeader.classList.remove('hidden');
+        if(stadiumWrapper) stadiumWrapper.classList.remove('hidden');
+        if(gameMsg) gameMsg.innerText = "✅ 已加入！等待老師開始...";
         if (myNameDisplay) myNameDisplay.innerText = me.name;
     }
     renderTracks(players);
 });
+
 socket.on('update_game_state', (gameState) => { renderTracks(gameState.players); });
 socket.on('show_initiative', (sortedPlayers) => {
     let msg = `🎲 抽籤決定順序：\n`;
     sortedPlayers.forEach((p, i) => { msg += `${i+1}. ${p.name} `; if((i+1)%3 === 0) msg += "\n"; });
-    gameMsg.innerText = msg;
+    if(gameMsg) gameMsg.innerText = msg;
     SynthEngine.init(); SynthEngine.playRoll();
 });
 
-// 🔥 修復：移除 clearAllSpecialTiles，避免把剛生成的洞擦掉
 socket.on('game_start', () => {
-    gameMsg.innerText = "🚀 遊戲開始！";
+    if(gameMsg) gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
 });
@@ -196,21 +239,23 @@ socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
-    // 重置時才清除
     if(gameMsg) gameMsg.innerText = "準備開始新的一局...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
-    modalOverlay.classList.add('hidden');
+    if(modalOverlay) modalOverlay.classList.add('hidden');
     
-    // 這裡我們還是可以重建跑道，確保乾淨
+    // 重建跑道
     const cells = document.querySelectorAll('.grid-cell');
     cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
     
-    rollBtn.classList.remove('hidden');
-    rollBtn.disabled = true;
-    rollBtn.innerText = "等待開始...";
-    rollBtn.className = "board-btn btn-grey";
+    if(rollBtn) {
+        rollBtn.classList.remove('hidden');
+        rollBtn.disabled = true;
+        rollBtn.innerText = "等待開始...";
+        rollBtn.className = "board-btn btn-grey";
+    }
     SynthEngine.stopBGM();
 });
+
 socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
@@ -223,7 +268,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
             if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle', img.dataset.char);
         }
     });
-    gameMsg.style.color = "#f1c40f";
+    if(gameMsg) gameMsg.style.color = "#f1c40f";
     if (nextPlayerId === myId) {
         rollBtn.removeAttribute('disabled');
         rollBtn.disabled = false;
@@ -240,17 +285,20 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
         gameMsg.innerText = `⏳ 等待 ${playerName} 擲骰...`;
     }
 });
-rollBtn.addEventListener('click', () => {
-    if (rollBtn.disabled) return;
-    socket.emit('action_roll');
-    rollBtn.disabled = true;
-    rollBtn.innerText = "📡 傳送中...";
-    rollBtn.className = "board-btn btn-grey";
-});
 
-// 🔥🔥🔥 核心修正：請完全參照 Teacher 版的邏輯 🔥🔥🔥
+if(rollBtn) {
+    rollBtn.addEventListener('click', () => {
+        if (rollBtn.disabled) return;
+        socket.emit('action_roll');
+        rollBtn.disabled = true;
+        rollBtn.innerText = "📡 傳送中...";
+        rollBtn.className = "board-btn btn-grey";
+    });
+}
+
+// 🔥🔥🔥 核心移動邏輯 🔥🔥🔥
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
-    // 🔥 重要：在一切開始前，先鎖住動畫狀態，防止 updateRow 或 update_turn 插手
+    // 鎖住狀態
     AvatarManager.movingStatus[playerId] = true;
 
     await ThreeDice.roll(roll);
@@ -259,8 +307,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     const name = nameTag ? nameTag.innerText : '對手';
     const isMe = (playerId === myId);
     
-    if (isMe) { gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`; } 
-    else { gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`; }
+    if(gameMsg) {
+        if (isMe) { gameMsg.innerText = `🎲 你擲出了 ${roll} 點！`; } 
+        else { gameMsg.innerText = `👀 ${name} 擲出了 ${roll} 點`; }
+    }
     
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
@@ -268,38 +318,34 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     await moveAvatar(playerId, initialLandPos, charType);
 
     if (triggerType === 'TRAP') {
-        if(isMe) gameMsg.innerText = "😱 糟了！踩到陷阱！";
-        else gameMsg.innerText = "😱 哎呀！他踩到陷阱了！";
+        if(gameMsg) { if(isMe) gameMsg.innerText = "😱 糟了！踩到陷阱！"; else gameMsg.innerText = "😱 哎呀！他踩到陷阱了！"; }
         await playTrapAnimation(img, playerId, newPos, charType, initialLandPos); 
     
     } else if (triggerType === 'FATE') {
-        if(isMe) gameMsg.innerText = "❓ 命運時刻...";
-        else gameMsg.innerText = "❓ 觸發了命運機會...";
+        if(gameMsg) { if(isMe) gameMsg.innerText = "❓ 命運時刻..."; else gameMsg.innerText = "❓ 觸發了命運機會..."; }
         
-        // 手動將這一格設為跑道，避免 updateRow 干擾
         setTileAsRunway(playerId, initialLandPos);
-        
         showFateCard(fateResult);
         await wait(2500); 
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
-        if (liveMsg) liveMsg.innerText = `移動 ${fateResult} 格！`;
         
-        // 這是真正移動到新位置的地方
+        // 這是真正移動到新位置
         await moveAvatar(playerId, newPos, charType);
 
     } else if (triggerType === 'FATE_TRAP') {
-        if(isMe) gameMsg.innerText = "❓ 命運時刻...";
+        if(gameMsg) { if(isMe) gameMsg.innerText = "❓ 命運時刻..."; }
         
         setTileAsRunway(playerId, initialLandPos);
-        
         showFateCard(fateResult);
         await wait(2500);
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
+        
         const moveText = (fateResult > 0) ? `前進 ${fateResult} 格` : `後退 ${Math.abs(fateResult)} 格`;
-        gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
+        if(gameMsg) gameMsg.innerText = `🃏 結果：${moveText}...但是...`;
+        
         await moveAvatar(playerId, trapPos, charType);
         await wait(500);
-        if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
+        if(gameMsg) gameMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
         await playTrapAnimation(img, playerId, newPos, charType, trapPos);
     }
     
@@ -311,8 +357,8 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     else { AvatarManager.setState(playerId, 'idle', charType); }
 });
 
-// 輔助函式：強制設定某格為跑道 (從 Teacher.js 移植)
 function setTileAsRunway(playerId, tileIndex) {
+    if(!trackContainer) return;
     const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
     if (row) {
         const cell = row.querySelectorAll('.grid-cell')[tileIndex];
@@ -354,7 +400,6 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     await wait(500);
     
     setTileAsRunway(playerId, trapTileIndex);
-
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -376,15 +421,15 @@ function showFateCard(amount) {
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
         AvatarManager.setState(player.id, 'win', player.avatarChar);
-        if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
+        if(gameMsg) gameMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 100); 
 });
 socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playVictoryGrand();
-        rollBtn.classList.add('hidden');
-        gameMsg.innerText = `🏆 遊戲結束！`;
+        if(rollBtn) rollBtn.classList.add('hidden');
+        if(gameMsg) gameMsg.innerText = `🏆 遊戲結束！`;
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
@@ -415,7 +460,6 @@ socket.on('game_over', ({ rankings }) => {
 });
 socket.on('force_reload', () => { location.reload(); });
 
-// 🔥 修復：ID 比對重建邏輯
 function renderTracks(players) {
     if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
@@ -475,12 +519,10 @@ function createRow(p) {
     trackContainer.appendChild(row);
 }
 
-// 🔥 強制更新邏輯 (與 Teacher 一致)
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     
-    // 如果該玩家正在移動中，不要執行強制位置更新，以免干擾動畫
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         if (p.trapIndex !== -1 && i === p.trapIndex) {
@@ -499,8 +541,5 @@ function updateRow(row, p) {
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
-    
-    // 🔥 重要修正：只在沒有移動狀態時才強制同步位置
     if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) { avatarContainer.style.left = `${targetLeft}%`; }
-}
 }
