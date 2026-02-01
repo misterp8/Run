@@ -1,24 +1,9 @@
-:root {
-    --cell-size: 50px; /* 格子大小 */
-}
-
+:root { --track-cols: 22; --cell-size: 50px; }
 * { box-sizing: border-box; user-select: none; }
-
-body { 
-    font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; 
-    font-weight: bold; 
-    margin: 0; padding: 0; 
-    background-color: #2c3e50; 
-    color: #333; 
-    overflow: hidden; 
-    height: 100vh; 
-    display: flex; 
-    flex-direction: column; 
-}
-
+body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: bold; margin: 0; padding: 0; background-color: #2c3e50; color: #333; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 .hidden { display: none !important; }
 
-/* 🎲 3D 骰子容器 (置頂層) */
+/* 🎲 3D 骰子容器 */
 #dice-3d-container {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 800; pointer-events: none; opacity: 0; transition: opacity 0.2s;
@@ -29,160 +14,137 @@ body {
 #dice-3d-container.active { opacity: 1; pointer-events: auto; }
 #dice-3d-container canvas { filter: drop-shadow(0 50px 80px rgba(0,0,0,0.7)); }
 
-/* 骰子結果文字 */
+/* 🎲 骰子結果特效文字 */
 #dice-result-text {
     position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0);
-    font-size: 5rem; color: #fff; text-shadow: 0 0 20px #f1c40f; font-weight: 900;
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; z-index: 801;
+    font-size: 8rem; font-weight: 900; color: #fff;
+    text-shadow: 0 0 20px #f1c40f, 4px 4px 0 #c0392b;
+    z-index: 850; pointer-events: none;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    opacity: 0;
 }
-#dice-result-text.show { transform: translate(-50%, -50%) scale(1); }
+#dice-result-text.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
-/* --- 登入畫面 --- */
-#login-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #2c3e50;
-    z-index: 2000; display: flex; justify-content: center; align-items: center;
-}
-#login-box {
-    background: #fff; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center;
-}
+/* 電子計分板 */
+#scoreboard-header { width: 100%; height: 160px; background: #222; border-bottom: 4px solid #111; display: flex; justify-content: center; align-items: center; padding: 10px; z-index: 200; box-shadow: 0 5px 20px rgba(0,0,0,0.5); position: relative; color: #fff; }
+.board-content { width: 100%; max-width: 1400px; display: flex; justify-content: space-between; align-items: center; background: #333; border: 4px solid #555; border-radius: 8px; padding: 5px 20px; height: 100%; }
 
-/* --- 頂部記分板 --- */
-#scoreboard-header {
-    height: 120px; background: #34495e; color: #ecf0f1;
-    display: flex; justify-content: center; align-items: center;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 100; position: relative;
-    padding: 0 10px;
-    flex-shrink: 0; /* 防止被壓縮 */
-}
-.board-content {
-    width: 100%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center;
-}
+/* 老師看板 */
+.board-order { width: 180px; height: 100%; border-right: 2px dashed #555; padding-right: 15px; margin-right: 15px; display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; }
+.board-order h3 { margin: 5px 0; font-size: 1rem; color: #aaa; text-transform: uppercase; border-bottom: 1px solid #555; padding-bottom: 5px; }
+#order-list { font-size: 0.9rem; color: #fff; line-height: 1.4; text-align: left; overflow-y: auto; height: 100%; }
+.order-active { color: #f1c40f; font-weight: bold; animation: blink 1s infinite; }
 
-/* 🔥 您的需求：我的名字顯示為黃色 */
-.my-info-box { display: flex; flex-direction: column; align-items: flex-start; }
-.my-label { font-size: 0.8rem; color: #bdc3c7; }
+/* 學生資訊 */
+.my-info-box { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border-right: 2px dashed #555; padding-right: 20px; margin-right: 20px; min-width: 150px; }
+.my-label { font-size: 0.9rem; color: #aaa; }
+
+/* 🔥 修改 1：將名字顏色改為黃色 */
 .my-name { 
     font-size: 1.8rem; 
-    color: #f1c40f; /* 亮黃色 */
-    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); 
-    font-weight: 900; 
+    color: #f1c40f; /* 改為亮黃色 */
+    font-weight: bold; 
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); /* 光暈也改為黃色 */
 }
 
-.board-status { text-align: center; font-size: 1.2rem; font-weight: bold; }
-.board-controls { display: flex; gap: 10px; align-items: center; }
-.board-btn {
-    border: none; border-radius: 8px; padding: 10px 20px; font-size: 1rem; font-weight: bold;
-    cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; color: #fff;
-    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
-}
-.board-btn:active { transform: translateY(4px); box-shadow: none; }
-.board-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
-.btn-green { background-color: #27ae60; }
-.btn-orange { background-color: #d35400; }
-.btn-red { background-color: #c0392b; }
-.btn-grey { background-color: #7f8c8d; }
+.board-status { flex: 1; text-align: left; display: flex; flex-direction: column; justify-content: center; height: 100%; }
+.board-controls { display: flex; align-items: center; gap: 10px; padding-left: 20px; border-left: 2px dashed #555; margin-left: 20px; }
+@keyframes blink { 50% { opacity: 0.5; } }
+.board-btn { padding: 15px 30px; font-size: 1.2rem; border: 2px solid #fff; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #000; transition: transform 0.1s; pointer-events: auto; }
+.board-btn:active { transform: translate(0, 4px); box-shadow: 0 0 0 #000; }
+.btn-green { background: #27ae60; color: white; }
+.btn-orange { background: #e67e22; color: white; }
+.btn-red { background: #c0392b; color: white; }
+.btn-grey { background: #7f8c8d; color: #ccc; border-color: #999; cursor: not-allowed; }
 
-/* --- 遊戲主區域 --- */
-#stadium-wrapper {
-    flex: 1; /* 佔據剩餘空間 */
-    position: relative; overflow: hidden; display: flex; flex-direction: column;
-    background: url('images/map_grass.png') repeat;
-}
-#game-scroll-area {
-    flex: 1; overflow-y: auto; padding: 20px;
-    /* 讓內容置中，但靠左對齊開始 */
-    display: flex; justify-content: center; align-items: flex-start;
-}
+/* 體育場 */
+#stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
+.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; }
+#audience-top { border-bottom: 4px solid #333; background-color: #444; }
+#audience-bottom { border-top: 4px solid #333; background-color: #444; }
+#game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
 
-/* 🔥 修復重點：跑道容器 */
-#track-container {
-    display: flex;
-    flex-direction: column; /* 垂直排列每一位玩家 */
-    gap: 15px; /* 玩家之間的間距 */
-    padding-bottom: 50px;
-}
-
-/* 🔥 修復重點：單一跑道列 */
+/* 跑道 - 保持原本的 grid 佈局，不亂動 */
 .track-row { 
-    display: flex; /* 讓格子水平排列 */
-    position: relative; /* 關鍵！讓 Avatar 可以依據這一列定位 */
-    align-items: center;
-    background: rgba(0,0,0,0.1); /* 稍微加深底色讓跑道更明顯 */
-    padding: 5px;
-    border-radius: 10px;
-    width: max-content; /* 確保寬度足夠容納所有格子 */
+    display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); 
+    height: 70px; position: relative; width: 100%; align-items: end; 
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); 
+    margin-bottom: 12px; 
 }
 
 /* 格子 */
-.grid-cell {
-    width: var(--cell-size); height: var(--cell-size);
-    background-image: url('images/map_runway.png');
-    background-size: cover; border-radius: 4px;
-    box-shadow: 0 5px 10px rgba(0,0,0,0.2);
-    margin-right: 2px; /* 格子之間的微小間距 */
-    position: relative;
-    flex-shrink: 0; /* 防止格子被壓縮 */
+.grid-cell { 
+    width: 100%; height: 100%; background-size: 100% 100%; image-rendering: pixelated; 
+    position: relative; /* 為了讓特效定位 */
 }
+.grid-cell { background-image: url('images/map_runway.png'); }
+.grid-cell:first-child { background-image: url('images/map_start.png'); }
+.grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
 
-/* 🔥 您的需求：命運踩踏特效 */
-@keyframes pulseGlow {
-    0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); transform: scale(1); filter: brightness(1); }
-    50% { box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); transform: scale(1.1); filter: brightness(1.5); border: 2px solid #fff; }
-    100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); transform: scale(1); filter: brightness(1); }
-}
-.fate-trigger-effect {
-    animation: pulseGlow 0.6s ease-out;
-    z-index: 10;
-}
-
-/* 角色容器 (絕對定位於 .track-row) */
-.avatar-container {
+.avatar-container { 
     position: absolute; 
-    bottom: 15px; /* 調整角色站立高度 */
-    width: var(--cell-size); 
-    height: var(--cell-size);
-    transition: left 0.5s linear; 
-    z-index: 20;
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    pointer-events: none;
-    /* 預設 left 由 JS 控制 */
+    width: calc(100% / var(--track-cols) * 1.5); 
+    height: 140%; 
+    bottom: 10px; 
+    left: 0%; 
+    z-index: 100; 
+    margin-left: -15px; 
+    transition: left 1s linear; 
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; 
 }
-.avatar-img { width: 140%; height: auto; transform-origin: bottom center; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5)); margin-bottom: 5px; }
-.name-tag {
-    background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; border-radius: 4px;
-    font-size: 0.7rem; white-space: nowrap; margin-bottom: -10px; z-index: 25;
-}
+.avatar-img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3)); }
+.name-tag { position: absolute; right: 65%; top: 40%; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3); pointer-events: none; z-index: 101; }
 
-/* --- 動畫 --- */
-.avatar-trap-shake { animation: trapShake 0.5s ease-in-out infinite; }
-.avatar-trap-fall { animation: trapFall 1s forwards; }
+#login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 300; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+#login-box { background: white; padding: 40px; border-radius: 15px; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 4px solid #333; }
+.error-text { color: #e74c3c; font-weight: bold; margin-top: 5px; }
+#lobby-screen, #admin-panel, #status-bar, #game-screen { pointer-events: auto; }
 
-@keyframes trapShake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px) rotate(-5deg); }
-    75% { transform: translateX(5px) rotate(5deg); }
-}
-@keyframes trapFall {
-    0% { transform: scale(1) translateY(0); opacity: 1; }
-    100% { transform: scale(0) translateY(50px); opacity: 0; }
-}
+#modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+.modal-content { background: #fff; padding: 25px; border-radius: 12px; border: 4px solid #333; box-shadow: 8px 8px 0 rgba(0,0,0,0.5); text-align: center; max-width: 400px; width: 90%; }
 
-/* --- 觀眾席 --- */
-.audience-section { height: 60px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; flex-shrink: 0; }
-#audience-top { background-image: url('images/audience_up_1.png'); border-bottom: 5px solid rgba(0,0,0,0.2); }
-#audience-bottom { background-image: url('images/audience_down_1.png'); border-top: 5px solid rgba(0,0,0,0.2); }
-
-/* --- 卡片與 Modal --- */
-#fate-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6); z-index: 3000;
-    display: flex; justify-content: center; align-items: center;
-    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+/* 🏆 白金榮譽榜 */
+.premium-modal {
+    background: radial-gradient(circle, #ffffff 0%, #dcdcdc 100%);
+    border: 8px solid #f1c40f; 
+    box-shadow: 0 0 100px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255,255,255,1);
+    color: #333; 
+    
+    width: 95vw !important; 
+    max-width: 650px !important; 
+    padding: 30px;
+    box-sizing: border-box;
 }
+.premium-modal h2 { font-size: 2.8rem; color: #d35400; text-shadow: 2px 2px 0 #fff; margin-bottom: 25px; letter-spacing: 2px; font-weight: 900; }
+.rank-list { list-style: none; padding: 0; text-align: left; }
+.rank-item {
+    font-size: 1.6rem; 
+    margin-bottom: 12px; padding: 15px;
+    background: #fff; border-radius: 15px; border: 3px solid #eee;
+    display: flex; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    overflow: hidden; 
+}
+.rank-item:first-child { background: linear-gradient(to right, #fffbec, #fff); border-color: #f1c40f; box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5); }
+.rank-medal { font-size: 3rem; margin-right: 20px; flex-shrink: 0; }
+.rank-avatar { width: 100px; height: 100px; object-fit: contain; margin-right: 25px; image-rendering: pixelated; flex-shrink: 0; }
+.rank-name { 
+    font-weight: 900; color: #2c3e50; font-size: 1.6rem; 
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    flex: 1; 
+}
+@keyframes popIn { to { transform: scale(1); } }
+
+/* --- 新增：遊戲設定開關 (Toggle) --- */
+.game-options { display: flex; gap: 15px; margin-left: 20px; padding-left: 20px; border-left: 2px dashed #555; align-items: center; }
+.toggle-label { display: flex; align-items: center; color: #fff; cursor: pointer; font-size: 1rem; }
+.toggle-label input { margin-right: 8px; width: 20px; height: 20px; accent-color: #e74c3c; cursor: pointer; }
+
+/* --- 新增：命運卡牌 UI (Fate Card) --- */
+#fate-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9000; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 #fate-overlay.show { opacity: 1; pointer-events: auto; }
+
 .fate-card {
-    background: #fff; width: 300px; height: 400px; border-radius: 20px; border: 8px solid #333;
+    width: 300px; height: 400px; background: #fff; border-radius: 20px; border: 8px solid #333;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5); transform: scale(0.5); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     text-align: center; padding: 20px; overflow: hidden;
@@ -197,18 +159,48 @@ body {
 .fate-negative { border-color: #c0392b; background: #fdedec; }
 .fate-negative .fate-title { color: #c0392b; }
 
-.modal-content {
-    background: #fff; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+/* --- 修正後的陷阱動畫 (Trap Fall) --- */
+@keyframes trapShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px) rotate(-5deg); }
+    75% { transform: translateX(5px) rotate(5deg); }
 }
-.premium-modal {
-    background: linear-gradient(135deg, #fff 0%, #f9e79f 100%);
-    border: 4px solid #f1c40f;
+
+@keyframes trapFall {
+    0% { transform: scale(1) translateY(0); opacity: 1; }
+    30% { transform: scale(0.9, 1.2) translateY(-10px); opacity: 1; } 
+    100% { transform: scale(0.1, 0.1) translateY(25px) rotate(180deg); opacity: 0; } 
 }
-.rank-list { list-style: none; padding: 0; margin: 10px 0; max-height: 300px; overflow-y: auto; }
-.rank-item {
-    display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; font-size: 1.2rem;
+
+.avatar-trap-shake { animation: trapShake 0.2s infinite; }
+.avatar-trap-fall { animation: trapFall 0.8s forwards ease-in; }
+
+/* 🔥 修改 2：命運踩踏特效動畫 (Pulse Glow) */
+/* 這裡新增動畫關鍵影格 */
+@keyframes pulseGlow {
+    0% { 
+        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); 
+        transform: scale(1); 
+        filter: brightness(1); 
+        z-index: 150;
+    }
+    50% { 
+        box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); 
+        transform: scale(1.15); /* 稍微放大 */
+        filter: brightness(1.5); /* 變亮 */
+        border: 2px solid #fff; 
+        z-index: 150;
+    }
+    100% { 
+        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); 
+        transform: scale(1); 
+        filter: brightness(1); 
+        z-index: 1;
+    }
 }
-.rank-medal { font-size: 1.5rem; margin-right: 10px; }
-.rank-avatar { width: 40px; height: 40px; margin-right: 10px; object-fit: contain; }
-.rank-name { font-weight: bold; color: #2c3e50; }
+
+/* 這個 class 會由 JS 動態加入 */
+.fate-trigger-effect {
+    animation: pulseGlow 0.6s ease-out;
+    z-index: 150 !important; /* 確保特效時浮在最上面 */
+}
