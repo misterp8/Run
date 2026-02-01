@@ -1,3 +1,7 @@
+{
+type: uploaded file
+fileName: RUN.zip/RUN/public4/student.js
+fullContent:
 const socket = io(); 
 
 // --- DOM 元素 ---
@@ -84,7 +88,9 @@ const AvatarManager = {
     loopIntervals: {}, movingStatus: {}, 
     getCharType(p) { return p.avatarChar || 'a'; },
     setState(playerId, state, charType) {
+        // 🔥 重要：如果正在移動，拒絕外部將其設為 ready 或 idle，避免動畫被打斷
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
+        
         let img = document.getElementById(`img-${playerId}`);
         if (!charType && img) charType = img.dataset.char;
         if (!charType) charType = 'a'; 
@@ -153,18 +159,7 @@ function showModal(title, text, isConfirm = false, onConfirm = null) {
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
-// 輔助函式
-function clearAllSpecialTiles() {
-    const cells = document.querySelectorAll('.grid-cell');
-    cells.forEach(cell => { if (cell.style.backgroundImage) cell.style.backgroundImage = ''; });
-}
-function restoreTile(playerId, tileIndex) {
-    if (tileIndex < 0) return;
-    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
-    if (!row) return;
-    const cells = row.querySelectorAll('.grid-cell');
-    if (cells[tileIndex]) { cells[tileIndex].style.backgroundImage = "url('images/map_runway.png')"; }
-}
+// ❌ 移除 clearAllSpecialTiles 與 restoreTile (改用 Teacher 版的 setTileAsRunway 策略)
 
 socket.on('connect', () => { myId = socket.id; });
 joinBtn.addEventListener('click', () => { SynthEngine.init(); const name = usernameInput.value.trim(); if (!name) { alert("⚠️ 請輸入名字！"); return; } socket.emit('player_join', name); });
@@ -202,15 +197,14 @@ socket.on('game_reset_positions', () => {
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
     // 重置時才清除
-    clearAllSpecialTiles();
-    
-    if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
+    if(gameMsg) gameMsg.innerText = "準備開始新的一局...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     modalOverlay.classList.add('hidden');
+    
+    // 這裡我們還是可以重建跑道，確保乾淨
     const cells = document.querySelectorAll('.grid-cell');
     cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
     
-    gameMsg.innerText = "準備開始新的一局...";
     rollBtn.classList.remove('hidden');
     rollBtn.disabled = true;
     rollBtn.innerText = "等待開始...";
@@ -254,7 +248,11 @@ rollBtn.addEventListener('click', () => {
     rollBtn.className = "board-btn btn-grey";
 });
 
+// 🔥🔥🔥 核心修正：請完全參照 Teacher 版的邏輯 🔥🔥🔥
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
+    // 🔥 重要：在一切開始前，先鎖住動畫狀態，防止 updateRow 或 update_turn 插手
+    AvatarManager.movingStatus[playerId] = true;
+
     await ThreeDice.roll(roll);
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
@@ -278,16 +276,22 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
         else gameMsg.innerText = "❓ 觸發了命運機會...";
         
-        restoreTile(playerId, initialLandPos);
+        // 手動將這一格設為跑道，避免 updateRow 干擾
+        setTileAsRunway(playerId, initialLandPos);
+        
         showFateCard(fateResult);
         await wait(2500); 
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
         if (liveMsg) liveMsg.innerText = `移動 ${fateResult} 格！`;
+        
+        // 這是真正移動到新位置的地方
         await moveAvatar(playerId, newPos, charType);
 
     } else if (triggerType === 'FATE_TRAP') {
         if(isMe) gameMsg.innerText = "❓ 命運時刻...";
-        restoreTile(playerId, initialLandPos);
+        
+        setTileAsRunway(playerId, initialLandPos);
+        
         showFateCard(fateResult);
         await wait(2500);
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
@@ -307,11 +311,19 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     else { AvatarManager.setState(playerId, 'idle', charType); }
 });
 
+// 輔助函式：強制設定某格為跑道 (從 Teacher.js 移植)
+function setTileAsRunway(playerId, tileIndex) {
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (row) {
+        const cell = row.querySelectorAll('.grid-cell')[tileIndex];
+        if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
+    }
+}
+
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         PLAYER_POSITIONS[playerId] = targetPos;
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
-        // 防呆：如果找不到 DOM (可能因為洗牌剛重建)，直接 resolve 避免卡死
         if (!avatarContainer) { resolve(); return; }
 
         if (instant) {
@@ -340,7 +352,9 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     }
     await wait(800);
     await wait(500);
-    restoreTile(playerId, trapTileIndex);
+    
+    setTileAsRunway(playerId, trapTileIndex);
+
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -401,6 +415,7 @@ socket.on('game_over', ({ rankings }) => {
 });
 socket.on('force_reload', () => { location.reload(); });
 
+// 🔥 修復：ID 比對重建邏輯
 function renderTracks(players) {
     if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
@@ -460,11 +475,12 @@ function createRow(p) {
     trackContainer.appendChild(row);
 }
 
+// 🔥 強制更新邏輯 (與 Teacher 一致)
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     
-    // 強制更新狀態：確保洞與問號的顯示狀態正確
+    // 如果該玩家正在移動中，不要執行強制位置更新，以免干擾動畫
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         if (p.trapIndex !== -1 && i === p.trapIndex) {
@@ -474,7 +490,6 @@ function updateRow(row, p) {
             if (!cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
         } 
         else {
-            // 如果應該是跑道，但顯示了特殊圖案，則還原 (處理消耗後的狀態)
             if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
                 cell.style.backgroundImage = "url('images/map_runway.png')";
             }
@@ -484,5 +499,8 @@ function updateRow(row, p) {
     const avatarContainer = row.querySelector('.avatar-container');
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
+    
+    // 🔥 重要修正：只在沒有移動狀態時才強制同步位置
     if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) { avatarContainer.style.left = `${targetLeft}%`; }
+}
 }
