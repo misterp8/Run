@@ -360,9 +360,16 @@ socket.on('game_over', ({ rankings }) => {
     setTimeout(() => {
         ConfettiManager.shoot();
         SynthEngine.playVictoryGrand();
-        rollBtn.classList.add('hidden');
-        gameMsg.innerText = `🏆 遊戲結束！`;
+        
+        // ❌ 錯誤 (原始代碼)
+        // rollBtn.classList.add('hidden');  <-- 老師端沒有這個，會報錯
+        // gameMsg.innerText = `🏆 遊戲結束！`; <-- 老師端叫 liveMsg
+
+        // ✅ 修正 (正確代碼)
+        if(liveMsg) liveMsg.innerText = `🏆 遊戲結束！`;
+
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
+        
         setTimeout(() => {
             let rankHtml = '<ul class="rank-list">';
             rankings.forEach(p => {
@@ -375,11 +382,17 @@ socket.on('game_over', ({ rankings }) => {
                 rankHtml += `<li class="rank-item">${medal} ${imgHtml} <span class="rank-name">${p.name}</span></li>`;
             });
             rankHtml += '</ul>';
+            
             SynthEngine.playPopup();
             showModal("🏆 榮譽榜 🏆", rankHtml);
+            
             if(modalContent) modalContent.classList.add('premium-modal'); 
+            
+            // 這裡的動畫邏輯可以保留
             let toggle = false;
-            setInterval(() => {
+            // 清除可能存在的舊 interval 避免疊加 (選用)
+            if (window.rankInterval) clearInterval(window.rankInterval);
+            window.rankInterval = setInterval(() => {
                 toggle = !toggle;
                 const avatars = document.querySelectorAll('.rank-avatar');
                 avatars.forEach(img => {
