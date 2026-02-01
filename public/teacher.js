@@ -71,8 +71,9 @@ const SynthEngine = {
     playBGM(){if(this.isMuted||this.bgmInterval||!this.ctx)return;const seq=[261.63,329.63,392.00,523.25,392.00,329.63,261.63,0,293.66,349.23,440.00,587.33,440.00,349.23,293.66,0];let s=0;this.bgmInterval=setInterval(()=>{if(this.ctx.state==='suspended')this.ctx.resume();const f=seq[s%seq.length];if(f>0){const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sine';o.frequency.value=f/2;g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.3);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.3);}s++;},250);},
     stopBGM(){if(this.bgmInterval){clearInterval(this.bgmInterval);this.bgmInterval=null;}}
 };
-if(document.getElementById('mute-btn')) document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
+document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
+// --- 3D Dice ---
 const ThreeDice={container:document.getElementById('dice-3d-container'),scene:null,camera:null,renderer:null,cube:null,isRolling:false,init(){if(!this.container)return;this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100);this.camera.position.set(0,4,10);this.camera.lookAt(0,0,0);this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});this.renderer.setSize(window.innerWidth,window.innerHeight);this.renderer.setPixelRatio(window.devicePixelRatio);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.container.appendChild(this.renderer.domElement);const al=new THREE.AmbientLight(0xffffff,0.6);this.scene.add(al);const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(5,15,10);dl.castShadow=true;this.scene.add(dl);const pg=new THREE.PlaneGeometry(100,100);const pm=new THREE.ShadowMaterial({opacity:0.3});const p=new THREE.Mesh(pg,pm);p.rotation.x=-Math.PI/2;p.position.y=-2;p.receiveShadow=true;this.scene.add(p);const mats=[];for(let i=1;i<=6;i++){mats.push(new THREE.MeshPhysicalMaterial({map:this.createDiceTexture(i),color:0xffffff,roughness:0.1,metalness:0.0,clearcoat:1.0,clearcoatRoughness:0.1}));}this.cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),mats);this.cube.castShadow=true;this.cube.receiveShadow=true;this.scene.add(this.cube);window.addEventListener('resize',()=>{this.camera.aspect=window.innerWidth/window.innerHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(window.innerWidth,window.innerHeight);});this.animate();},createDiceTexture(n){const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#f8f9fa';x.fillRect(0,0,512,512);x.strokeStyle='#dee2e6';x.lineWidth=20;x.strokeRect(0,0,512,512);x.fillStyle=(n===1)?'#e74c3c':'#2c3e50';x.shadowColor="rgba(0,0,0,0.2)";x.shadowBlur=10;x.shadowOffsetX=4;x.shadowOffsetY=4;const r=50,cen=256,o=120;const d=(u,v)=>{x.beginPath();x.arc(u,v,r,0,Math.PI*2);x.fill();};if(n===1)d(cen,cen);if(n===2){d(cen-o,cen-o);d(cen+o,cen+o);}if(n===3){d(cen-o,cen-o);d(cen,cen);d(cen+o,cen+o);}if(n===4){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===5){d(cen-o,cen-o);d(cen+o,cen-o);d(cen,cen);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===6){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen);d(cen+o,cen);d(cen-o,cen+o);d(cen+o,cen+o);}return new THREE.CanvasTexture(c);},animate(){requestAnimationFrame(()=>this.animate());if(!this.isRolling&&!this.container.classList.contains('active')){this.cube.rotation.y+=0.005;}if(this.renderer&&this.scene&&this.camera)this.renderer.render(this.scene,this.camera);},async roll(n){return new Promise((res)=>{this.container.classList.add('active');SynthEngine.playRoll();let tr={x:0,y:0,z:0};switch(n){case 1:tr={x:0,y:-Math.PI/2,z:0};break;case 2:tr={x:0,y:Math.PI/2,z:0};break;case 3:tr={x:Math.PI/2,y:0,z:0};break;case 4:tr={x:-Math.PI/2,y:0,z:0};break;case 5:tr={x:0,y:0,z:0};break;case 6:tr={x:Math.PI,y:0,z:0};break;}const sr={x:this.cube.rotation.x%(Math.PI*2),y:this.cube.rotation.y%(Math.PI*2),z:this.cube.rotation.z%(Math.PI*2)};const er={x:tr.x+Math.PI*4,y:tr.y+Math.PI*4,z:tr.z+Math.PI*2};const st=Date.now();const dur=1200;let hb1=false;let hb2=false;const set=()=>{const now=Date.now();const p=Math.min((now-st)/dur,1);const e=1-Math.pow(1-p,4);this.cube.rotation.x=sr.x+(er.x-sr.x)*e;this.cube.rotation.y=sr.y+(er.y-sr.y)*e;this.cube.rotation.z=sr.z+(er.z-sr.z)*e;let y=0;if(p<0.35){y=12*(1-(p/0.35)*(p/0.35));}else if(p<0.7){if(!hb1){SynthEngine.playImpact();hb1=true;}const t=(p-0.35)/0.35;y=3.0*(1-(2*t-1)*(2*t-1));}else if(p<0.9){if(!hb2){SynthEngine.playImpact();hb2=true;}const t=(p-0.7)/0.2;y=1.0*(1-(2*t-1)*(2*t-1));}this.cube.position.y=y;if(p<1){requestAnimationFrame(set);}else{if(n===6)SynthEngine.playSix();if(diceResultText){diceResultText.innerText=`${n} 點!`;diceResultText.classList.add('show');}setTimeout(()=>{this.container.classList.remove('active');if(diceResultText)diceResultText.classList.remove('show');res();},1200);}};set();});}};
 ThreeDice.init();
 
@@ -161,14 +162,7 @@ function showModal(title, text, isConfirm = false, onConfirm = null) {
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
-function clearAllSpecialTiles() { const cells = document.querySelectorAll('.grid-cell'); cells.forEach(cell => { if (cell.style.backgroundImage) cell.style.backgroundImage = ''; }); }
-function restoreTile(playerId, tileIndex) {
-    if (tileIndex < 0) return;
-    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
-    if (!row) return;
-    const cells = row.querySelectorAll('.grid-cell');
-    if (cells[tileIndex]) { cells[tileIndex].style.backgroundImage = "url('images/map_runway.png')"; }
-}
+// ❌ 移除 clearAllSpecialTiles，改用 updateRow 的強制覆寫
 
 socket.on('connect', () => { if(connectionStatus) { connectionStatus.innerText = "🟢 伺服器已連線"; connectionStatus.style.color = "#2ecc71"; } socket.emit('admin_login'); });
 socket.on('disconnect', () => { if(connectionStatus) { connectionStatus.innerText = "🔴 與伺服器斷線"; connectionStatus.style.color = "#e74c3c"; } });
@@ -198,14 +192,12 @@ socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
-    // 重置時才清除
-    clearAllSpecialTiles();
+    // 這裡我們還是可以重建跑道，確保乾淨
     
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
+    if(orderList) orderList.innerHTML = "等待抽籤...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
-    modalOverlay.classList.add('hidden');
-    const cells = document.querySelectorAll('.grid-cell');
-    cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
+    if(modalOverlay) modalOverlay.classList.add('hidden');
     
     if(startBtn) { startBtn.innerText = "開始遊戲"; startBtn.disabled = false; startBtn.className = "board-btn btn-green"; }
     SynthEngine.stopBGM();
@@ -216,14 +208,12 @@ socket.on('show_initiative', (sortedPlayers) => {
     if(orderList) orderList.innerHTML = html;
     SynthEngine.playRoll();
 });
-
-// 🔥 修復：移除 clearAllSpecialTiles，避免把剛生成的洞擦掉
 socket.on('game_start', () => {
     if(liveMsg) liveMsg.innerText = "🚀 比賽開始！";
     SynthEngine.playBGM();
+    // 移除 clearAllSpecialTiles
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
 });
-
 socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     if(orderList) { const rows = orderList.querySelectorAll('div'); rows.forEach(r => r.classList.remove('order-active')); if(rows[turnIndex]) rows[turnIndex].classList.add('order-active'); }
     const allAvatars = document.querySelectorAll('.avatar-img');
@@ -241,12 +231,16 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResult, trapPos }) => {
+    // 🔥 重要：在一切開始前，先鎖住動畫狀態，防止 updateRow 插手
+    AvatarManager.movingStatus[playerId] = true;
+
     await ThreeDice.roll(roll);
     const avatarContainer = document.getElementById(`avatar-${playerId}`);
     const nameTag = avatarContainer ? avatarContainer.querySelector('.name-tag') : null;
     const playerName = nameTag ? nameTag.innerText : '未知玩家';
     const img = document.getElementById(`img-${playerId}`);
     const charType = img ? img.dataset.char : 'a';
+
     if (liveMsg && playerName) liveMsg.innerText = `${playerName} 擲出了 ${roll} 點!`;
 
     await moveAvatar(playerId, initialLandPos, charType);
@@ -257,7 +251,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     
     } else if (triggerType === 'FATE') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會！</span>`;
-        restoreTile(playerId, initialLandPos);
+        // 手動將這一格設為跑道，避免 updateRow 干擾
+        setTileAsRunway(playerId, initialLandPos);
+
         showFateCard(fateResult);
         await wait(2500); 
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
@@ -266,7 +262,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
 
     } else if (triggerType === 'FATE_TRAP') {
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#3498db">❓ ${playerName} 觸發了命運機會...</span>`;
-        restoreTile(playerId, initialLandPos);
+        
+        setTileAsRunway(playerId, initialLandPos);
+
         showFateCard(fateResult);
         await wait(2500);
         if (fateResult > 0) SynthEngine.playHappy(); else SynthEngine.playSad();
@@ -277,37 +275,49 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if(liveMsg) liveMsg.innerHTML = `<span style="color:#e74c3c">😱 結果掉進洞裡了！</span>`;
         await playTrapAnimation(img, playerId, newPos, charType, trapPos);
     }
+
     AvatarManager.movingStatus[playerId] = false;
     if (newPos >= 21) { 
         SynthEngine.playVictoryGrand();
         AvatarManager.setState(playerId, 'win', charType); 
-    } 
-    else { AvatarManager.setState(playerId, 'idle', charType); }
+    } else { 
+        AvatarManager.setState(playerId, 'idle', charType); 
+    }
 });
+
+// 輔助函式：強制設定某格為跑道
+function setTileAsRunway(playerId, tileIndex) {
+    const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
+    if (row) {
+        const cell = row.querySelectorAll('.grid-cell')[tileIndex];
+        if (cell) cell.style.backgroundImage = "url('images/map_runway.png')";
+    }
+}
 
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         PLAYER_POSITIONS[playerId] = targetPos;
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
+        
+        // 防呆：如果找不到 DOM，直接 resolve 避免卡死
+        if (!avatarContainer) { resolve(); return; }
+
         if (instant) {
-            if (avatarContainer) {
-                avatarContainer.style.transition = 'none'; 
-                const percent = (targetPos / 22) * 100; 
-                avatarContainer.style.left = `${percent}%`;
-                setTimeout(() => { avatarContainer.style.transition = 'left 1s linear'; resolve(); }, 50);
-            } else resolve();
+            avatarContainer.style.transition = 'none'; 
+            const percent = (targetPos / 22) * 100; 
+            avatarContainer.style.left = `${percent}%`;
+            setTimeout(() => { avatarContainer.style.transition = 'left 1s linear'; resolve(); }, 50);
         } else {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
-            if (avatarContainer) {
-                const percent = (targetPos / 22) * 100; 
-                avatarContainer.style.left = `${percent}%`;
-            }
+            const percent = (targetPos / 22) * 100; 
+            avatarContainer.style.left = `${percent}%`;
             setTimeout(() => { resolve(); }, 1000); 
         }
     });
 }
 
+// 🔥 陷阱動畫
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -319,7 +329,9 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     }
     await wait(800);
     await wait(500);
-    restoreTile(playerId, trapTileIndex);
+    
+    setTileAsRunway(playerId, trapTileIndex);
+
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -391,6 +403,8 @@ if(startBtn) startBtn.addEventListener('click', () => {
 if(restartBtn) restartBtn.addEventListener('click', () => { showModal("準備下一局", "確定要讓所有學生回到起跑線嗎？\n(排名將會重置，但保留玩家)", true, () => { socket.emit('admin_restart_game'); }); });
 if(resetBtn) resetBtn.addEventListener('click', () => { showModal("危險操作", "確定要踢除所有玩家並回到首頁嗎？\n(若只是要重玩，請按「下一局」)", true, () => { socket.emit('admin_reset_game'); if(trackContainer) trackContainer.innerHTML = ''; if(playerCountSpan) playerCountSpan.innerText = 0; if(liveMsg) liveMsg.innerText = "等待學生加入..."; SynthEngine.stopBGM(); }); });
 function updateView(players) { if (!players) players = []; if(playerCountSpan) playerCountSpan.innerText = players.length; renderTracks(players); }
+
+// 🔥 核心修正：加入 ID 比對重建
 function renderTracks(players) {
     if(!trackContainer) return;
     const existingRows = Array.from(trackContainer.children);
@@ -417,6 +431,7 @@ function renderTracks(players) {
         });
     }
 }
+
 function createRow(p) {
     PLAYER_POSITIONS[p.id] = p.position;
     const row = document.createElement('div');
@@ -448,11 +463,14 @@ function createRow(p) {
     row.appendChild(avatarContainer);
     trackContainer.appendChild(row);
 }
+
+// 🔥 強制更新邏輯：確保洞和問號顯示，除非已經觸發過
 function updateRow(row, p) {
     if (row.dataset.id !== p.id) return;
     const cells = row.querySelectorAll('.grid-cell');
     
-    // 強制更新狀態
+    // 如果該玩家正在移動中，不要執行強制位置更新，以免干擾動畫
+    // 但是背景圖片的狀態需要維護
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         if (p.trapIndex !== -1 && i === p.trapIndex) {
@@ -462,7 +480,12 @@ function updateRow(row, p) {
             if (!cell.style.backgroundImage.includes('question')) cell.style.backgroundImage = "url('images/map_question.png')";
         } 
         else {
+            // 注意：這裡只檢查是否需要變回跑道，如果它已經是跑道就不動
+            // 這能防止 updateRow 在動畫執行期間把正在消失的洞給補回來
             if (cell.style.backgroundImage.includes('hole') || cell.style.backgroundImage.includes('question')) {
+                // 只有當伺服器說這裡沒東西，但畫面上還有東西時，才把它變回跑道
+                // 但為了配合 setTileAsRunway 的手動控制，這裡我們可以放寬檢查
+                // 或者更簡單：完全信任伺服器數據
                 cell.style.backgroundImage = "url('images/map_runway.png')";
             }
         }
