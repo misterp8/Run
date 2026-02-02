@@ -93,7 +93,7 @@ io.on('connection', (socket) => {
 
             if (gameState.config.fateCount > 0) {
                 const availableSlots = [];
-                // 🔥 修改：從 2 開始，確保 index 1 (第2格) 也就是重生點不會有問號
+                // 從 2 開始，確保 index 1 (第2格) 也就是重生點不會有問號
                 for (let i = 2; i < 21; i++) {
                     if (i !== p.trapIndex) availableSlots.push(i);
                 }
@@ -188,7 +188,14 @@ io.on('connection', (socket) => {
             io.emit('player_finished_rank', { player: currentPlayer, rank });
         }
 
-        setTimeout(() => notifyNextTurn(), (triggerType === 'NORMAL' ? 2500 : (triggerType === 'TRAP' ? 4000 : 4000 + (fateResults.length * 3500))));
+        // 計算動畫等待時間
+        const delayTime = (triggerType === 'NORMAL' ? 2500 : (triggerType === 'TRAP' ? 4000 : 4000 + (fateResults.length * 3500)));
+
+        setTimeout(() => {
+            // 🔥🔥🔥 關鍵修正：動作結束後，強制將 TurnIndex + 1 指向下一個人
+            gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
+            notifyNextTurn();
+        }, delayTime);
     });
 
     socket.on('admin_restart_game', () => {
@@ -237,19 +244,30 @@ io.on('connection', (socket) => {
 function notifyNextTurn() {
     if (gameState.status === 'ENDED') return;
     if (gameState.players.length === 0) return;
+    
+    // 確保 index 在範圍內
     if (gameState.turnIndex >= gameState.players.length) gameState.turnIndex = 0;
 
     let attempts = 0;
     const maxAttempts = gameState.players.length + 1;
 
+    // 尋找下一個還沒抵達終點的玩家
     while (attempts < maxAttempts) {
         const currentPlayer = gameState.players[gameState.turnIndex];
-        if (!currentPlayer) { gameState.turnIndex = 0; attempts++; continue; }
+        
+        // 如果該玩家不存在 (可能斷線)，跳過
+        if (!currentPlayer) { 
+            gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length; 
+            attempts++; 
+            continue; 
+        }
 
+        // 如果該玩家已經到終點，跳過
         if (currentPlayer.position >= 21) {
             gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
             attempts++;
         } else {
+            // 找到可以移動的玩家了，發送通知
             io.emit('update_turn', { 
                 turnIndex: gameState.turnIndex, 
                 nextPlayerId: currentPlayer.id, 
@@ -259,6 +277,7 @@ function notifyNextTurn() {
         }
     }
     
+    // 如果找了一圈都沒人可以動 (大家都到終點了)，遊戲結束
     if (gameState.rankings.length > 0) {
         gameState.status = 'ENDED';
         io.emit('game_over', { rankings: gameState.rankings });
