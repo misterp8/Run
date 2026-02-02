@@ -10,11 +10,11 @@ const trackContainer = document.getElementById('track-container');
 const rollBtn = document.getElementById('roll-btn');
 const gameMsg = document.getElementById('game-msg');
 
-// Modal 相關 (學生端專用 ID)
+// Modal 相關
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
-const modalBtn = document.getElementById('modal-btn'); // 學生端只有這一個按鈕
+const modalBtn = document.getElementById('modal-btn'); 
 const modalContent = document.querySelector('.modal-content');
 
 const diceResultText = document.getElementById('dice-result-text'); 
@@ -105,7 +105,6 @@ const ConfettiManager = {
         const duration = 3000; const end = Date.now() + duration;
         (function frame() {
             if(typeof confetti !== 'undefined') {
-                // 🔥 修改：加大範圍 spread: 150
                 confetti({ particleCount: 5, angle: 60, spread: 150, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
                 confetti({ particleCount: 5, angle: 120, spread: 150, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
             }
@@ -239,7 +238,6 @@ socket.on('game_reset_positions', () => {
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     if(modalOverlay) modalOverlay.classList.add('hidden');
     
-    // 重建跑道
     const cells = document.querySelectorAll('.grid-cell');
     cells.forEach(c => { if(c.style.backgroundImage.includes('hole') || c.style.backgroundImage.includes('question')) { c.style.backgroundImage = "url('images/map_runway.png')"; } });
     
@@ -292,7 +290,6 @@ if(rollBtn) {
     });
 }
 
-// 🔥 核心修正：接收 fateResults 陣列並進行連續動畫
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
     AvatarManager.movingStatus[playerId] = true;
 
@@ -321,12 +318,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         
         let currentStepPos = initialLandPos; 
 
-        // 迴圈播放每一個命運結果
         if (fateResults && fateResults.length > 0) {
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
                 
-                // 🔥 新增：踩下去的瞬間特效
                 highlightFateTile(playerId, currentStepPos);
                 await wait(600);
                 
@@ -364,7 +359,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     else { AvatarManager.setState(playerId, 'idle', charType); }
 });
 
-// 🔥 新增：命運踩踏特效輔助函式
 function highlightFateTile(playerId, tileIndex) {
     if(!trackContainer) return;
     const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
@@ -388,28 +382,45 @@ function setTileAsRunway(playerId, tileIndex) {
     }
 }
 
+// 🔥🔥 修改：計算距離並設定動態速度 🔥🔥
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
-        PLAYER_POSITIONS[playerId] = targetPos;
+        const currentPos = PLAYER_POSITIONS[playerId] || 0;
+        PLAYER_POSITIONS[playerId] = targetPos; // 更新狀態
+        
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
         if (!avatarContainer) { resolve(); return; }
 
         if (instant) {
-            avatarContainer.style.transition = 'none'; 
+            avatarContainer.style.transition = 'none'; // 瞬間移動
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
-            setTimeout(() => { avatarContainer.style.transition = 'left 1s linear'; resolve(); }, 50);
+            setTimeout(() => { 
+                avatarContainer.style.transition = ''; // 清除，恢復 CSS 預設
+                resolve(); 
+            }, 50);
         } else {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
+            
+            // 🔥 計算距離與時間：每格 333ms (3格=1秒)
+            const distance = Math.abs(targetPos - currentPos);
+            const duration = Math.max(distance * 333, 100); // 最少 100ms 避免過快
+            
+            // 設定動態時間
+            avatarContainer.style.transition = `left ${duration}ms linear`;
+            
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
-            setTimeout(() => { resolve(); }, 1000); 
+            
+            setTimeout(() => { 
+                avatarContainer.style.transition = ''; // 跑完後清除，恢復預設
+                resolve(); 
+            }, duration); 
         }
     });
 }
 
-// 🔥 修改：陷阱動畫加入重生閃爍
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -430,9 +441,8 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.style.opacity = '1';
         img.style.transform = 'none';
         
-        // 🔥 加入閃爍動畫類別
         img.classList.add('avatar-respawn');
-        await wait(1500); // 等待動畫結束
+        await wait(1500); 
         img.classList.remove('avatar-respawn');
     }
 }
@@ -483,8 +493,8 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 2000); // 🔥 修改：縮短等待時間 (4000 -> 500)
-    }, 2000); // 🔥 修改：縮短 Confetti 觸發延遲 (4000 -> 500)
+        }, 2000);
+    }, 500);
 });
 socket.on('force_reload', () => { location.reload(); });
 
