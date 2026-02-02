@@ -322,6 +322,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
                 
+                // 🔥 1. 強制設定為 IDLE (站立)，等待卡片展示
+                AvatarManager.setState(playerId, 'idle', charType); 
+
                 highlightFateTile(playerId, currentStepPos);
                 await wait(600);
                 
@@ -339,6 +342,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
                 if (nextStepPos < 0) nextStepPos = 0;
                 if (nextStepPos > 21) nextStepPos = 21;
 
+                // moveAvatar 會自動將狀態改為 RUN
                 await moveAvatar(playerId, nextStepPos, charType);
                 currentStepPos = nextStepPos;
                 await wait(500);
@@ -374,7 +378,6 @@ function highlightFateTile(playerId, tileIndex) {
 }
 
 function setTileAsRunway(playerId, tileIndex) {
-    if(!trackContainer) return;
     const row = Array.from(trackContainer.children).find(r => r.dataset.id === playerId);
     if (row) {
         const cell = row.querySelectorAll('.grid-cell')[tileIndex];
@@ -382,7 +385,6 @@ function setTileAsRunway(playerId, tileIndex) {
     }
 }
 
-// 🔥🔥 修改：計算距離並設定動態速度 🔥🔥
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         const currentPos = PLAYER_POSITIONS[playerId] || 0;
@@ -403,18 +405,17 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
             
-            // 🔥 計算距離與時間：每格 333ms (3格=1秒)
+            // 計算距離與時間：每格 333ms
             const distance = Math.abs(targetPos - currentPos);
-            const duration = Math.max(distance * 333, 100); // 最少 100ms 避免過快
+            const duration = Math.max(distance * 333, 100); 
             
-            // 設定動態時間
             avatarContainer.style.transition = `left ${duration}ms linear`;
             
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
             
             setTimeout(() => { 
-                avatarContainer.style.transition = ''; // 跑完後清除，恢復預設
+                avatarContainer.style.transition = ''; 
                 resolve(); 
             }, duration); 
         }

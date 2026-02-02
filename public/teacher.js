@@ -86,7 +86,6 @@ const ConfettiManager = {
         SynthEngine.playConfettiPop();
         const duration = 3000; const end = Date.now() + duration;
         (function frame() {
-            // 🔥 修改：加大範圍 spread: 150
             confetti({ particleCount: 5, angle: 60, spread: 150, origin: { x: 0 }, colors: ['#e74c3c', '#f1c40f', '#2ecc71'] });
             confetti({ particleCount: 5, angle: 120, spread: 150, origin: { x: 1 }, colors: ['#3498db', '#9b59b6', '#ecf0f1'] });
             if (Date.now() < end) { requestAnimationFrame(frame); }
@@ -148,21 +147,22 @@ const AudienceManager = {
 AudienceManager.start();
 
 function showModal(title, text, isConfirm = false, onConfirm = null) {
-    if (!modalContent) return;
+    if (!modalContent) return; 
     modalContent.className = "modal-content"; 
     if(modalTitle) modalTitle.innerText = title;
     if(modalBody) modalBody.innerHTML = text; 
-    
-    if (modalBtn) {
-        modalBtn.innerText = isConfirm ? "確定執行" : "知道了";
-        modalBtn.className = isConfirm ? "board-btn btn-green" : "board-btn btn-green";
-        modalBtn.onclick = () => {
-            if (isConfirm && onConfirm) onConfirm();
-            closeModal();
-        };
-    }
-    
     if(modalOverlay) modalOverlay.classList.remove('hidden');
+    if (isConfirm) {
+        if(btnConfirm) {
+            btnConfirm.innerText = "確定執行"; 
+            btnConfirm.className = "board-btn btn-green"; 
+            btnConfirm.onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
+        }
+        if(btnCancel) { btnCancel.classList.remove('hidden'); btnCancel.onclick = closeModal; }
+    } else {
+        if(btnConfirm) { btnConfirm.innerText = "知道了"; btnConfirm.className = "board-btn btn-green"; btnConfirm.onclick = closeModal; }
+        if(btnCancel) btnCancel.classList.add('hidden');
+    }
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
@@ -255,6 +255,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         if (fateResults && fateResults.length > 0) {
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
+                
+                // 🔥 1. 強制設定為 IDLE (站立)，等待卡片展示
+                AvatarManager.setState(playerId, 'idle', charType); 
+
                 highlightFateTile(playerId, currentStepPos);
                 await wait(600);
                 
@@ -313,46 +317,27 @@ function setTileAsRunway(playerId, tileIndex) {
     }
 }
 
-// 🔥🔥 修改：計算距離並設定動態速度 🔥🔥
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
-        const currentPos = PLAYER_POSITIONS[playerId] || 0;
-        PLAYER_POSITIONS[playerId] = targetPos; // 更新狀態
-        
+        PLAYER_POSITIONS[playerId] = targetPos;
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
         if (!avatarContainer) { resolve(); return; }
 
         if (instant) {
-            avatarContainer.style.transition = 'none'; // 瞬間移動
+            avatarContainer.style.transition = 'none'; 
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
-            setTimeout(() => { 
-                avatarContainer.style.transition = ''; // 清除，恢復 CSS 預設
-                resolve(); 
-            }, 50);
+            setTimeout(() => { avatarContainer.style.transition = 'left 1s linear'; resolve(); }, 50);
         } else {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
-            
-            // 🔥 計算距離與時間：每格 333ms (3格=1秒)
-            const distance = Math.abs(targetPos - currentPos);
-            const duration = Math.max(distance * 333, 100); // 最少 100ms 避免過快
-            
-            // 設定動態時間
-            avatarContainer.style.transition = `left ${duration}ms linear`;
-            
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
-            
-            setTimeout(() => { 
-                avatarContainer.style.transition = ''; // 跑完後清除，恢復預設
-                resolve(); 
-            }, duration); 
+            setTimeout(() => { resolve(); }, 1000); 
         }
     });
 }
 
-// 🔥 修改：陷阱動畫加入重生閃爍
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -366,6 +351,7 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     await wait(500);
     
     setTileAsRunway(playerId, trapTileIndex);
+
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -373,9 +359,8 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.style.opacity = '1';
         img.style.transform = 'none';
         
-        // 🔥 加入閃爍動畫類別
         img.classList.add('avatar-respawn');
-        await wait(1500); // 等待動畫結束
+        await wait(1500); 
         img.classList.remove('avatar-respawn');
     }
 }
@@ -429,8 +414,8 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 2000); // 這裡改為 2000ms
-    }, 500); // Confetti 觸發延遲 500ms
+        }, 2000);
+    }, 500);
 });
 
 socket.on('force_reload', () => { location.reload(); });
