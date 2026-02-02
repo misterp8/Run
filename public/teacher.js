@@ -71,6 +71,9 @@ const SynthEngine = {
     playSad(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sawtooth';o.frequency.setValueAtTime(400,t);o.frequency.linearRampToValueAtTime(100,t+0.8);g.gain.setValueAtTime(0.3,t);g.gain.linearRampToValueAtTime(0,t+0.8);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.8);},
     playHappy(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;[523.25,659.25,783.99,1046.50].forEach((f,i)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.1,t+i*0.1);g.gain.exponentialRampToValueAtTime(0.001,t+i*0.1+0.3);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.1);o.stop(t+i*0.1+0.3);});},
     playVictoryGrand(){if(this.isMuted||!this.ctx)return;this.stopBGM();const t=this.ctx.currentTime;const c=[261.63,329.63,392.00,523.25];const r=[0,0.15,0.3,0.45];const l=[0.1,0.1,0.1,2.0];r.forEach((st,idx)=>{c.forEach((f)=>{const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sawtooth';o.frequency.value=f+(Math.random()*2-1);const s=t+st;const d=l[idx];g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.2,s+0.05);g.gain.exponentialRampToValueAtTime(0.001,s+d);o.connect(g);g.connect(this.ctx.destination);o.start(s);o.stop(s+d);});});const k=this.ctx.createOscillator();const kg=this.ctx.createGain();k.frequency.setValueAtTime(150,t);k.frequency.exponentialRampToValueAtTime(0.01,t+0.5);kg.gain.setValueAtTime(0.8,t);kg.gain.exponentialRampToValueAtTime(0.01,t+0.5);k.connect(kg);kg.connect(this.ctx.destination);k.start(t);k.stop(t+0.5);},
+    // 🔥 新增：口哨聲
+    playWhistle(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sine';o.frequency.setValueAtTime(1000,t);o.frequency.linearRampToValueAtTime(1500,t+0.1);o.frequency.linearRampToValueAtTime(1000,t+0.2);g.gain.setValueAtTime(0.1,t);g.gain.linearRampToValueAtTime(0,t+0.3);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.3);},
+    
     playConfettiPop(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;for(let i=0;i<5;i++){const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='square';o.frequency.setValueAtTime(800+Math.random()*500,t+i*0.05);o.frequency.exponentialRampToValueAtTime(100,t+i*0.05+0.2);g.gain.setValueAtTime(0.1,t+i*0.05);g.gain.exponentialRampToValueAtTime(0.01,t+i*0.05+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t+i*0.05);o.stop(t+i*0.05+0.2);}},
     playPopup(){if(this.isMuted||!this.ctx)return;const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(600,t);o.frequency.linearRampToValueAtTime(1200,t+0.1);g.gain.setValueAtTime(0.2,t);g.gain.linearRampToValueAtTime(0,t+0.1);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.1);},
     playBGM(){if(this.isMuted||this.bgmInterval||!this.ctx)return;const seq=[261.63,329.63,392.00,523.25,392.00,329.63,261.63,0,293.66,349.23,440.00,587.33,440.00,349.23,293.66,0];let s=0;this.bgmInterval=setInterval(()=>{if(this.ctx.state==='suspended')this.ctx.resume();const f=seq[s%seq.length];if(f>0){const t=this.ctx.currentTime;const o=this.ctx.createOscillator();const g=this.ctx.createGain();o.type='sine';o.frequency.value=f/2;g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.3);o.connect(g);g.connect(this.ctx.destination);o.start(t);o.stop(t+0.3);}s++;},250);},
@@ -229,7 +232,6 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     if(liveMsg) { liveMsg.innerText = `👉 輪到 ${playerName}`; liveMsg.style.color = "#f1c40f"; }
 });
 
-// 🔥 核心修正：接收 fateResults 陣列並進行連續動畫
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
     AvatarManager.movingStatus[playerId] = true;
 
@@ -256,10 +258,9 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
                 
-                // 🔥🔥🔥 修正：必須先解鎖，才能設為 idle
                 AvatarManager.movingStatus[playerId] = false;
                 AvatarManager.setState(playerId, 'idle', charType); 
-                AvatarManager.movingStatus[playerId] = true; // 設完後馬上鎖回去
+                AvatarManager.movingStatus[playerId] = true; 
 
                 highlightFateTile(playerId, currentStepPos);
                 await wait(600);
@@ -289,6 +290,7 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
     }
 
     AvatarManager.movingStatus[playerId] = false;
+    
     if (newPos >= 21) { 
         SynthEngine.playVictoryGrand();
         AvatarManager.setState(playerId, 'win', charType); 
@@ -319,28 +321,26 @@ function setTileAsRunway(playerId, tileIndex) {
     }
 }
 
-// 🔥🔥 修改：計算距離並設定動態速度 🔥🔥
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         const currentPos = PLAYER_POSITIONS[playerId] || 0;
-        PLAYER_POSITIONS[playerId] = targetPos; // 更新狀態
+        PLAYER_POSITIONS[playerId] = targetPos; 
         
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
         if (!avatarContainer) { resolve(); return; }
 
         if (instant) {
-            avatarContainer.style.transition = 'none'; // 瞬間移動
+            avatarContainer.style.transition = 'none'; 
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
             setTimeout(() => { 
-                avatarContainer.style.transition = ''; // 清除，恢復 CSS 預設
+                avatarContainer.style.transition = ''; 
                 resolve(); 
             }, 50);
         } else {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
             
-            // 計算距離與時間：每格 333ms
             const distance = Math.abs(targetPos - currentPos);
             const duration = Math.max(distance * 333, 100); 
             
@@ -357,7 +357,6 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
-// 🔥 修改：陷阱動畫加入重生閃爍
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -371,7 +370,6 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
     await wait(500);
     
     setTileAsRunway(playerId, trapTileIndex);
-
     await moveAvatar(playerId, resetPos, charType, true); 
     
     if(img) {
@@ -379,7 +377,6 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.style.opacity = '1';
         img.style.transform = 'none';
         
-        // 🔥 加入閃爍動畫類別
         img.classList.add('avatar-respawn');
         await wait(1500); 
         img.classList.remove('avatar-respawn');
@@ -395,9 +392,9 @@ function showFateCard(amount) {
     fateOverlay.classList.add('show'); setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
 }
 
+// 🔥 修正：移除劇透，只顯示文字
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
-        AvatarManager.setState(player.id, 'win', player.avatarChar);
         if(liveMsg) liveMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
     }, 100); 
 });
@@ -407,7 +404,8 @@ socket.on('game_over', ({ rankings }) => {
     
     setTimeout(() => {
         ConfettiManager.shoot();
-        SynthEngine.playVictoryGrand();
+        // 🔥 修改：榮譽榜改成口哨聲
+        SynthEngine.playWhistle();
         
         if(liveMsg) liveMsg.innerText = `🏆 遊戲結束！`;
         rankings.forEach(r => AvatarManager.setState(r.id, 'win', r.avatarChar));
@@ -435,7 +433,7 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 2000); 
+        }, 2000);
     }, 500); 
 });
 
