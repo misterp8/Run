@@ -65,7 +65,7 @@ const SynthEngine = {
 };
 document.getElementById('mute-btn').addEventListener('click', () => SynthEngine.toggleMute());
 
-// --- 3D Dice (Safe Mode) ---
+// --- 3D Dice ---
 const ThreeDice={container:document.getElementById('dice-3d-container'),scene:null,camera:null,renderer:null,cube:null,isRolling:false,init(){if(!this.container)return;this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,100);this.camera.position.set(0,4,10);this.camera.lookAt(0,0,0);this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});this.renderer.setSize(window.innerWidth,window.innerHeight);this.renderer.setPixelRatio(window.devicePixelRatio);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.container.appendChild(this.renderer.domElement);const al=new THREE.AmbientLight(0xffffff,0.6);this.scene.add(al);const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(5,15,10);dl.castShadow=true;this.scene.add(dl);const pg=new THREE.PlaneGeometry(100,100);const pm=new THREE.ShadowMaterial({opacity:0.3});const p=new THREE.Mesh(pg,pm);p.rotation.x=-Math.PI/2;p.position.y=-2;p.receiveShadow=true;this.scene.add(p);const mats=[];for(let i=1;i<=6;i++){mats.push(new THREE.MeshPhysicalMaterial({map:this.createDiceTexture(i),color:0xffffff,roughness:0.1,metalness:0.0,clearcoat:1.0,clearcoatRoughness:0.1}));}this.cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2),mats);this.cube.castShadow=true;this.cube.receiveShadow=true;this.scene.add(this.cube);window.addEventListener('resize',()=>{this.camera.aspect=window.innerWidth/window.innerHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(window.innerWidth,window.innerHeight);});this.animate();},createDiceTexture(n){const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#f8f9fa';x.fillRect(0,0,512,512);x.strokeStyle='#dee2e6';x.lineWidth=20;x.strokeRect(0,0,512,512);x.fillStyle=(n===1)?'#e74c3c':'#2c3e50';x.shadowColor="rgba(0,0,0,0.2)";x.shadowBlur=10;x.shadowOffsetX=4;x.shadowOffsetY=4;const r=50,cen=256,o=120;const d=(u,v)=>{x.beginPath();x.arc(u,v,r,0,Math.PI*2);x.fill();};if(n===1)d(cen,cen);if(n===2){d(cen-o,cen-o);d(cen+o,cen+o);}if(n===3){d(cen-o,cen-o);d(cen,cen);d(cen+o,cen+o);}if(n===4){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===5){d(cen-o,cen-o);d(cen+o,cen-o);d(cen,cen);d(cen-o,cen+o);d(cen+o,cen+o);}if(n===6){d(cen-o,cen-o);d(cen+o,cen-o);d(cen-o,cen);d(cen+o,cen);d(cen-o,cen+o);d(cen+o,cen+o);}return new THREE.CanvasTexture(c);},animate(){requestAnimationFrame(()=>this.animate());if(!this.isRolling&&!this.container.classList.contains('active')){this.cube.rotation.y+=0.005;}if(this.renderer&&this.scene&&this.camera)this.renderer.render(this.scene,this.camera);},async roll(n){return new Promise((res)=>{this.container.classList.add('active');SynthEngine.playRoll();let tr={x:0,y:0,z:0};switch(n){case 1:tr={x:0,y:-Math.PI/2,z:0};break;case 2:tr={x:0,y:Math.PI/2,z:0};break;case 3:tr={x:Math.PI/2,y:0,z:0};break;case 4:tr={x:-Math.PI/2,y:0,z:0};break;case 5:tr={x:0,y:0,z:0};break;case 6:tr={x:Math.PI,y:0,z:0};break;}const sr={x:this.cube.rotation.x%(Math.PI*2),y:this.cube.rotation.y%(Math.PI*2),z:this.cube.rotation.z%(Math.PI*2)};const er={x:tr.x+Math.PI*4,y:tr.y+Math.PI*4,z:tr.z+Math.PI*2};const st=Date.now();const dur=1200;let hb1=false;let hb2=false;const set=()=>{const now=Date.now();const p=Math.min((now-st)/dur,1);const e=1-Math.pow(1-p,4);this.cube.rotation.x=sr.x+(er.x-sr.x)*e;this.cube.rotation.y=sr.y+(er.y-sr.y)*e;this.cube.rotation.z=sr.z+(er.z-sr.z)*e;let y=0;if(p<0.35){y=12*(1-(p/0.35)*(p/0.35));}else if(p<0.7){if(!hb1){SynthEngine.playImpact();hb1=true;}const t=(p-0.35)/0.35;y=3.0*(1-(2*t-1)*(2*t-1));}else if(p<0.9){if(!hb2){SynthEngine.playImpact();hb2=true;}const t=(p-0.7)/0.2;y=1.0*(1-(2*t-1)*(2*t-1));}this.cube.position.y=y;if(p<1){requestAnimationFrame(set);}else{if(n===6)SynthEngine.playSix();if(diceResultText){diceResultText.innerText=`${n} 點!`;diceResultText.classList.add('show');}setTimeout(()=>{this.container.classList.remove('active');if(diceResultText)diceResultText.classList.remove('show');res();},1200);}};set();});}};
 try { ThreeDice.init(); } catch(e) { console.log("Init skipped"); }
 
@@ -158,21 +158,19 @@ function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
 socket.on('connect', () => { myId = socket.id; console.log("Socket connected:", myId); });
 
-// 🔥🔥 修正：這裡才是正確的加入按鈕邏輯 🔥🔥
 if (joinBtn) {
     joinBtn.addEventListener('click', () => {
-        console.log("Join Button Clicked");
-        SynthEngine.init();
-        const name = usernameInput.value.trim();
-        if (!name) { alert("⚠️ 請輸入名字！"); return; }
-        socket.emit('player_join', name);
+        if (rollBtn.disabled) return;
+        socket.emit('action_roll');
+        rollBtn.disabled = true;
+        rollBtn.innerText = "📡 傳送中...";
+        rollBtn.className = "board-btn btn-grey";
     });
 }
 
 socket.on('error_msg', (msg) => { alert(msg); });
 
 socket.on('update_player_list', (players) => {
-    console.log("Received player list:", players);
     const me = players.find(p => p.id === socket.id);
     if (me) {
         myId = socket.id;
@@ -234,12 +232,21 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     });
     if(gameMsg) gameMsg.style.color = "#f1c40f";
     if (nextPlayerId === myId) {
-        rollBtn.removeAttribute('disabled');
-        rollBtn.disabled = false;
-        rollBtn.innerText = "🎲 輪到你了！按此擲骰";
-        rollBtn.className = "board-btn btn-green"; 
-        rollBtn.style.cursor = "pointer";
-        gameMsg.innerText = `👉 輪到你了！`;
+        // 🔥 關鍵修改：先顯示「準備中...」，等2秒再變綠色
+        rollBtn.setAttribute('disabled', 'true');
+        rollBtn.disabled = true;
+        rollBtn.innerText = "準備中...";
+        rollBtn.className = "board-btn btn-grey";
+        gameMsg.innerText = `👉 輪到你了！(請稍候)`;
+
+        setTimeout(() => {
+            rollBtn.removeAttribute('disabled');
+            rollBtn.disabled = false;
+            rollBtn.innerText = "🎲 輪到你了！按此擲骰";
+            rollBtn.className = "board-btn btn-green"; 
+            rollBtn.style.cursor = "pointer";
+            gameMsg.innerText = `👉 輪到你了！`;
+        }, 2000); // 2秒延遲
     } else {
         rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
@@ -427,7 +434,6 @@ function showFateCard(amount) {
     fateOverlay.classList.add('show'); setTimeout(() => { fateOverlay.classList.remove('show'); }, 2000);
 }
 
-// 🔥 修正：只顯示文字，不預先執行勝利動作
 socket.on('player_finished_rank', ({ player, rank }) => {
     setTimeout(() => {
         if(gameMsg) gameMsg.innerHTML = `👏 <span style="color:#2ecc71">${player.name}</span> 獲得第 ${rank} 名！`;
