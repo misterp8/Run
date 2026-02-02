@@ -158,13 +158,14 @@ function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
 socket.on('connect', () => { myId = socket.id; console.log("Socket connected:", myId); });
 
+// 🔥🔥 修正：加入按鈕的正確邏輯 🔥🔥
 if (joinBtn) {
     joinBtn.addEventListener('click', () => {
-        if (rollBtn.disabled) return;
-        socket.emit('action_roll');
-        rollBtn.disabled = true;
-        rollBtn.innerText = "📡 傳送中...";
-        rollBtn.className = "board-btn btn-grey";
+        console.log("Join Button Clicked");
+        SynthEngine.init();
+        const name = usernameInput.value.trim();
+        if (!name) { alert("⚠️ 請輸入名字！"); return; }
+        socket.emit('player_join', name);
     });
 }
 
@@ -232,7 +233,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     });
     if(gameMsg) gameMsg.style.color = "#f1c40f";
     if (nextPlayerId === myId) {
-        // 🔥 關鍵修改：先顯示「準備中...」，等2秒再變綠色
+        // 🔥 顯示「準備中...」，等2秒再變綠色
         rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
         rollBtn.innerText = "準備中...";
