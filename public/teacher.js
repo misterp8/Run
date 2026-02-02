@@ -256,8 +256,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
                 
-                // 🔥 1. 強制設定為 IDLE (站立)，等待卡片展示
+                // 🔥🔥🔥 修正：必須先解鎖，才能設為 idle
+                AvatarManager.movingStatus[playerId] = false;
                 AvatarManager.setState(playerId, 'idle', charType); 
+                AvatarManager.movingStatus[playerId] = true; // 設完後馬上鎖回去
 
                 highlightFateTile(playerId, currentStepPos);
                 await wait(600);
@@ -317,27 +319,45 @@ function setTileAsRunway(playerId, tileIndex) {
     }
 }
 
+// 🔥🔥 修改：計算距離並設定動態速度 🔥🔥
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
-        PLAYER_POSITIONS[playerId] = targetPos;
+        const currentPos = PLAYER_POSITIONS[playerId] || 0;
+        PLAYER_POSITIONS[playerId] = targetPos; // 更新狀態
+        
         const avatarContainer = document.getElementById(`avatar-${playerId}`);
         if (!avatarContainer) { resolve(); return; }
 
         if (instant) {
-            avatarContainer.style.transition = 'none'; 
+            avatarContainer.style.transition = 'none'; // 瞬間移動
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
-            setTimeout(() => { avatarContainer.style.transition = 'left 1s linear'; resolve(); }, 50);
+            setTimeout(() => { 
+                avatarContainer.style.transition = ''; // 清除，恢復 CSS 預設
+                resolve(); 
+            }, 50);
         } else {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
+            
+            // 計算距離與時間：每格 333ms
+            const distance = Math.abs(targetPos - currentPos);
+            const duration = Math.max(distance * 333, 100); 
+            
+            avatarContainer.style.transition = `left ${duration}ms linear`;
+            
             const percent = (targetPos / 22) * 100; 
             avatarContainer.style.left = `${percent}%`;
-            setTimeout(() => { resolve(); }, 1000); 
+            
+            setTimeout(() => { 
+                avatarContainer.style.transition = ''; 
+                resolve(); 
+            }, duration); 
         }
     });
 }
 
+// 🔥 修改：陷阱動畫加入重生閃爍
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -359,6 +379,7 @@ async function playTrapAnimation(img, playerId, resetPos, charType, trapTileInde
         img.style.opacity = '1';
         img.style.transform = 'none';
         
+        // 🔥 加入閃爍動畫類別
         img.classList.add('avatar-respawn');
         await wait(1500); 
         img.classList.remove('avatar-respawn');
@@ -414,8 +435,8 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 2000);
-    }, 500);
+        }, 2000); 
+    }, 500); 
 });
 
 socket.on('force_reload', () => { location.reload(); });

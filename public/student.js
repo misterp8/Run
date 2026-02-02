@@ -117,6 +117,7 @@ const AvatarManager = {
     loopIntervals: {}, movingStatus: {}, 
     getCharType(p) { return p.avatarChar || 'a'; },
     setState(playerId, state, charType) {
+        // 🔥 重要：如果正在移動，且嘗試設為 ready/idle，則阻擋
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
         
         let img = document.getElementById(`img-${playerId}`);
@@ -322,8 +323,10 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
                 
-                // 🔥 1. 強制設定為 IDLE (站立)，等待卡片展示
+                // 🔥🔥🔥 修正：必須先解鎖，才能設為 idle
+                AvatarManager.movingStatus[playerId] = false;
                 AvatarManager.setState(playerId, 'idle', charType); 
+                AvatarManager.movingStatus[playerId] = true; // 設完後馬上鎖回去（防止外部干擾，但下一行 highlightFateTile 不受影響）
 
                 highlightFateTile(playerId, currentStepPos);
                 await wait(600);
@@ -342,7 +345,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
                 if (nextStepPos < 0) nextStepPos = 0;
                 if (nextStepPos > 21) nextStepPos = 21;
 
-                // moveAvatar 會自動將狀態改為 RUN
                 await moveAvatar(playerId, nextStepPos, charType);
                 currentStepPos = nextStepPos;
                 await wait(500);
@@ -354,13 +356,14 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
             await playTrapAnimation(img, playerId, newPos, charType, trapPos);
         }
     }
-    
+
     AvatarManager.movingStatus[playerId] = false;
     if (newPos >= 21) { 
         SynthEngine.playVictoryGrand();
         AvatarManager.setState(playerId, 'win', charType); 
-    } 
-    else { AvatarManager.setState(playerId, 'idle', charType); }
+    } else { 
+        AvatarManager.setState(playerId, 'idle', charType); 
+    }
 });
 
 function highlightFateTile(playerId, tileIndex) {
