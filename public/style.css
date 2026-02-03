@@ -58,12 +58,12 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 體育場 */
 #stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
 
-/* 🔥 修正 1：降低觀眾席層級至 0，做為背景裝飾 */
+/* 觀眾席層級設為 0 */
 .audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 0; position: relative; pointer-events: none; }
 #audience-top { border-bottom: 4px solid #333; background-color: #444; }
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
 
-/* 🔥 修正 2：提升捲動區層級至 10，確保跑道與角色在觀眾席之上 */
+/* 捲動區層級設為 10，確保在觀眾上方 */
 #game-scroll-area { 
     flex: 1; overflow-y: auto; overflow-x: hidden; 
     padding: 0 10px; display: flex; flex-direction: column; gap: 20px; 
@@ -89,7 +89,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
 .grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
 
-/* 角色容器 (層級為 1000，但相對於 game-scroll-area) */
+/* 角色容器 (層級為 1000) */
 .avatar-container { 
     position: absolute; 
     width: calc(100% / var(--track-cols) * 1.5); 
@@ -295,7 +295,12 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     #stadium-wrapper { background-size: 42px 42px; }
     .audience-section { height: 30px; }
     
-    #game-scroll-area { padding: 10px 5px; gap: 8px; }
+    /* 🔥 修正：加大手機版上方內距 (padding-top: 40px)，解決切頭問題 */
+    #game-scroll-area { 
+        padding: 40px 5px 10px 5px; 
+        gap: 8px; 
+    }
+
     .track-row { height: 42px; margin-bottom: 5px; }
     
     .avatar-container { height: 160%; bottom: 5px; margin-left: -10px; }
