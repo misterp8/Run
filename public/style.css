@@ -56,7 +56,23 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .btn-grey { background: #7f8c8d; color: #ccc; border-color: #999; cursor: not-allowed; }
 
 /* 體育場 */
-#stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
+#stadium-wrapper { 
+    flex: 1; 
+    width: 100%; 
+    max-width: 1400px; 
+    margin: 0 auto; 
+    background-color: #5d9e36; 
+    background-image: url('images/map_grass.png'); 
+    background-size: 64px 64px; 
+    box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+    position: relative; 
+    display: flex; 
+    flex-direction: column; 
+    
+    /* 🔥 修正 1：增加這兩行，強制容器不能被內容撐開，超出部分要隱藏 */
+    overflow: hidden; 
+    min-height: 0; 
+}
 
 /* 觀眾席層級設為 0 */
 .audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 0; position: relative; pointer-events: none; }
@@ -65,11 +81,21 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 
 /* 捲動區層級設為 10，確保在觀眾上方 */
 #game-scroll-area { 
-    flex: 1; overflow-y: auto; overflow-x: hidden; 
-    padding: 0 10px; display: flex; flex-direction: column; gap: 20px; 
-    padding-top: 40px; padding-bottom: 20px; padding-left: 30px;
+    flex: 1; 
+    overflow-y: auto; /* 允許垂直捲動 */
+    overflow-x: hidden; 
+    padding: 0 10px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px; 
+    padding-top: 40px; 
+    padding-bottom: 20px; 
+    padding-left: 30px;
     position: relative; 
     z-index: 10; 
+    
+    /* 🔥 修正 2：增加這行，這是讓 Flex 子元素產生捲軸的關鍵 */
+    min-height: 0; 
 }
 
 /* 跑道 */
