@@ -57,7 +57,9 @@ io.on('connection', (socket) => {
             position: 0,
             avatarChar: assignAvatar(gameState.players),
             trapIndex: -1,
-            fateIndices: [] 
+            fateIndices: [],
+            // 🔥 新增：記錄加入順序，讓跑道排序固定
+            joinOrder: gameState.players.length 
         };
         gameState.players.push(newPlayer);
         
@@ -75,7 +77,7 @@ io.on('connection', (socket) => {
         gameState.config.enableTraps = config.enableTraps;
         gameState.config.fateCount = config.fateCount;
 
-        // 亂數洗牌
+        // 亂數洗牌 (這會改變 turnIndex 0 是誰，即改變擲骰順序)
         for (let i = gameState.players.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [gameState.players[i], gameState.players[j]] = [gameState.players[j], gameState.players[i]];
@@ -93,7 +95,6 @@ io.on('connection', (socket) => {
 
             if (gameState.config.fateCount > 0) {
                 const availableSlots = [];
-                // 從 2 開始，確保 index 1 (第2格) 也就是重生點不會有問號
                 for (let i = 2; i < 21; i++) {
                     if (i !== p.trapIndex) availableSlots.push(i);
                 }
@@ -108,7 +109,7 @@ io.on('connection', (socket) => {
 
         io.emit('game_start');
         io.emit('update_game_state', gameState);
-        io.emit('show_initiative', gameState.players);
+        io.emit('show_initiative', gameState.players); // 這裡送出的是「洗牌後」的順序，用於顯示抽籤結果
 
         setTimeout(() => {
             const firstPlayer = gameState.players[0];
@@ -182,9 +183,7 @@ io.on('connection', (socket) => {
             trapPos: (triggerType === 'FATE_TRAP') ? triggeredTrapPos : -1 
         });
 
-        // 判斷是否到達終點
         if (finalPos >= 21) {
-            // 檢查是否已經在排名中 (避免重複)
             if (!gameState.rankings.find(r => r.id === currentPlayer.id)) {
                 const rank = gameState.rankings.length + 1;
                 gameState.rankings.push({ ...currentPlayer, rank });
@@ -192,9 +191,7 @@ io.on('connection', (socket) => {
             }
         }
 
-        // 計算動畫時間後，進入下一回合
         setTimeout(() => {
-            // 只有當還沒結束時，才切換到下一個人
             if (gameState.status === 'PLAYING') {
                 gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
                 notifyNextTurn();
@@ -249,12 +246,8 @@ function notifyNextTurn() {
     if (gameState.status === 'ENDED') return;
     if (gameState.players.length === 0) return;
     
-    // 🔥🔥 邏輯確認 🔥🔥
-    // 如果只有 1~3 人玩，只需 1 人到終點就結束 (maxWinners = 1)
-    // 如果 >3 人玩，需要 3 人到終點才結束 (maxWinners = 3)
     const maxWinners = (gameState.players.length <= 3) ? 1 : 3;
 
-    // 檢查是否達到結束條件
     if (gameState.rankings.length >= maxWinners) {
         gameState.status = 'ENDED';
         io.emit('game_over', { rankings: gameState.rankings });
@@ -262,7 +255,6 @@ function notifyNextTurn() {
         return;
     }
 
-    // 尋找下一個合法的玩家 (還沒到終點的人)
     let attempts = 0;
     const maxAttempts = gameState.players.length + 1;
 
@@ -270,21 +262,17 @@ function notifyNextTurn() {
         const currentPlayer = gameState.players[gameState.turnIndex];
         
         if (!currentPlayer) { 
-            // 玩家不存在(可能斷線)，找下一個
             gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length; 
             attempts++; 
             continue; 
         }
 
-        // 檢查該玩家是否已經完成比賽 (在 rankings 列表裡)
         const isFinished = gameState.rankings.find(r => r.id === currentPlayer.id);
 
         if (isFinished || currentPlayer.position >= 21) {
-            // 已過關，跳過，找下一個
             gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
             attempts++;
         } else {
-            // 找到還在跑的人，輪到他
             io.emit('update_turn', { 
                 turnIndex: gameState.turnIndex, 
                 nextPlayerId: currentPlayer.id, 
@@ -294,7 +282,6 @@ function notifyNextTurn() {
         }
     }
     
-    // 如果所有人都跑完了(極端情況，例如全部斷線或都到了)，強制結束
     if (gameState.rankings.length > 0) {
         gameState.status = 'ENDED';
         io.emit('game_over', { rankings: gameState.rankings });
