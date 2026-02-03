@@ -88,7 +88,6 @@ const AvatarManager = {
     getCharType(p) { return p.avatarChar || 'a'; },
     setState(playerId, state, charType) {
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
-        
         let img = document.getElementById(`img-${playerId}`);
         if (!charType && img) charType = img.dataset.char;
         if (!charType) charType = 'a'; 
@@ -138,21 +137,22 @@ const AudienceManager = {
 AudienceManager.start();
 
 function showModal(title, text, isConfirm = false, onConfirm = null) {
-    if (!modalContent) return;
+    if (!modalContent) return; 
     modalContent.className = "modal-content"; 
     if(modalTitle) modalTitle.innerText = title;
     if(modalBody) modalBody.innerHTML = text; 
-    
-    if (modalBtn) {
-        modalBtn.innerText = isConfirm ? "確定執行" : "知道了";
-        modalBtn.className = isConfirm ? "board-btn btn-green" : "board-btn btn-green";
-        modalBtn.onclick = () => {
-            if (isConfirm && onConfirm) onConfirm();
-            closeModal();
-        };
-    }
-    
     if(modalOverlay) modalOverlay.classList.remove('hidden');
+    if (isConfirm) {
+        if(btnConfirm) {
+            btnConfirm.innerText = "確定執行"; 
+            btnConfirm.className = "board-btn btn-green"; 
+            btnConfirm.onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
+        }
+        if(btnCancel) { btnCancel.classList.remove('hidden'); btnCancel.onclick = closeModal; }
+    } else {
+        if(btnConfirm) { btnConfirm.innerText = "知道了"; btnConfirm.className = "board-btn btn-green"; btnConfirm.onclick = closeModal; }
+        if(btnCancel) btnCancel.classList.add('hidden');
+    }
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
@@ -196,7 +196,7 @@ socket.on('game_start', () => {
     SynthEngine.playBGM();
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
     
-    // 🔥 新增：遊戲開始時，捲動畫面到自己
+    // 遊戲開始時，捲動畫面到自己
     if (myId) setTimeout(() => scrollToPlayer(myId), 500);
 });
 
@@ -234,7 +234,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
         }
     });
 
-    // 🔥 新增：智慧導播鏡頭，輪到誰就捲到誰
+    // 智慧導播鏡頭，輪到誰就捲到誰
     scrollToPlayer(nextPlayerId);
 
     if(gameMsg) gameMsg.style.color = "#f1c40f";
@@ -274,7 +274,7 @@ if (rollBtn) {
 }
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
-    // 🔥 新增：移動時鏡頭也跟隨
+    // 移動時鏡頭也跟隨
     scrollToPlayer(playerId);
     
     AvatarManager.movingStatus[playerId] = true;
@@ -488,14 +488,19 @@ socket.on('force_reload', () => { location.reload(); });
 
 function renderTracks(players) {
     if(!trackContainer) return;
+    
+    // 🔥 修正：強制將收到的玩家列表依照「加入順序 (joinOrder)」排序
+    // 這樣即使 server 洗牌了 (改變 turn 順序)，前端跑道永遠固定
+    const displayPlayers = [...players].sort((a, b) => (a.joinOrder || 0) - (b.joinOrder || 0));
+
     const existingRows = Array.from(trackContainer.children);
     let needRebuild = false;
     
-    if (existingRows.length !== players.length) {
+    if (existingRows.length !== displayPlayers.length) {
         needRebuild = true;
     } else {
-        for (let i = 0; i < players.length; i++) {
-            if (existingRows[i].dataset.id !== players[i].id) {
+        for (let i = 0; i < displayPlayers.length; i++) {
+            if (existingRows[i].dataset.id !== displayPlayers[i].id) {
                 needRebuild = true;
                 break;
             }
@@ -504,9 +509,9 @@ function renderTracks(players) {
 
     if (needRebuild) {
         trackContainer.innerHTML = '';
-        players.forEach(p => createRow(p));
+        displayPlayers.forEach(p => createRow(p));
     } else {
-        players.forEach((p, index) => {
+        displayPlayers.forEach((p, index) => {
             const row = existingRows[index];
             updateRow(row, p);
         });
@@ -570,7 +575,6 @@ function updateRow(row, p) {
     if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) { avatarContainer.style.left = `${targetLeft}%`; }
 }
 
-// 🔥🔥 智慧導播鏡頭功能 🔥🔥
 function scrollToPlayer(playerId) {
     const scrollArea = document.getElementById('game-scroll-area');
     if (!scrollArea || !trackContainer) return;
