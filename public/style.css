@@ -245,30 +245,13 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     #login-overlay, #scoreboard-header, #stadium-wrapper { visibility: hidden; }
 }
 
-/* 🔥 手機版：針對登入框太寬的修正 */
+/* 🔥 手機版：針對登入框太寬的修正 (直式時稍微保持寬一點，但橫式有下方覆蓋) */
 @media screen and (max-width: 600px) {
     #login-box { 
-        width: 70% !important; /* 縮小寬度比例 */
-        max-width: 350px !important; /* 設定最大寬度限制 */
+        width: 80%;
+        max-width: 480px;
         padding: 25px; 
     }
-}
-
-/* 🔥 手機版：針對榮譽榜 (Rank) 太寬太大的修正 */
-@media screen and (max-width: 900px) and (orientation: landscape) {
-    .premium-modal {
-        width: 70% !important; /* 不再全版，留邊 */
-        max-width: 400px !important; /* 限制最大寬度，避免在長型手機太扁 */
-        padding: 15px !important;
-        border-width: 4px !important;
-        height: 85vh; /* 避免填滿 */
-        overflow-y: auto;
-    }
-    .premium-modal h2 { font-size: 1.8rem; margin-bottom: 10px; }
-    .rank-item { padding: 8px 12px; font-size: 1rem; margin-bottom: 8px; border-radius: 8px; }
-    .rank-medal { font-size: 1.5rem; margin-right: 10px; }
-    .rank-avatar { width: 45px; height: 45px; margin-right: 10px; }
-    .rank-name { font-size: 1.1rem; }
 }
 
 /* 3. 手機橫向模式 (Mobile Landscape) 適配 */
@@ -295,7 +278,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     #stadium-wrapper { background-size: 42px 42px; }
     .audience-section { height: 30px; }
     
-    /* 🔥 修正：加大手機版上方內距 (padding-top: 20px)，解決切頭問題 */
+    /* 🔥 修正 1：手機橫向內距改為 20px，解決切頭問題 */
     #game-scroll-area { 
         padding: 20px 5px 10px 5px; 
         gap: 8px; 
@@ -306,15 +289,31 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     .avatar-container { height: 160%; bottom: 5px; margin-left: -10px; }
     .name-tag { font-size: 10px; padding: 2px 4px; bottom: 100%; top: auto; }
 
-    /* Login Box 在橫向模式的特別配置 */
+    /* 🔥 修正 2：登入框寬度強制 60% */
     #login-box { 
-        width: 80% !important; max-width: 480px; 
+        width: 60% !important; 
+        max-width: 480px; 
         display: flex; flex-direction: row; flex-wrap: wrap; 
         justify-content: center; align-items: center; gap: 10px; padding: 20px; 
     }
     #login-box h1 { width: 100%; margin: 0 0 10px 0; font-size: 1.2rem; }
     #username { width: 50%; margin: 0; padding: 10px; font-size: 1rem; }
     #join-btn { width: 40%; margin: 0; padding: 10px; font-size: 1rem; }
+
+    /* 🔥 修正 3：榮譽榜寬度強制 60% */
+    .premium-modal {
+        width: 60% !important;
+        max-width: 480px !important;
+        padding: 15px !important;
+        border-width: 4px !important;
+        height: 85vh; 
+        overflow-y: auto;
+    }
+    .premium-modal h2 { font-size: 1.8rem; margin-bottom: 10px; }
+    .rank-item { padding: 8px 12px; font-size: 1rem; margin-bottom: 8px; border-radius: 8px; }
+    .rank-medal { font-size: 1.5rem; margin-right: 10px; }
+    .rank-avatar { width: 45px; height: 45px; margin-right: 10px; }
+    .rank-name { font-size: 1.1rem; }
 
     .fate-card { transform: scale(0.7) !important; }
     #dice-result-text { font-size: 4rem; }
