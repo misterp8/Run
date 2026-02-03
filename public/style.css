@@ -58,12 +58,19 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 體育場 */
 #stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
 
-/* 🔥 修正：降低觀眾席層級，讓角色可以蓋在上面 */
-.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 1; position: relative; pointer-events: none; }
+/* 🔥 修正 1：降低觀眾席層級至 0，做為背景裝飾 */
+.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 0; position: relative; pointer-events: none; }
 #audience-top { border-bottom: 4px solid #333; background-color: #444; }
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
 
-#game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
+/* 🔥 修正 2：提升捲動區層級至 10，確保跑道與角色在觀眾席之上 */
+#game-scroll-area { 
+    flex: 1; overflow-y: auto; overflow-x: hidden; 
+    padding: 0 10px; display: flex; flex-direction: column; gap: 20px; 
+    padding-top: 40px; padding-bottom: 20px; padding-left: 30px;
+    position: relative; 
+    z-index: 10; 
+}
 
 /* 跑道 */
 .track-row { 
@@ -82,14 +89,14 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
 .grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
 
-/* 🔥 修正：提高角色層級，確保蓋住觀眾 */
+/* 角色容器 (層級為 1000，但相對於 game-scroll-area) */
 .avatar-container { 
     position: absolute; 
     width: calc(100% / var(--track-cols) * 1.5); 
     height: 140%; 
     bottom: 10px; 
     left: 0%; 
-    z-index: 1000; /* 非常高的層級 */
+    z-index: 1000; 
     margin-left: -15px; 
     transition: left 1s linear; 
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end; 
@@ -204,7 +211,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 直式螢幕鎖定層 (預設隱藏) */
 #orientation-lock { display: none; }
 
-/* 2. 當裝置處於「直式 (Portrait)」時顯示鎖定層 */
+/* 當裝置處於「直式 (Portrait)」時顯示鎖定層 */
 @media screen and (orientation: portrait) {
     #orientation-lock {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -240,24 +247,28 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 
 /* 🔥 手機版：針對登入框太寬的修正 */
 @media screen and (max-width: 600px) {
-    #login-box { width: 90% !important; padding: 25px; }
+    #login-box { 
+        width: 80% !important; /* 縮小寬度比例 */
+        max-width: 480px !important; /* 設定最大寬度限制 */
+        padding: 25px; 
+    }
 }
 
 /* 🔥 手機版：針對榮譽榜 (Rank) 太寬太大的修正 */
-@media screen and (max-width: 600px) and (orientation: landscape) {
+@media screen and (max-width: 900px) and (orientation: landscape) {
     .premium-modal {
-        width: 95vw !important;
-        max-width: none !important;
+        width: 85% !important; /* 不再全版，留邊 */
+        max-width: 480px !important; /* 限制最大寬度，避免在長型手機太扁 */
         padding: 15px !important;
         border-width: 4px !important;
-        height: 90vh; /* 避免超出螢幕 */
+        height: 85vh; /* 避免填滿 */
         overflow-y: auto;
     }
-    .premium-modal h2 { font-size: 1.8rem; margin-bottom: 15px; }
+    .premium-modal h2 { font-size: 1.8rem; margin-bottom: 10px; }
     .rank-item { padding: 8px 12px; font-size: 1rem; margin-bottom: 8px; border-radius: 8px; }
     .rank-medal { font-size: 1.5rem; margin-right: 10px; }
-    .rank-avatar { width: 50px; height: 50px; margin-right: 10px; }
-    .rank-name { font-size: 1.2rem; }
+    .rank-avatar { width: 45px; height: 45px; margin-right: 10px; }
+    .rank-name { font-size: 1.1rem; }
 }
 
 /* 3. 手機橫向模式 (Mobile Landscape) 適配 */
@@ -290,7 +301,12 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     .avatar-container { height: 160%; bottom: 5px; margin-left: -10px; }
     .name-tag { font-size: 10px; padding: 2px 4px; bottom: 100%; top: auto; }
 
-    #login-box { width: 90%; max-width: 500px; display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; padding: 20px; }
+    /* Login Box 在橫向模式的特別配置 */
+    #login-box { 
+        width: 80% !important; max-width: 480px; 
+        display: flex; flex-direction: row; flex-wrap: wrap; 
+        justify-content: center; align-items: center; gap: 10px; padding: 20px; 
+    }
     #login-box h1 { width: 100%; margin: 0 0 10px 0; font-size: 1.2rem; }
     #username { width: 50%; margin: 0; padding: 10px; font-size: 1rem; }
     #join-btn { width: 40%; margin: 0; padding: 10px; font-size: 1rem; }
