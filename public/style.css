@@ -248,7 +248,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 🔥 手機版：針對登入框太寬的修正 */
 @media screen and (max-width: 600px) {
     #login-box { 
-        width: 80% !important; /* 縮小寬度比例 */
+        width: 70% !important; /* 縮小寬度比例 */
         max-width: 350px !important; /* 設定最大寬度限制 */
         padding: 25px; 
     }
@@ -257,7 +257,7 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 🔥 手機版：針對榮譽榜 (Rank) 太寬太大的修正 */
 @media screen and (max-width: 900px) and (orientation: landscape) {
     .premium-modal {
-        width: 85% !important; /* 不再全版，留邊 */
+        width: 70% !important; /* 不再全版，留邊 */
         max-width: 400px !important; /* 限制最大寬度，避免在長型手機太扁 */
         padding: 15px !important;
         border-width: 4px !important;
