@@ -66,7 +66,7 @@ preloadImages();
 // --- SynthEngine Pro ---
 const SynthEngine = {
     ctx: null, isMuted: false, bgmInterval: null,
-    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;this.ctx=new AC();} if(this.ctx.state==='suspended')this.ctx.resume(); },
+    init() { if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)this.ctx=new AC();} if(this.ctx && this.ctx.state==='suspended')this.ctx.resume(); },
     toggleMute() {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('mute-btn');
@@ -250,10 +250,17 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
             if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle', img.dataset.char);
         }
     });
+
+    // 🔥 新增：老師端也加入「智慧導播」，鏡頭跟隨當前玩家
+    scrollToPlayer(nextPlayerId);
+
     if(liveMsg) { liveMsg.innerText = `👉 輪到 ${playerName}`; liveMsg.style.color = "#f1c40f"; }
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
+    // 🔥 新增：老師端移動時鏡頭也跟隨
+    scrollToPlayer(playerId);
+    
     AvatarManager.movingStatus[playerId] = true;
 
     await ThreeDice.roll(roll);
@@ -280,7 +287,6 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
             for (let i = 0; i < fateResults.length; i++) {
                 const result = fateResults[i];
                 
-                // 🔥 同步學生端：站立看牌
                 AvatarManager.movingStatus[playerId] = false;
                 AvatarManager.setState(playerId, 'idle', charType); 
                 AvatarManager.movingStatus[playerId] = true; 
@@ -328,7 +334,6 @@ function setTileAsRunway(playerId, tileIndex) {
     }
 }
 
-// 🔥 核心修正：同步學生端的動態速度計算
 function moveAvatar(playerId, targetPos, charType, instant = false) {
     return new Promise(resolve => {
         const currentPos = PLAYER_POSITIONS[playerId] || 0;
@@ -345,7 +350,6 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
             AvatarManager.movingStatus[playerId] = true;
             AvatarManager.setState(playerId, 'run', charType);
             
-            // 計算距離與時間
             const distance = Math.abs(targetPos - currentPos);
             const duration = Math.max(distance * 333, 100); 
             
@@ -358,7 +362,6 @@ function moveAvatar(playerId, targetPos, charType, instant = false) {
     });
 }
 
-// 🔥 同步學生端：陷阱閃爍效果
 async function playTrapAnimation(img, playerId, resetPos, charType, trapTileIndex) {
     if(img) img.classList.add('avatar-trap-shake');
     SynthEngine.playSad(); 
@@ -435,8 +438,8 @@ socket.on('game_over', ({ rankings }) => {
                     img.src = `images/avatar_${c}_${toggle ? 1 : 5}.png`;
                 });
             }, 400);
-        }, 2000); // 勝利等待時間
-    }, 500); // 彩花延遲
+        }, 2000); 
+    }, 500); 
 });
 
 socket.on('force_reload', () => { location.reload(); });
@@ -554,4 +557,25 @@ function updateRow(row, p) {
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
     if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) { avatarContainer.style.left = `${targetLeft}%`; }
+}
+
+// 🔥🔥 智慧導播鏡頭功能 (老師端) 🔥🔥
+function scrollToPlayer(playerId) {
+    const scrollArea = document.getElementById('game-scroll-area');
+    if (!scrollArea || !trackContainer) return;
+    
+    // 找出對應 playerId 的跑道列
+    const rows = Array.from(document.querySelectorAll('.track-row'));
+    const targetRow = rows.find(r => r.dataset.id === playerId);
+
+    if (targetRow) {
+        // 計算位置：將目標跑道置中
+        const scrollTop = targetRow.offsetTop - (scrollArea.clientHeight / 2) + (targetRow.clientHeight / 2);
+        
+        // 執行平滑捲動
+        scrollArea.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth'
+        });
+    }
 }
