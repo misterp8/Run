@@ -158,7 +158,6 @@ function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
 socket.on('connect', () => { myId = socket.id; console.log("Socket connected:", myId); });
 
-// 🔥🔥 修正：加入按鈕的正確邏輯 🔥🔥
 if (joinBtn) {
     joinBtn.addEventListener('click', () => {
         console.log("Join Button Clicked");
@@ -196,6 +195,9 @@ socket.on('game_start', () => {
     if(gameMsg) gameMsg.innerText = "🚀 遊戲開始！";
     SynthEngine.playBGM();
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
+    
+    // 🔥 新增：遊戲開始時，捲動畫面到自己
+    if (myId) setTimeout(() => scrollToPlayer(myId), 500);
 });
 
 socket.on('game_reset_positions', () => {
@@ -231,9 +233,12 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
             if (!img.src.includes('_5.png')) AvatarManager.setState(id, 'idle', img.dataset.char);
         }
     });
+
+    // 🔥 新增：智慧導播鏡頭，輪到誰就捲到誰
+    scrollToPlayer(nextPlayerId);
+
     if(gameMsg) gameMsg.style.color = "#f1c40f";
     if (nextPlayerId === myId) {
-        // 🔥 顯示「準備中...」，等2秒再變綠色
         rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
         rollBtn.innerText = "準備中...";
@@ -247,7 +252,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
             rollBtn.className = "board-btn btn-green"; 
             rollBtn.style.cursor = "pointer";
             gameMsg.innerText = `👉 輪到你了！`;
-        }, 2000); // 2秒延遲
+        }, 2000); 
     } else {
         rollBtn.setAttribute('disabled', 'true');
         rollBtn.disabled = true;
@@ -258,7 +263,6 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     }
 });
 
-// 🔥🔥 修正：這裡才是正確的擲骰邏輯 🔥🔥
 if (rollBtn) {
     rollBtn.addEventListener('click', () => {
         if (rollBtn.disabled) return;
@@ -270,6 +274,9 @@ if (rollBtn) {
 }
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
+    // 🔥 新增：移動時鏡頭也跟隨
+    scrollToPlayer(playerId);
+    
     AvatarManager.movingStatus[playerId] = true;
 
     await ThreeDice.roll(roll);
@@ -561,4 +568,25 @@ function updateRow(row, p) {
     const currentLeft = parseFloat(avatarContainer.style.left) || 0;
     const targetLeft = (p.position / 22) * 100;
     if (Math.abs(currentLeft - targetLeft) > 5 && !AvatarManager.movingStatus[p.id]) { avatarContainer.style.left = `${targetLeft}%`; }
+}
+
+// 🔥🔥 智慧導播鏡頭功能 🔥🔥
+function scrollToPlayer(playerId) {
+    const scrollArea = document.getElementById('game-scroll-area');
+    if (!scrollArea || !trackContainer) return;
+    
+    // 找出對應 playerId 的跑道列
+    const rows = Array.from(document.querySelectorAll('.track-row'));
+    const targetRow = rows.find(r => r.dataset.id === playerId);
+
+    if (targetRow) {
+        // 計算位置：將目標跑道置中
+        const scrollTop = targetRow.offsetTop - (scrollArea.clientHeight / 2) + (targetRow.clientHeight / 2);
+        
+        // 執行平滑捲動
+        scrollArea.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth'
+        });
+    }
 }
