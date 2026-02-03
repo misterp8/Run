@@ -1,20 +1,57 @@
 :root { --track-cols: 22; --cell-size: 50px; }
-* { box-sizing: border-box; user-select: none; }
-body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: bold; margin: 0; padding: 0; background-color: #2c3e50; color: #333; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+* { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+/* 基礎設定 */
+body { 
+    font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; 
+    font-weight: bold; 
+    margin: 0; padding: 0; 
+    background-color: #2c3e50; 
+    color: #333; 
+    overflow: hidden; 
+    height: 100vh; width: 100vw;
+    display: flex; flex-direction: column; 
+}
 .hidden { display: none !important; }
+
+/* 🔥 新增：強制橫向提示層 (預設隱藏) */
+#orientation-lock {
+    display: none;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #2c3e50; z-index: 10000;
+    flex-direction: column; justify-content: center; align-items: center;
+    color: white; text-align: center;
+}
+.lock-icon { font-size: 4rem; animation: rotatePhone 2s infinite; margin-bottom: 20px; }
+@keyframes rotatePhone { 0% { transform: rotate(0deg); } 25% { transform: rotate(90deg); } 50% { transform: rotate(90deg); } 75% { transform: rotate(0deg); } 100% { transform: rotate(0deg); } }
+
+/* 🔥 核心邏輯：當裝置是直向 (Portrait) 且寬度小於平板尺寸時，顯示提示層 */
+@media screen and (orientation: portrait) and (max-width: 1024px) {
+    #orientation-lock { display: flex; }
+    /* 隱藏後面所有內容以免誤觸 */
+    #mute-btn, #scoreboard-header, #stadium-wrapper, #dice-3d-container { visibility: hidden; }
+}
+
+/* 🔊 音效按鈕位置優化 */
+.floating-btn {
+    position: fixed; top: 10px; right: 10px; z-index: 9999; 
+    padding: 0; font-size: 1.2rem; 
+    background: #fff; color: #333; 
+    border-radius: 50%; width: 40px; height: 40px; 
+    display: flex; align-items: center; justify-content: center; 
+    border: 2px solid #333; cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
 
 /* 🎲 3D 骰子容器 */
 #dice-3d-container {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 800; pointer-events: none; opacity: 0; transition: opacity 0.2s;
     background: rgba(0,0,0,0.4); 
-    display: flex; justify-content: center; align-items: center;
-    flex-direction: column;
+    display: flex; justify-content: center; align-items: center; flex-direction: column;
 }
 #dice-3d-container.active { opacity: 1; pointer-events: auto; }
-#dice-3d-container canvas { filter: drop-shadow(0 50px 80px rgba(0,0,0,0.7)); }
 
-/* 🎲 骰子結果特效文字 */
 #dice-result-text {
     position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0);
     font-size: 8rem; font-weight: 900; color: #fff;
@@ -25,196 +62,193 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 }
 #dice-result-text.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
-/* 電子計分板 */
-#scoreboard-header { width: 100%; height: 160px; background: #222; border-bottom: 4px solid #111; display: flex; justify-content: center; align-items: center; padding: 10px; z-index: 200; box-shadow: 0 5px 20px rgba(0,0,0,0.5); position: relative; color: #fff; }
-.board-content { width: 100%; max-width: 1400px; display: flex; justify-content: space-between; align-items: center; background: #333; border: 4px solid #555; border-radius: 8px; padding: 5px 20px; height: 100%; }
-
-/* 老師看板 */
-.board-order { width: 180px; height: 100%; border-right: 2px dashed #555; padding-right: 15px; margin-right: 15px; display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; }
-.board-order h3 { margin: 5px 0; font-size: 1rem; color: #aaa; text-transform: uppercase; border-bottom: 1px solid #555; padding-bottom: 5px; }
-#order-list { font-size: 0.9rem; color: #fff; line-height: 1.4; text-align: left; overflow-y: auto; height: 100%; }
-.order-active { color: #f1c40f; font-weight: bold; animation: blink 1s infinite; }
-
-/* 學生資訊 */
-.my-info-box { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border-right: 2px dashed #555; padding-right: 20px; margin-right: 20px; min-width: 150px; }
-.my-label { font-size: 0.9rem; color: #aaa; }
-
-/* 🔥 修改 1：將名字顏色改為黃色 */
-.my-name { 
-    font-size: 1.8rem; 
-    color: #f1c40f; /* 改為亮黃色 */
-    font-weight: bold; 
-    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); /* 光暈也改為黃色 */
+/* 電子計分板 (PC 預設) */
+#scoreboard-header { 
+    width: 100%; height: 160px; /* PC 高度 */
+    background: #222; border-bottom: 4px solid #111; 
+    display: flex; justify-content: center; align-items: center; 
+    padding: 10px; z-index: 200; box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
+    position: relative; color: #fff; flex-shrink: 0;
+}
+.board-content { 
+    width: 100%; max-width: 1400px; 
+    display: flex; justify-content: space-between; align-items: center; 
+    background: #333; border: 4px solid #555; border-radius: 8px; 
+    padding: 5px 20px; height: 100%; 
 }
 
-.board-status { flex: 1; text-align: left; display: flex; flex-direction: column; justify-content: center; height: 100%; }
+/* 學生資訊 */
+.my-info-box { 
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center; 
+    border-right: 2px dashed #555; padding-right: 20px; margin-right: 20px; min-width: 150px; 
+}
+.my-label { font-size: 0.9rem; color: #aaa; }
+.my-name { font-size: 1.8rem; color: #f1c40f; font-weight: bold; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); }
+
+.board-status { flex: 1; text-align: left; display: flex; flex-direction: column; justify-content: center; height: 100%; font-size: 1.2rem; }
 .board-controls { display: flex; align-items: center; gap: 10px; padding-left: 20px; border-left: 2px dashed #555; margin-left: 20px; }
-@keyframes blink { 50% { opacity: 0.5; } }
-.board-btn { padding: 15px 30px; font-size: 1.2rem; border: 2px solid #fff; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #000; transition: transform 0.1s; pointer-events: auto; }
+
+/* 按鈕樣式 */
+.board-btn { 
+    padding: 15px 30px; font-size: 1.2rem; 
+    border: 2px solid #fff; border-radius: 6px; 
+    cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #000; 
+    transition: transform 0.1s; pointer-events: auto; white-space: nowrap;
+}
 .board-btn:active { transform: translate(0, 4px); box-shadow: 0 0 0 #000; }
 .btn-green { background: #27ae60; color: white; }
-.btn-orange { background: #e67e22; color: white; }
-.btn-red { background: #c0392b; color: white; }
 .btn-grey { background: #7f8c8d; color: #ccc; border-color: #999; cursor: not-allowed; }
 
 /* 體育場 */
-#stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
-.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; }
+#stadium-wrapper { 
+    flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; 
+    background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; 
+    box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; overflow: hidden;
+}
+.audience-section { height: 60px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; flex-shrink: 0; }
 #audience-top { border-bottom: 4px solid #333; background-color: #444; }
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
-#game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
 
-/* 跑道 - 保持原本的 grid 佈局，不亂動 */
+/* 捲動區域：手機上需要更靈活 */
+#game-scroll-area { 
+    flex: 1; overflow-y: auto; overflow-x: hidden; 
+    padding: 10px 10px; display: flex; flex-direction: column; gap: 10px; 
+    padding-top: 20px; padding-bottom: 20px;
+    -webkit-overflow-scrolling: touch; /* iOS 慣性捲動 */
+}
+
+/* 跑道 */
 .track-row { 
     display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); 
-    height: 70px; position: relative; width: 100%; align-items: end; 
+    height: 60px; position: relative; width: 100%; align-items: end; 
     filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); 
-    margin-bottom: 12px; 
+    margin-bottom: 5px; 
 }
 
 /* 格子 */
-.grid-cell { 
-    width: 100%; height: 100%; background-size: 100% 100%; image-rendering: pixelated; 
-    position: relative; /* 為了讓特效定位 */
-}
+.grid-cell { width: 100%; height: 100%; background-size: 100% 100%; image-rendering: pixelated; position: relative; }
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
 .grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
 
+/* 角色容器與動畫 */
 .avatar-container { 
     position: absolute; 
-    width: calc(100% / var(--track-cols) * 1.5); 
-    height: 140%; 
-    bottom: 10px; 
-    left: 0%; 
-    z-index: 100; 
-    margin-left: -15px; 
+    width: calc(100% / var(--track-cols) * 1.5); height: 140%; 
+    bottom: 10px; left: 0%; z-index: 100; margin-left: -15px; 
     transition: left 1s linear; 
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end; 
 }
 .avatar-img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3)); }
-.name-tag { position: absolute; right: 65%; top: 40%; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3); pointer-events: none; z-index: 101; }
+.name-tag { position: absolute; right: 65%; top: 40%; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 2px 4px; border-radius: 4px; font-size: 10px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3); pointer-events: none; z-index: 101; }
 
+/* 登入介面 */
 #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 300; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
-#login-box { background: white; padding: 40px; border-radius: 15px; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 4px solid #333; }
+#login-box { 
+    background: white; padding: 30px; border-radius: 15px; text-align: center; width: 90%; max-width: 400px; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 4px solid #333; 
+    max-height: 90vh; overflow-y: auto; /* 防止手機橫向時高度不夠 */
+}
 .error-text { color: #e74c3c; font-weight: bold; margin-top: 5px; }
-#lobby-screen, #admin-panel, #status-bar, #game-screen { pointer-events: auto; }
 
+/* Modal 與 Fate Card */
 #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
 .modal-content { background: #fff; padding: 25px; border-radius: 12px; border: 4px solid #333; box-shadow: 8px 8px 0 rgba(0,0,0,0.5); text-align: center; max-width: 400px; width: 90%; }
+.premium-modal { background: radial-gradient(circle, #ffffff 0%, #dcdcdc 100%); border: 8px solid #f1c40f; box-shadow: 0 0 100px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255,255,255,1); color: #333; width: 95vw !important; max-width: 650px !important; padding: 20px; box-sizing: border-box; }
+.premium-modal h2 { font-size: 2rem; margin-bottom: 15px; }
+.rank-list { list-style: none; padding: 0; text-align: left; max-height: 60vh; overflow-y: auto; }
+.rank-item { font-size: 1.2rem; margin-bottom: 10px; padding: 10px; background: #fff; border-radius: 10px; border: 2px solid #eee; display: flex; align-items: center; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
+.rank-item:first-child { background: linear-gradient(to right, #fffbec, #fff); border-color: #f1c40f; }
+.rank-medal { font-size: 2rem; margin-right: 15px; }
+.rank-avatar { width: 60px; height: 60px; object-fit: contain; margin-right: 15px; }
 
-/* 🏆 白金榮譽榜 */
-.premium-modal {
-    background: radial-gradient(circle, #ffffff 0%, #dcdcdc 100%);
-    border: 8px solid #f1c40f; 
-    box-shadow: 0 0 100px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255,255,255,1);
-    color: #333; 
-    
-    width: 95vw !important; 
-    max-width: 650px !important; 
-    padding: 30px;
-    box-sizing: border-box;
-}
-.premium-modal h2 { font-size: 2.8rem; color: #d35400; text-shadow: 2px 2px 0 #fff; margin-bottom: 25px; letter-spacing: 2px; font-weight: 900; }
-.rank-list { list-style: none; padding: 0; text-align: left; }
-.rank-item {
-    font-size: 1.6rem; 
-    margin-bottom: 12px; padding: 15px;
-    background: #fff; border-radius: 15px; border: 3px solid #eee;
-    display: flex; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    overflow: hidden; 
-}
-.rank-item:first-child { background: linear-gradient(to right, #fffbec, #fff); border-color: #f1c40f; box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5); }
-.rank-medal { font-size: 3rem; margin-right: 20px; flex-shrink: 0; }
-.rank-avatar { width: 100px; height: 100px; object-fit: contain; margin-right: 25px; image-rendering: pixelated; flex-shrink: 0; }
-.rank-name { 
-    font-weight: 900; color: #2c3e50; font-size: 1.6rem; 
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-    flex: 1; 
-}
-@keyframes popIn { to { transform: scale(1); } }
-
-/* --- 新增：遊戲設定開關 (Toggle) --- */
-.game-options { display: flex; gap: 15px; margin-left: 20px; padding-left: 20px; border-left: 2px dashed #555; align-items: center; }
-.toggle-label { display: flex; align-items: center; color: #fff; cursor: pointer; font-size: 1rem; }
-.toggle-label input { margin-right: 8px; width: 20px; height: 20px; accent-color: #e74c3c; cursor: pointer; }
-
-/* --- 新增：命運卡牌 UI (Fate Card) --- */
 #fate-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9000; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 #fate-overlay.show { opacity: 1; pointer-events: auto; }
-
-.fate-card {
-    width: 300px; height: 400px; background: #fff; border-radius: 20px; border: 8px solid #333;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5); transform: scale(0.5); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    text-align: center; padding: 20px; overflow: hidden;
-}
+.fate-card { width: 300px; height: 350px; background: #fff; border-radius: 20px; border: 8px solid #333; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); transform: scale(0.5); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center; padding: 20px; }
 #fate-overlay.show .fate-card { transform: scale(1); }
+.fate-icon { font-size: 5rem; margin-bottom: 10px; }
+.fate-title { font-size: 1.8rem; font-weight: 900; margin-bottom: 5px; color: #333; }
+.fate-desc { font-size: 1.2rem; color: #555; font-weight: bold; }
+.fate-positive { border-color: #2ecc71; background: #eafaf1; } .fate-positive .fate-title { color: #2ecc71; }
+.fate-negative { border-color: #c0392b; background: #fdedec; } .fate-negative .fate-title { color: #c0392b; }
 
-.fate-icon { font-size: 6rem; margin-bottom: 20px; }
-.fate-title { font-size: 2rem; font-weight: 900; margin-bottom: 10px; color: #333; }
-.fate-desc { font-size: 1.5rem; color: #555; font-weight: bold; }
-.fate-positive { border-color: #2ecc71; background: #eafaf1; }
-.fate-positive .fate-title { color: #2ecc71; }
-.fate-negative { border-color: #c0392b; background: #fdedec; }
-.fate-negative .fate-title { color: #c0392b; }
-
-/* --- 修正後的陷阱動畫 (Trap Fall) --- */
-@keyframes trapShake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px) rotate(-5deg); }
-    75% { transform: translateX(5px) rotate(5deg); }
-}
-
-@keyframes trapFall {
-    0% { transform: scale(1) translateY(0); opacity: 1; }
-    30% { transform: scale(0.9, 1.2) translateY(-10px); opacity: 1; } 
-    100% { transform: scale(0.1, 0.1) translateY(70px) rotate(180deg); opacity: 0; } 
-}
-
+/* 動畫定義 */
+@keyframes trapShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px) rotate(-5deg); } 75% { transform: translateX(5px) rotate(5deg); } }
+@keyframes trapFall { 0% { transform: scale(1) translateY(0); opacity: 1; } 30% { transform: scale(0.9, 1.2) translateY(-10px); opacity: 1; } 100% { transform: scale(0.1, 0.1) translateY(70px) rotate(180deg); opacity: 0; } }
 .avatar-trap-shake { animation: trapShake 0.2s infinite; }
 .avatar-trap-fall { animation: trapFall 0.8s forwards ease-in; }
+@keyframes respawnBlink { 0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1); } 30% { opacity: 0.2; } 40% { opacity: 1; } 50% { opacity: 0.2; } 60% { opacity: 1; } 70% { opacity: 0.2; } 80% { opacity: 1; } 90% { opacity: 0.2; } 100% { opacity: 1; } }
+.avatar-respawn { animation: respawnBlink 1.5s ease-out; }
+@keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); transform: scale(1); filter: brightness(1); z-index: 10; } 50% { box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); transform: scale(1.15); filter: brightness(1.5); border: 2px solid #fff; z-index: 10; } 100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); transform: scale(1); filter: brightness(1); z-index: 1; } }
+.fate-trigger-effect { animation: pulseGlow 0.6s ease-out; z-index: 10 !important; }
 
-/* 🔥 1. 新增：重生閃爍特效 (淡入 + 閃爍) */
-@keyframes respawnBlink {
-    0% { opacity: 0; transform: scale(0.5); }
-    20% { opacity: 1; transform: scale(1); }
-    30% { opacity: 0.2; }
-    40% { opacity: 1; }
-    50% { opacity: 0.2; }
-    60% { opacity: 1; }
-    70% { opacity: 0.2; }
-    80% { opacity: 1; }
-    90% { opacity: 0.2; }
-    100% { opacity: 1; }
-}
-.avatar-respawn { animation: respawnBlink 1.5s ease-out; } 
+/* -----------------------------------------------------------
+   🔥🔥 手機/平板 橫向 (Landscape) 特別優化區 🔥🔥
+   當螢幕高度小於 600px 或寬度小於 900px 時觸發
+----------------------------------------------------------- */
+@media screen and (max-width: 900px), screen and (max-height: 600px) {
+    
+    /* 1. 壓縮記分板高度：從 160px 壓到 65px */
+    #scoreboard-header {
+        height: 65px;
+        padding: 4px;
+        border-bottom-width: 2px;
+    }
+    .board-content {
+        padding: 2px 10px;
+        border-width: 2px;
+    }
 
-/* 🔥 2. 新增：命運踩踏特效動畫 (Pulse Glow) */
-@keyframes pulseGlow {
-    0% { 
-        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); 
-        transform: scale(1); 
-        filter: brightness(1); 
-        z-index: 10;
+    /* 2. 簡化個人資訊：移除 "我是" 標籤，縮小名字 */
+    .my-info-box {
+        min-width: auto;
+        padding-right: 10px;
+        margin-right: 10px;
+        border-right-width: 1px;
     }
-    50% { 
-        box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); 
-        transform: scale(1.15); 
-        filter: brightness(1.5); 
-        border: 2px solid #fff; 
-        z-index: 10;
-    }
-    100% { 
-        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); 
-        transform: scale(1); 
-        filter: brightness(1); 
-        z-index: 1;
-    }
-}
+    .my-label { display: none; }
+    .my-name { font-size: 1.1rem; }
 
-/* 🔥 3. 設定：命運特效 class */
-.fate-trigger-effect {
-    animation: pulseGlow 0.6s ease-out;
-    z-index: 10 !important; /* 確保在角色 (z-index 100) 後面 */
+    /* 3. 縮小中間訊息字體 */
+    .board-status { font-size: 0.9rem; line-height: 1.1; }
+
+    /* 4. 優化按鈕大小 */
+    .board-controls {
+        padding-left: 10px;
+        margin-left: 10px;
+        border-left-width: 1px;
+    }
+    .board-btn {
+        padding: 8px 15px; /* 更小的內距 */
+        font-size: 0.9rem;
+        border-width: 1px;
+        box-shadow: 0 2px 0 #000;
+    }
+    .board-btn:active { transform: translate(0, 2px); }
+
+    /* 5. 壓縮觀眾席高度 */
+    .audience-section { height: 35px; }
+
+    /* 6. 調整跑道高度與 Avatar 比例 */
+    .track-row { height: 50px; } /* 稍微壓扁跑道 */
+    .avatar-container { 
+        height: 130%; /* 稍微縮小比例以免遮擋 */
+        margin-left: -12px; /* 修正偏移 */
+    }
+    .name-tag { display: none; /* 手機上隱藏名牌以免太雜亂，反正上方有記分板 */ }
+    
+    /* 7. 靜音按鈕移位以免擋到操作 */
+    .floating-btn {
+        top: auto;
+        bottom: 10px;
+        right: 10px;
+        opacity: 0.8;
+    }
+    
+    /* 8. 調整 3D 骰子文字大小 */
+    #dice-result-text { font-size: 4rem; }
+    
+    /* 9. Fate Card 縮放 */
+    .fate-card { transform: scale(0.8); }
+    #fate-overlay.show .fate-card { transform: scale(0.8); } /* 保持縮放 */
 }
