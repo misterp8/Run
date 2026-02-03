@@ -2,13 +2,18 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>方塊大賽跑</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
+    <div id="orientation-lock">
+        <div class="phone-icon"></div>
+        <div class="lock-text">請將手機轉為橫向<br>以獲得最佳遊戲體驗</div>
+    </div>
+
     <button id="mute-btn" style="position: fixed; top: 170px; right: 10px; z-index: 9999; padding: 0; font-size: 1.5rem; background: #fff; color: #333; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border:2px solid #333;">🔊</button>
 
     <div id="modal-overlay" class="hidden">
