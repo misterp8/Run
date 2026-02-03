@@ -38,13 +38,11 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 學生資訊 */
 .my-info-box { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border-right: 2px dashed #555; padding-right: 20px; margin-right: 20px; min-width: 150px; }
 .my-label { font-size: 0.9rem; color: #aaa; }
-
-/* 🔥 修改 1：將名字顏色改為黃色 */
 .my-name { 
     font-size: 1.8rem; 
-    color: #f1c40f; /* 改為亮黃色 */
+    color: #f1c40f; 
     font-weight: bold; 
-    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); /* 光暈也改為黃色 */
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); 
 }
 
 .board-status { flex: 1; text-align: left; display: flex; flex-direction: column; justify-content: center; height: 100%; }
@@ -59,12 +57,15 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 
 /* 體育場 */
 #stadium-wrapper { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; background-color: #5d9e36; background-image: url('images/map_grass.png'); background-size: 64px 64px; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; }
-.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 50; position: relative; pointer-events: none; }
+
+/* 🔥 修正：降低觀眾席層級，讓角色可以蓋在上面 */
+.audience-section { height: 80px; width: 100%; background-repeat: repeat-x; background-size: auto 100%; z-index: 1; position: relative; pointer-events: none; }
 #audience-top { border-bottom: 4px solid #333; background-color: #444; }
 #audience-bottom { border-top: 4px solid #333; background-color: #444; }
+
 #game-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 20px; padding-top: 40px; padding-bottom: 20px; padding-left: 30px; }
 
-/* 跑道 - 保持原本的 grid 佈局，不亂動 */
+/* 跑道 */
 .track-row { 
     display: grid; grid-template-columns: repeat(var(--track-cols), 1fr); 
     height: 70px; position: relative; width: 100%; align-items: end; 
@@ -75,19 +76,20 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 /* 格子 */
 .grid-cell { 
     width: 100%; height: 100%; background-size: 100% 100%; image-rendering: pixelated; 
-    position: relative; /* 為了讓特效定位 */
+    position: relative; 
 }
 .grid-cell { background-image: url('images/map_runway.png'); }
 .grid-cell:first-child { background-image: url('images/map_start.png'); }
 .grid-cell:nth-child(22) { background-image: url('images/map_finish.png') !important; } 
 
+/* 🔥 修正：提高角色層級，確保蓋住觀眾 */
 .avatar-container { 
     position: absolute; 
     width: calc(100% / var(--track-cols) * 1.5); 
     height: 140%; 
     bottom: 10px; 
     left: 0%; 
-    z-index: 100; 
+    z-index: 1000; /* 非常高的層級 */
     margin-left: -15px; 
     transition: left 1s linear; 
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end; 
@@ -109,7 +111,6 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
     border: 8px solid #f1c40f; 
     box-shadow: 0 0 100px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255,255,255,1);
     color: #333; 
-    
     width: 95vw !important; 
     max-width: 650px !important; 
     padding: 30px;
@@ -134,12 +135,12 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 }
 @keyframes popIn { to { transform: scale(1); } }
 
-/* --- 新增：遊戲設定開關 (Toggle) --- */
+/* 遊戲設定開關 */
 .game-options { display: flex; gap: 15px; margin-left: 20px; padding-left: 20px; border-left: 2px dashed #555; align-items: center; }
 .toggle-label { display: flex; align-items: center; color: #fff; cursor: pointer; font-size: 1rem; }
 .toggle-label input { margin-right: 8px; width: 20px; height: 20px; accent-color: #e74c3c; cursor: pointer; }
 
-/* --- 新增：命運卡牌 UI (Fate Card) --- */
+/* 命運卡牌 UI */
 #fate-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9000; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 #fate-overlay.show { opacity: 1; pointer-events: auto; }
 
@@ -159,7 +160,6 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .fate-negative { border-color: #c0392b; background: #fdedec; }
 .fate-negative .fate-title { color: #c0392b; }
 
-/* --- 修正後的陷阱動畫 (Trap Fall) --- */
 @keyframes trapShake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-5px) rotate(-5deg); }
@@ -175,7 +175,6 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 .avatar-trap-shake { animation: trapShake 0.2s infinite; }
 .avatar-trap-fall { animation: trapFall 0.8s forwards ease-in; }
 
-/* 🔥 1. 新增：重生閃爍特效 (淡入 + 閃爍) */
 @keyframes respawnBlink {
     0% { opacity: 0; transform: scale(0.5); }
     20% { opacity: 1; transform: scale(1); }
@@ -190,56 +189,30 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
 }
 .avatar-respawn { animation: respawnBlink 1.5s ease-out; } 
 
-/* 🔥 2. 新增：命運踩踏特效動畫 (Pulse Glow) */
 @keyframes pulseGlow {
-    0% { 
-        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); 
-        transform: scale(1); 
-        filter: brightness(1); 
-        z-index: 10;
-    }
-    50% { 
-        box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); 
-        transform: scale(1.15); 
-        filter: brightness(1.5); 
-        border: 2px solid #fff; 
-        z-index: 10;
-    }
-    100% { 
-        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); 
-        transform: scale(1); 
-        filter: brightness(1); 
-        z-index: 1;
-    }
+    0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); transform: scale(1); filter: brightness(1); z-index: 10; }
+    50% { box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0); transform: scale(1.15); filter: brightness(1.5); border: 2px solid #fff; z-index: 10; }
+    100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); transform: scale(1); filter: brightness(1); z-index: 1; }
 }
-
-/* 🔥 3. 設定：命運特效 class */
-.fate-trigger-effect {
-    animation: pulseGlow 0.6s ease-out;
-    z-index: 10 !important; /* 確保在角色 (z-index 100) 後面 */
-}
+.fate-trigger-effect { animation: pulseGlow 0.6s ease-out; z-index: 10 !important; }
 
 /* =========================================
    🔥 MOBILE ADAPTATION & ORIENTATION LOCK
    手機平板強制橫向與版面適配
    ========================================= */
 
-/* 1. 直式螢幕鎖定層 (預設隱藏) */
-#orientation-lock {
-    display: none; /* PC 或橫向時隱藏 */
-}
+/* 直式螢幕鎖定層 (預設隱藏) */
+#orientation-lock { display: none; }
 
 /* 2. 當裝置處於「直式 (Portrait)」時顯示鎖定層 */
 @media screen and (orientation: portrait) {
     #orientation-lock {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background-color: #2c3e50; /* 與遊戲背景同色 */
+        background-color: #2c3e50;
         z-index: 10000;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
         color: #fff; text-align: center;
     }
-
-    /* 手機旋轉動畫 */
     .phone-icon {
         width: 60px; height: 100px;
         border: 4px solid #fff; border-radius: 10px;
@@ -252,119 +225,76 @@ body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: b
         width: 40px; height: 4px; background: rgba(255,255,255,0.5);
         transform: translateX(-50%); border-radius: 2px;
     }
-
     @keyframes rotatePhone {
         0%, 10% { transform: rotate(0deg); opacity: 1; }
         40%, 60% { transform: rotate(-90deg); opacity: 1; }
         90%, 100% { transform: rotate(-90deg); opacity: 0; }
     }
-
     .lock-text {
         font-size: 1.5rem; font-weight: bold; line-height: 1.5;
-        color: #f1c40f; /* 使用遊戲的主題黃色 */
+        color: #f1c40f;
         text-shadow: 0 2px 0 #000;
     }
-
-    /* 直式模式下，隱藏背後的主要內容，避免混淆 */
-    #login-overlay, #scoreboard-header, #stadium-wrapper {
-        visibility: hidden;
-    }
+    #login-overlay, #scoreboard-header, #stadium-wrapper { visibility: hidden; }
 }
 
-/* 3. 手機橫向模式 (Mobile Landscape) 適配
-   條件：橫向 且 螢幕高度小於 500px (涵蓋大部分手機) */
-@media screen and (orientation: landscape) and (max-height: 500px) {
-    
-    /* A. 壓縮電子計分板高度 */
-    #scoreboard-header {
-        height: 55px; /* 從 160px 縮小 */
-        padding: 5px;
-        border-bottom-width: 2px;
-    }
-    
-    .board-content {
-        padding: 0 10px;
-        border: none; background: transparent; /* 去掉框線節省空間 */
-        gap: 10px;
-    }
+/* 🔥 手機版：針對登入框太寬的修正 */
+@media screen and (max-width: 600px) {
+    #login-box { width: 90% !important; padding: 25px; }
+}
 
-    /* B. 調整名字與狀態顯示 (改為左右排，非上下) */
+/* 🔥 手機版：針對榮譽榜 (Rank) 太寬太大的修正 */
+@media screen and (max-width: 600px) and (orientation: landscape) {
+    .premium-modal {
+        width: 95vw !important;
+        max-width: none !important;
+        padding: 15px !important;
+        border-width: 4px !important;
+        height: 90vh; /* 避免超出螢幕 */
+        overflow-y: auto;
+    }
+    .premium-modal h2 { font-size: 1.8rem; margin-bottom: 15px; }
+    .rank-item { padding: 8px 12px; font-size: 1rem; margin-bottom: 8px; border-radius: 8px; }
+    .rank-medal { font-size: 1.5rem; margin-right: 10px; }
+    .rank-avatar { width: 50px; height: 50px; margin-right: 10px; }
+    .rank-name { font-size: 1.2rem; }
+}
+
+/* 3. 手機橫向模式 (Mobile Landscape) 適配 */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+    #scoreboard-header { height: 55px; padding: 5px; border-bottom-width: 2px; }
+    .board-content { padding: 0 10px; border: none; background: transparent; gap: 10px; }
+    
     .my-info-box {
         flex-direction: row; align-items: center;
         border-right: 1px solid #555; padding-right: 10px; margin-right: 10px;
         min-width: auto;
     }
-    .my-label { font-size: 0.8rem; margin-right: 5px; display: none; /* 手機上隱藏「我是」標籤省空間 */ }
+    .my-label { font-size: 0.8rem; margin-right: 5px; display: none; }
     .my-name { font-size: 1.2rem; margin: 0; text-shadow: none; }
 
-    .board-status {
-        font-size: 1rem;
-        flex-direction: row; justify-content: flex-start; align-items: center;
-        text-align: left;
-    }
+    .board-status { font-size: 1rem; flex-direction: row; justify-content: flex-start; align-items: center; text-align: left; }
     #game-msg { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* C. 縮小按鈕 */
     .board-controls { padding-left: 10px; margin-left: 10px; border-left: 1px solid #555; }
-    .board-btn {
-        padding: 5px 15px; /* 縮小內距 */
-        font-size: 0.9rem;
-        border-width: 1px;
-        height: 36px; display: flex; align-items: center;
-    }
+    .board-btn { padding: 5px 15px; font-size: 0.9rem; border-width: 1px; height: 36px; display: flex; align-items: center; }
 
-    /* D. 調整靜音按鈕位置 (避免擋住跑道) */
-    #mute-btn {
-        top: 60px !important; right: 10px !important;
-        width: 32px !important; height: 32px !important;
-        font-size: 1rem !important;
-        opacity: 0.8;
-    }
+    #mute-btn { top: 60px !important; right: 10px !important; width: 32px !important; height: 32px !important; font-size: 1rem !important; opacity: 0.8; }
 
-    /* E. 跑道優化 (核心) */
-    #stadium-wrapper {
-        background-size: 42px 42px; /* 調整草地格子 */
-    }
-    .audience-section { height: 30px; } /* 縮小觀眾席 */
+    #stadium-wrapper { background-size: 42px 42px; }
+    .audience-section { height: 30px; }
     
-    #game-scroll-area {
-        padding: 10px 5px; /* 減少內距 */
-        gap: 8px; /* 減少跑道間距 */
-    }
-
-    /* 🔥 跑道高度計算：
-       手機橫向寬度通常約 600px~900px。
-       22格，每格寬度約為 27px~40px。
-       為了讓格子看起來像正方形，我們把跑道高度設為 42px。
-    */
-    .track-row {
-        height: 42px; /* 從 70px 縮小 */
-        margin-bottom: 5px;
-    }
+    #game-scroll-area { padding: 10px 5px; gap: 8px; }
+    .track-row { height: 42px; margin-bottom: 5px; }
     
-    /* 修正人物比例與位置 */
-    .avatar-container {
-        height: 160%; /* 人物相對跑道需要稍微高一點 */
-        bottom: 5px;
-        margin-left: -10px; /* 微調偏移 */
-    }
-    
-    .name-tag {
-        font-size: 10px; padding: 2px 4px; bottom: 100%; top: auto; /* 名字改放到頭頂上方以免遮擋 */
-    }
+    .avatar-container { height: 160%; bottom: 5px; margin-left: -10px; }
+    .name-tag { font-size: 10px; padding: 2px 4px; bottom: 100%; top: auto; }
 
-    /* F. 登入畫面適配 */
-    #login-box {
-        padding: 20px; width: 80%; max-width: 500px;
-        display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px;
-    }
+    #login-box { width: 90%; max-width: 500px; display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; padding: 20px; }
     #login-box h1 { width: 100%; margin: 0 0 10px 0; font-size: 1.2rem; }
     #username { width: 50%; margin: 0; padding: 10px; font-size: 1rem; }
     #join-btn { width: 40%; margin: 0; padding: 10px; font-size: 1rem; }
 
-    /* G. 命運卡片縮放 (手機上太大會擋住) */
     .fate-card { transform: scale(0.7) !important; }
-    
-    /* H. 3D 骰子位置微調 */
     #dice-result-text { font-size: 4rem; }
 }
