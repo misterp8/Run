@@ -182,20 +182,24 @@ io.on('connection', (socket) => {
             trapPos: (triggerType === 'FATE_TRAP') ? triggeredTrapPos : -1 
         });
 
+        // 判斷是否到達終點
         if (finalPos >= 21) {
-            const rank = gameState.rankings.length + 1;
-            gameState.rankings.push({ ...currentPlayer, rank });
-            io.emit('player_finished_rank', { player: currentPlayer, rank });
+            // 檢查是否已經在排名中 (避免重複)
+            if (!gameState.rankings.find(r => r.id === currentPlayer.id)) {
+                const rank = gameState.rankings.length + 1;
+                gameState.rankings.push({ ...currentPlayer, rank });
+                io.emit('player_finished_rank', { player: currentPlayer, rank });
+            }
         }
 
-        // 計算動畫等待時間
-        const delayTime = (triggerType === 'NORMAL' ? 2500 : (triggerType === 'TRAP' ? 4000 : 4000 + (fateResults.length * 3500)));
-
+        // 計算動畫時間後，進入下一回合
         setTimeout(() => {
-            // 🔥🔥🔥 關鍵修正：動作結束後，強制將 TurnIndex + 1 指向下一個人
-            gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
-            notifyNextTurn();
-        }, delayTime);
+            // 只有當還沒結束時，才切換到下一個人
+            if (gameState.status === 'PLAYING') {
+                gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
+                notifyNextTurn();
+            }
+        }, (triggerType === 'NORMAL' ? 2500 : (triggerType === 'TRAP' ? 4000 : 4000 + (fateResults.length * 3500))));
     });
 
     socket.on('admin_restart_game', () => {
@@ -245,29 +249,42 @@ function notifyNextTurn() {
     if (gameState.status === 'ENDED') return;
     if (gameState.players.length === 0) return;
     
-    // 確保 index 在範圍內
-    if (gameState.turnIndex >= gameState.players.length) gameState.turnIndex = 0;
+    // 🔥🔥 邏輯確認 🔥🔥
+    // 如果只有 1~3 人玩，只需 1 人到終點就結束 (maxWinners = 1)
+    // 如果 >3 人玩，需要 3 人到終點才結束 (maxWinners = 3)
+    const maxWinners = (gameState.players.length <= 3) ? 1 : 3;
 
+    // 檢查是否達到結束條件
+    if (gameState.rankings.length >= maxWinners) {
+        gameState.status = 'ENDED';
+        io.emit('game_over', { rankings: gameState.rankings });
+        io.emit('update_game_state', gameState); 
+        return;
+    }
+
+    // 尋找下一個合法的玩家 (還沒到終點的人)
     let attempts = 0;
     const maxAttempts = gameState.players.length + 1;
 
-    // 尋找下一個還沒抵達終點的玩家
     while (attempts < maxAttempts) {
         const currentPlayer = gameState.players[gameState.turnIndex];
         
-        // 如果該玩家不存在 (可能斷線)，跳過
         if (!currentPlayer) { 
+            // 玩家不存在(可能斷線)，找下一個
             gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length; 
             attempts++; 
             continue; 
         }
 
-        // 如果該玩家已經到終點，跳過
-        if (currentPlayer.position >= 21) {
+        // 檢查該玩家是否已經完成比賽 (在 rankings 列表裡)
+        const isFinished = gameState.rankings.find(r => r.id === currentPlayer.id);
+
+        if (isFinished || currentPlayer.position >= 21) {
+            // 已過關，跳過，找下一個
             gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
             attempts++;
         } else {
-            // 找到可以移動的玩家了，發送通知
+            // 找到還在跑的人，輪到他
             io.emit('update_turn', { 
                 turnIndex: gameState.turnIndex, 
                 nextPlayerId: currentPlayer.id, 
@@ -277,7 +294,7 @@ function notifyNextTurn() {
         }
     }
     
-    // 如果找了一圈都沒人可以動 (大家都到終點了)，遊戲結束
+    // 如果所有人都跑完了(極端情況，例如全部斷線或都到了)，強制結束
     if (gameState.rankings.length > 0) {
         gameState.status = 'ENDED';
         io.emit('game_over', { rankings: gameState.rankings });
