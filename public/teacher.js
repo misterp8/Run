@@ -28,6 +28,10 @@ const modalContent = document.querySelector('.modal-content');
 
 let currentStatus = 'LOBBY'; 
 
+// 🔥 方案 B 新增：動畫鎖與排隊變數
+let isAnimating = false; 
+let pendingTurn = null;
+
 // --- 命運選單連動邏輯 ---
 if (chkFate && selFateCount) {
     chkFate.addEventListener('change', () => {
@@ -211,6 +215,10 @@ socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
+    // 重置時清除隊列
+    pendingTurn = null;
+    isAnimating = false;
+
     if(liveMsg) liveMsg.innerText = "等待遊戲開始...";
     if(orderList) orderList.innerHTML = "等待抽籤...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
@@ -237,7 +245,9 @@ socket.on('game_start', () => {
     SynthEngine.playBGM();
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
 });
-socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
+
+// 🔥 方案 B 核心：抽離出的介面更新函式
+function handleTurnUpdate({ turnIndex, nextPlayerId, playerName }) {
     if(orderList) { const rows = orderList.querySelectorAll('div'); rows.forEach(r => r.classList.remove('order-active')); if(rows[turnIndex]) rows[turnIndex].classList.add('order-active'); }
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
@@ -255,9 +265,22 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
     scrollToPlayer(nextPlayerId);
 
     if(liveMsg) { liveMsg.innerText = `👉 輪到 ${playerName}`; liveMsg.style.color = "#f1c40f"; }
+}
+
+// 🔥 方案 B 核心：收到 update_turn 時，檢查是否要排隊
+socket.on('update_turn', (data) => {
+    if (isAnimating) {
+        console.log("🔒 動畫播放中，換人指令已排入待辦事項...");
+        pendingTurn = data;
+    } else {
+        handleTurnUpdate(data);
+    }
 });
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
+    // 🔥 方案 B 核心：動作開始，鎖定
+    isAnimating = true;
+    
     // 老師端移動時鏡頭也跟隨
     scrollToPlayer(playerId);
     
@@ -323,6 +346,14 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         AvatarManager.setState(playerId, 'win', charType); 
     } else { 
         AvatarManager.setState(playerId, 'idle', charType); 
+    }
+
+    // 🔥 方案 B 核心：動作結束，解鎖並檢查待辦
+    isAnimating = false;
+    if (pendingTurn) {
+        console.log("🔄 動畫結束，執行排隊中的換人指令...");
+        handleTurnUpdate(pendingTurn);
+        pendingTurn = null;
     }
 });
 

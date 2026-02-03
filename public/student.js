@@ -29,6 +29,11 @@ let myId = null;
 const PLAYER_POSITIONS = {}; 
 const CHAR_TYPES = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o'];
 const PRELOADED_IMGS = {};
+
+// 🔥 方案 B 新增：動畫鎖與排隊變數
+let isAnimating = false; 
+let pendingTurn = null; 
+
 function preloadImages() {
     CHAR_TYPES.forEach(char => {
         for(let i=1; i<=5; i++) {
@@ -88,6 +93,7 @@ const AvatarManager = {
     getCharType(p) { return p.avatarChar || 'a'; },
     setState(playerId, state, charType) {
         if (this.movingStatus[playerId] === true && (state === 'ready' || state === 'idle')) return;
+        
         let img = document.getElementById(`img-${playerId}`);
         if (!charType && img) charType = img.dataset.char;
         if (!charType) charType = 'a'; 
@@ -137,22 +143,21 @@ const AudienceManager = {
 AudienceManager.start();
 
 function showModal(title, text, isConfirm = false, onConfirm = null) {
-    if (!modalContent) return; 
+    if (!modalContent) return;
     modalContent.className = "modal-content"; 
     if(modalTitle) modalTitle.innerText = title;
     if(modalBody) modalBody.innerHTML = text; 
-    if(modalOverlay) modalOverlay.classList.remove('hidden');
-    if (isConfirm) {
-        if(btnConfirm) {
-            btnConfirm.innerText = "確定執行"; 
-            btnConfirm.className = "board-btn btn-green"; 
-            btnConfirm.onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
-        }
-        if(btnCancel) { btnCancel.classList.remove('hidden'); btnCancel.onclick = closeModal; }
-    } else {
-        if(btnConfirm) { btnConfirm.innerText = "知道了"; btnConfirm.className = "board-btn btn-green"; btnConfirm.onclick = closeModal; }
-        if(btnCancel) btnCancel.classList.add('hidden');
+    
+    if (modalBtn) {
+        modalBtn.innerText = isConfirm ? "確定執行" : "知道了";
+        modalBtn.className = isConfirm ? "board-btn btn-green" : "board-btn btn-green";
+        modalBtn.onclick = () => {
+            if (isConfirm && onConfirm) onConfirm();
+            closeModal();
+        };
     }
+    
+    if(modalOverlay) modalOverlay.classList.remove('hidden');
 }
 function closeModal() { if(modalOverlay) modalOverlay.classList.add('hidden'); }
 
@@ -196,7 +201,6 @@ socket.on('game_start', () => {
     SynthEngine.playBGM();
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'ready', img.dataset.char); });
     
-    // 遊戲開始時，捲動畫面到自己
     if (myId) setTimeout(() => scrollToPlayer(myId), 500);
 });
 
@@ -205,6 +209,10 @@ socket.on('game_reset_positions', () => {
     AvatarManager.movingStatus = {}; 
     for (let key in PLAYER_POSITIONS) PLAYER_POSITIONS[key] = 0;
     
+    // 重置時清除隊列
+    pendingTurn = null;
+    isAnimating = false;
+
     if(gameMsg) gameMsg.innerText = "準備開始新的一局...";
     document.querySelectorAll('.avatar-img').forEach(img => { const id = img.id.replace('img-', ''); AvatarManager.setState(id, 'idle', img.dataset.char); img.className = 'avatar-img'; });
     if(modalOverlay) modalOverlay.classList.add('hidden');
@@ -221,7 +229,8 @@ socket.on('game_reset_positions', () => {
     SynthEngine.stopBGM();
 });
 
-socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
+// 🔥 方案 B 核心：抽離出的介面更新函式
+function handleTurnUpdate({ turnIndex, nextPlayerId, playerName }) {
     const allAvatars = document.querySelectorAll('.avatar-img');
     allAvatars.forEach(img => {
         const id = img.id.replace('img-', '');
@@ -234,7 +243,7 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
         }
     });
 
-    // 智慧導播鏡頭，輪到誰就捲到誰
+    // 智慧導播鏡頭
     scrollToPlayer(nextPlayerId);
 
     if(gameMsg) gameMsg.style.color = "#f1c40f";
@@ -261,6 +270,16 @@ socket.on('update_turn', ({ turnIndex, nextPlayerId, playerName }) => {
         rollBtn.style.cursor = "not-allowed";
         gameMsg.innerText = `⏳ 等待 ${playerName} 擲骰...`;
     }
+}
+
+// 🔥 方案 B 核心：收到 update_turn 時，檢查是否要排隊
+socket.on('update_turn', (data) => {
+    if (isAnimating) {
+        console.log("🔒 動畫播放中，換人指令已排入待辦事項...");
+        pendingTurn = data; // 存入暫存區，不執行
+    } else {
+        handleTurnUpdate(data); // 沒動畫，直接執行
+    }
 });
 
 if (rollBtn) {
@@ -274,6 +293,9 @@ if (rollBtn) {
 }
 
 socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, triggerType, fateResults, trapPos }) => {
+    // 🔥 方案 B 核心：動作開始，鎖定
+    isAnimating = true;
+    
     // 移動時鏡頭也跟隨
     scrollToPlayer(playerId);
     
@@ -347,6 +369,14 @@ socket.on('player_moved', async ({ playerId, roll, newPos, initialLandPos, trigg
         AvatarManager.setState(playerId, 'win', charType); 
     } else { 
         AvatarManager.setState(playerId, 'idle', charType); 
+    }
+
+    // 🔥 方案 B 核心：動作結束，解鎖並檢查待辦
+    isAnimating = false;
+    if (pendingTurn) {
+        console.log("🔄 動畫結束，執行排隊中的換人指令...");
+        handleTurnUpdate(pendingTurn);
+        pendingTurn = null; // 清空待辦
     }
 });
 
@@ -489,8 +519,6 @@ socket.on('force_reload', () => { location.reload(); });
 function renderTracks(players) {
     if(!trackContainer) return;
     
-    // 🔥 修正：強制將收到的玩家列表依照「加入順序 (joinOrder)」排序
-    // 這樣即使 server 洗牌了 (改變 turn 順序)，前端跑道永遠固定
     const displayPlayers = [...players].sort((a, b) => (a.joinOrder || 0) - (b.joinOrder || 0));
 
     const existingRows = Array.from(trackContainer.children);
@@ -579,15 +607,11 @@ function scrollToPlayer(playerId) {
     const scrollArea = document.getElementById('game-scroll-area');
     if (!scrollArea || !trackContainer) return;
     
-    // 找出對應 playerId 的跑道列
     const rows = Array.from(document.querySelectorAll('.track-row'));
     const targetRow = rows.find(r => r.dataset.id === playerId);
 
     if (targetRow) {
-        // 計算位置：將目標跑道置中
         const scrollTop = targetRow.offsetTop - (scrollArea.clientHeight / 2) + (targetRow.clientHeight / 2);
-        
-        // 執行平滑捲動
         scrollArea.scrollTo({
             top: scrollTop,
             behavior: 'smooth'
