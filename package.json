@@ -1,7 +1,7 @@
 {
-  "name": "square-run-online",
+  "name": "骰子跑跑 Roll & Run",
   "version": "1.0.0",
-  "description": "Multiplayer Web Game for Classroom",
+  "description": "Roll & Run",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
