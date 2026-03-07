@@ -182,7 +182,7 @@ socket.on('update_player_list', (players) => {
         if(loginOverlay) loginOverlay.classList.add('hidden');
         if(scoreboardHeader) scoreboardHeader.classList.remove('hidden');
         if(stadiumWrapper) stadiumWrapper.classList.remove('hidden');
-        if(gameMsg) gameMsg.innerText = "✅ 已加入！等待老師開始...";
+        if(gameMsg) gameMsg.innerText = "✅ 已加入！等待Penny老師開始...";
         if (myNameDisplay) myNameDisplay.innerText = me.name;
     }
     renderTracks(players);
@@ -617,4 +617,5 @@ function scrollToPlayer(playerId) {
             behavior: 'smooth'
         });
     }
+
 }
